@@ -1,13 +1,15 @@
 {
-  "name": "AINOVA",
-  "short_name": "AINOVA 102 SP",
-  "start_url": ".",
+  "name": "AINOVA 2.0",
+  "short_name": "AINOVA 2.0",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#000000",
-  "icons": [{
-    "src": "icon.png",
-    "sizes": "2048x2048",
-    "type": "image/png"
-  }]
+  "icons": [
+    {
+      "src": "icon.png",
+      "sizes": "2048x2048",
+      "type": "image/png"
+    }
+  ]
 }
