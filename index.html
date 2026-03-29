@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>NOVA 120 SSP</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <link rel="apple-touch-icon" href="icon.png">
     
     <!-- 引入外部庫：Tailwind CSS (樣式框架) 與 Phosphor Icons (圖示庫) -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,26 +89,53 @@
 
     <div class="flex h-[100dvh] w-full relative">
         <!-- ================= 左側邊欄 ================= -->
-        <aside class="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-6 flex-shrink-0 z-10">
-            <div class="flex items-center space-x-3 mb-10 px-2">
-                <div class="w-10 h-10 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                    <i class="ph-bold ph-infinity text-white text-xl"></i>
+        <aside class="hidden md:flex flex-col w-64 bg-slate-900 border-r border-slate-800 p-4 flex-shrink-0 z-10 overflow-hidden relative">
+            <div class="flex items-center space-x-3 mb-6 px-2 shrink-0">
+                <div class="w-8 h-8 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <i class="ph-bold ph-infinity text-white text-lg"></i>
                 </div>
-                <div>
-                    <h1 class="text-xl font-bold text-white tracking-wide">NOVA 120</h1>
-                    <p class="text-[10px] text-emerald-400 font-bold uppercase tracking-wider">SSP EDITION</p>
+                <div class="overflow-hidden">
+                    <h1 class="text-lg font-bold text-white tracking-wide truncate">NOVA 120</h1>
                 </div>
             </div>
-            <nav class="flex-1 space-y-2">
-                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transition-all"><i class="ph ph-chats-circle text-xl"></i><span class="font-medium">助理對話</span></button>
-                <button onclick="switchTab('schedule')" id="nav-schedule" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-calendar-check text-xl"></i><span class="font-medium">行程管理</span></button>
-                <button onclick="switchTab('notes')" id="nav-notes" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-notebook text-xl"></i><span class="font-medium">筆記/文件</span></button>
-                <button onclick="switchTab('audio')" id="nav-audio" class="nav-item flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white transition-all"><i class="ph ph-waveform text-xl"></i><span class="font-medium">錄音紀錄</span></button>
-            </nav>
-            <div class="mt-auto space-y-3">
-                <button onclick="openSettings()" class="flex items-center space-x-2 text-xs text-slate-500 hover:text-slate-300 w-full px-2"><i class="ph ph-gear"></i><span>設定 & 備份</span></button>
-                <div class="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-                    <div class="flex items-center space-x-2"><i id="status-icon" class="ph-fill ph-globe text-blue-400 text-lg"></i><span id="status-name" class="font-bold text-sm">Gemini</span></div>
+            
+            <button onclick="createNewChat()" class="flex items-center space-x-2 w-full p-3 mb-4 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 shrink-0 shadow-sm">
+                <i class="ph-bold ph-plus text-lg"></i>
+                <span class="font-medium text-sm">新增對話</span>
+            </button>
+
+            <div class="flex-1 overflow-y-auto no-scrollbar space-y-4 pr-1">
+                <div>
+                    <button onclick="toggleSidebarSection('history-section', 'history-icon')" class="flex items-center justify-between w-full p-2 text-slate-400 hover:text-white transition-colors group">
+                        <span class="text-xs font-bold tracking-wider">最近的對話</span>
+                        <i id="history-icon" class="ph-bold ph-caret-down transition-transform group-hover:text-white"></i>
+                    </button>
+                    <div id="history-section" class="space-y-1 mt-1">
+                        <div id="chat-history-list" class="text-sm text-slate-300">
+                            </div>
+                    </div>
+                </div>
+
+                <div>
+                    <button onclick="toggleSidebarSection('tools-section', 'tools-icon')" class="flex items-center justify-between w-full p-2 text-slate-400 hover:text-white transition-colors group">
+                        <span class="text-xs font-bold tracking-wider">工具與紀錄</span>
+                        <i id="tools-icon" class="ph-bold ph-caret-down transition-transform group-hover:text-white"></i>
+                    </button>
+                    <nav id="tools-section" class="space-y-1 mt-1">
+                        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="flex items-center space-x-3 w-full p-2 rounded-lg bg-slate-800 text-blue-400 transition-all text-sm"><i class="ph-fill ph-chats-circle text-lg"></i><span>助理對話</span></button>
+                        <button onclick="switchTab('schedule')" id="nav-schedule" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
+                        <button onclick="switchTab('notes')" id="nav-notes" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
+                        <button onclick="switchTab('audio')" id="nav-audio" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
+                    </nav>
+                </div>
+            </div>
+            
+            <div class="mt-4 pt-4 border-t border-slate-800 shrink-0 space-y-3">
+                <button onclick="openSettings()" class="flex items-center space-x-3 text-sm text-slate-400 hover:text-white w-full p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                    <i class="ph-bold ph-gear text-lg"></i><span>設定 & 備份</span>
+                </button>
+                <div class="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
+                    <div class="flex items-center space-x-2"><i id="status-icon" class="ph-fill ph-globe text-blue-400 text-base"></i><span id="status-name" class="font-bold text-xs">Gemini</span></div>
                     <p id="model-version-display" class="text-[10px] text-slate-500 mt-1">Ready</p>
                 </div>
             </div>
@@ -126,13 +156,45 @@
             </div>
 
             <!-- 手機版全螢幕彈出選單 -->
-            <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-40 bg-slate-950/95 pt-20 px-6 backdrop-blur-md">
-                <nav class="space-y-4">
-                    <button onclick="switchTab('dashboard'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl bg-slate-800 text-white"><i class="ph ph-chats-circle text-xl"></i><span>助理對話</span></button>
-                    <button onclick="switchTab('schedule'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-calendar-check text-xl"></i><span>行程管理</span></button>
-                    <button onclick="switchTab('notes'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-notebook text-xl"></i><span>筆記/文件</span></button>
-                    <button onclick="switchTab('audio'); toggleMobileMenu()" class="flex items-center space-x-3 w-full p-4 rounded-xl text-slate-400 hover:bg-slate-800"><i class="ph ph-waveform text-xl"></i><span>錄音紀錄</span></button>
-                </nav>
+            <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-md flex-col">
+                <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-8 h-8 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center"><i class="ph-bold ph-infinity text-white"></i></div>
+                        <span class="text-lg font-bold text-white">NOVA 120</span>
+                    </div>
+                    <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-2xl"></i></button>
+                </div>
+                
+                <div class="p-4 shrink-0">
+                    <button onclick="createNewChat(); toggleMobileMenu();" class="flex items-center justify-center space-x-2 w-full p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 shadow-sm">
+                        <i class="ph-bold ph-plus text-lg"></i>
+                        <span class="font-medium text-sm">新增對話</span>
+                    </button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-500 tracking-wider mb-2">最近的對話</h3>
+                        <div id="mobile-chat-history-list" class="space-y-1 text-sm text-slate-300">
+                            </div>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xs font-bold text-slate-500 tracking-wider mb-2">工具與紀錄</h3>
+                        <nav class="space-y-1">
+                            <button onclick="switchTab('dashboard'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg bg-slate-800 text-blue-400 transition-all text-sm"><i class="ph-fill ph-chats-circle text-lg"></i><span>助理對話</span></button>
+                            <button onclick="switchTab('schedule'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
+                            <button onclick="switchTab('notes'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
+                            <button onclick="switchTab('audio'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
+                        </nav>
+                    </div>
+                </div>
+                
+                <div class="p-4 border-t border-slate-800 shrink-0">
+                    <button onclick="openSettings(); toggleMobileMenu();" class="flex items-center space-x-3 text-sm text-slate-400 hover:text-white w-full p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                        <i class="ph-bold ph-gear text-lg"></i><span>設定 & 備份</span>
+                    </button>
+                </div>
             </div>
 
             <!-- ================= 設定彈窗 (Settings Modal) ================= -->
@@ -159,7 +221,7 @@
                             <div><label class="block text-xs text-violet-400 mb-1">Cohere API Key</label><input type="password" id="key-cohere" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-violet-500 outline-none"></div>
                             <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
                             <div><label class="block text-xs text-slate-300 mb-1">Grok API Key</label><input type="password" id="key-grok" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-slate-500 outline-none"></div>
-                            <div><label class="block text-xs text-orange-400 mb-1">AWS Access Key</label><input type="password" id="key-aws-ak" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none" placeholder="AKIA..."></div>
+                            </div> <div class="space-y-3 pt-2 pb-4 border-b border-slate-800"> <div><label class="block text-xs text-orange-400 mb-1">AWS Access Key</label><input type="password" id="key-aws-ak" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none" placeholder="AKIA..."></div>
                             <div class="grid grid-cols-2 gap-2 mt-3">
                                 <div><label class="block text-xs text-orange-400 mb-1">AWS Secret Key</label><input type="password" id="key-aws-sk" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none" placeholder="Secret Key"></div>
                                 <div><label class="block text-xs text-orange-400 mb-1">AWS Region</label><input type="text" id="key-aws-region" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-orange-500 outline-none" placeholder="例如: ap-northeast-1"></div>
@@ -969,8 +1031,12 @@
         const appState = {
             currentModel: 'gemini', grokModel: 'grok-multi', geminiModel: 'gemini-multi',
             chatFile: null, currentDeviceId: null,
-            docMonitorUrl: localStorage.getItem('nova_doc_url') || '', driveUrl: localStorage.getItem('nova_drive_url') || '',
+            docMonitorUrl: localStorage.getItem('nova_doc_url') || 
+'', driveUrl: localStorage.getItem('nova_drive_url') || '',
             messages: [], notes: [], todos: [], audioRecords: [], 
+            currentSessionId: localStorage.getItem('nova_current_session') || Date.now().toString(),
+            pinnedSessions: JSON.parse(localStorage.getItem('nova_pinned_sessions') || '[]'),
+            theme: localStorage.getItem('nova_theme') || 'dark',
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
             keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'', aws_ak: localStorage.getItem('nova_key_aws_ak')||'', aws_sk: localStorage.getItem('nova_key_aws_sk')||'', aws_region: localStorage.getItem('nova_key_aws_region')||'ap-northeast-1' },
             isThinking: false, isListening: false, isNoteListening: false, noteVoiceActive: false, isSearchEnabled: false, isContinuous: false, manualLocIndex: 0,
@@ -1060,10 +1126,10 @@
                 if(el) {
                     if(id === tabId) {
                         el.classList.remove('hidden'); el.classList.add('flex');
-                        if(nav) { nav.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-blue-700', 'text-white', 'shadow-lg'); nav.classList.remove('text-slate-400', 'hover:bg-slate-800'); }
+                        if(nav) { nav.classList.add('bg-slate-800', 'text-blue-400'); nav.classList.remove('text-slate-400', 'hover:bg-slate-800', 'bg-gradient-to-r', 'from-blue-600', 'to-blue-700', 'text-white', 'shadow-lg'); }
                     } else {
                         el.classList.add('hidden'); el.classList.remove('flex');
-                        if(nav) { nav.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-blue-700', 'text-white', 'shadow-lg'); nav.classList.add('text-slate-400', 'hover:bg-slate-800'); }
+                        if(nav) { nav.classList.remove('bg-slate-800', 'text-blue-400', 'bg-gradient-to-r', 'from-blue-600', 'to-blue-700', 'text-white', 'shadow-lg'); nav.classList.add('text-slate-400', 'hover:bg-slate-800'); }
                     }
                 }
             });
@@ -1075,9 +1141,147 @@
             if(menu) menu.classList.toggle('hidden');
         };
 
-        window.openSettings = function() { document.getElementById('settings-modal').classList.remove('hidden'); };
+        // --- 新增：Gemini 風格對話與側邊欄管理 ---
+        window.toggleSidebarSection = function(sectionId, iconId) {
+            const section = document.getElementById(sectionId);
+            const icon = document.getElementById(iconId);
+            if (section.classList.contains('hidden')) {
+                section.classList.remove('hidden');
+                icon.classList.remove('-rotate-90');
+            } else {
+                section.classList.add('hidden');
+                icon.classList.add('-rotate-90');
+            }
+        };
+
+        window.createNewChat = function() {
+            appState.currentSessionId = Date.now().toString();
+            localStorage.setItem('nova_current_session', appState.currentSessionId);
+            
+            // 💡 修復 1：建立新對話時，強制清除任何遺留的「待處理分析任務」與「暫存檔案」
+            appState.pendingAnalyzeContextId = null;
+            appState.pendingAnalyzeType = '';
+            appState.chatFile = null;
+            
+            renderMessages();
+            if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+            switchTab('dashboard');
+        };
+
+        window.loadChatSession = function(sessionId) {
+            appState.currentSessionId = String(sessionId);
+            localStorage.setItem('nova_current_session', appState.currentSessionId);
+            
+            // 💡 修復 2：載入舊對話時，同樣強制清除遺留的任務
+            appState.pendingAnalyzeContextId = null;
+            appState.pendingAnalyzeType = '';
+            appState.chatFile = null;
+            
+            renderMessages();
+            switchTab('dashboard');
+            const menu = document.getElementById('mobile-menu');
+            if(menu && !menu.classList.contains('hidden')) toggleMobileMenu();
+        };
+
+        window.deleteChatSession = function(sessionId, e) {
+            e.stopPropagation();
+            if(!confirm('確定要刪除這筆對話紀錄嗎？')) return;
+            const msgsToDelete = appState.messages.filter(m => String(m.sessionId) === String(sessionId) || (!m.sessionId && sessionId === 'legacy'));
+            msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
+            appState.messages = appState.messages.filter(m => String(m.sessionId) !== String(sessionId) && !(!m.sessionId && sessionId === 'legacy'));
+            
+            if (String(appState.currentSessionId) === String(sessionId) || (!appState.currentSessionId && sessionId === 'legacy')) {
+                appState.currentSessionId = Date.now().toString();
+                localStorage.setItem('nova_current_session', appState.currentSessionId);
+            }
+            renderMessages();
+            if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+        };
+
+        window.applyTheme = function(theme) {
+            if(theme === 'light') {
+                document.documentElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(1.05)';
+                let style = document.getElementById('light-theme-fix');
+                if(!style) {
+                    style = document.createElement('style'); style.id = 'light-theme-fix';
+                    style.innerHTML = `img, video, .keep-color, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }`;
+                    document.head.appendChild(style);
+                }
+            } else {
+                document.documentElement.style.filter = '';
+                const style = document.getElementById('light-theme-fix');
+                if(style) style.remove();
+            }
+        };
+
+        window.initSettingsTabs = function() {
+            const container = document.querySelector('#settings-modal .overflow-y-auto');
+            if(!container || container.getAttribute('data-tabbed') === 'true') return;
+
+            const children = Array.from(container.children);
+            const tabApi = document.createElement('div'); tabApi.id = 'settings-tab-api'; tabApi.className = 'space-y-4';
+            const tabVoice = document.createElement('div'); tabVoice.id = 'settings-tab-voice'; tabVoice.className = 'space-y-4 hidden';
+            const tabUi = document.createElement('div'); tabUi.id = 'settings-tab-ui'; tabUi.className = 'space-y-4 hidden';
+
+            children.forEach(el => {
+                if (el.tagName === 'HR') return; // 忽略舊版分隔線
+                
+                const text = el.textContent || el.innerText || '';
+                
+                // 💡 針對每一個設定區塊進行「獨立」關鍵字判定
+                const isVoiceFeature = /AWS|Polly|語音|翻譯|TTS|語氣|長度|VAD|麥克風|朗讀|字幕/i.test(text);
+                
+                if (isVoiceFeature) {
+                    tabVoice.appendChild(el);
+                } else {
+                    tabApi.appendChild(el);
+                }
+            });
+
+            tabUi.innerHTML = `
+                <div>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">介面主題配色 (自動套用於全設備)</label>
+                    <select id="key-theme-mode" class="w-full bg-slate-800 text-white border border-slate-700 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500">
+                        <option value="dark">🌙 黑夜模式 (Dark Mode)</option>
+                        <option value="light">☀️ 白晝模式 (Light Mode)</option>
+                    </select>
+                </div>
+            `;
+
+            container.innerHTML = '';
+            container.appendChild(tabApi); container.appendChild(tabVoice); container.appendChild(tabUi);
+
+            const header = document.createElement('div');
+            header.className = 'flex space-x-2 bg-slate-800 p-1 rounded-lg mb-4 shrink-0 mx-6 mt-4';
+            header.innerHTML = `
+                <button onclick="switchSettingsTab('api')" id="tab-btn-api" class="flex-1 py-2 text-xs font-bold rounded-md bg-slate-600 text-white transition-colors">API/路徑</button>
+                <button onclick="switchSettingsTab('voice')" id="tab-btn-voice" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-400 hover:bg-slate-700 transition-colors">語音/行為</button>
+                <button onclick="switchSettingsTab('ui')" id="tab-btn-ui" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-400 hover:bg-slate-700 transition-colors">外觀/主題</button>
+            `;
+            container.parentNode.insertBefore(header, container);
+            container.setAttribute('data-tabbed', 'true');
+            
+            document.getElementById('key-theme-mode').value = appState.theme || 'dark';
+        };
+
+        window.switchSettingsTab = function(tab) {
+            ['api', 'voice', 'ui'].forEach(t => {
+                document.getElementById('settings-tab-' + t).classList.toggle('hidden', t !== tab);
+                const btn = document.getElementById('tab-btn-' + t);
+                if(t === tab) {
+                    btn.classList.add('bg-slate-600', 'text-white'); btn.classList.remove('text-slate-400', 'hover:bg-slate-700');
+                } else {
+                    btn.classList.remove('bg-slate-600', 'text-white'); btn.classList.add('text-slate-400', 'hover:bg-slate-700');
+                }
+            });
+        };
+
+        window.openSettings = function() { 
+            if(typeof initSettingsTabs === 'function') initSettingsTabs();
+            document.getElementById('settings-modal').classList.remove('hidden'); 
+        };
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
-        
+
         // --- 雙 AI 協作介面 (Dual AI UI) ---
         window.openDualAIModal = function() {
             document.getElementById('plus-menu').classList.add('hidden');
@@ -1191,6 +1395,13 @@
             appState.hideLiveCapture = document.getElementById('key-hide-live-capture').checked; localStorage.setItem('nova_hide_live_capture', appState.hideLiveCapture);
             appState.autoTTS = document.getElementById('key-auto-tts').checked; localStorage.setItem('nova_auto_tts', appState.autoTTS);
 
+            const themeModeEl = document.getElementById('key-theme-mode');
+            if (themeModeEl) {
+                appState.theme = themeModeEl.value;
+                localStorage.setItem('nova_theme', appState.theme);
+                applyTheme(appState.theme);
+            }
+
             closeSettings(); showToast("✅ 設定已儲存"); updateModelUI();
         };
 
@@ -1213,7 +1424,8 @@
                 messages: appState.messages,
                 notes: appState.notes,
                 todos: appState.todos,
-                audioRecords: appState.audioRecords
+                audioRecords: appState.audioRecords,
+                currentSessionId: appState.currentSessionId
             };
             
             const data = JSON.stringify(fullBackupData);
@@ -1276,6 +1488,14 @@
                     await restoreDB('notes', data.notes);
                     await restoreDB('todos', data.todos);
                     await restoreDB('audioRecords', data.audioRecords);
+
+                    if(data.currentSessionId) {
+                        appState.currentSessionId = data.currentSessionId;
+                        localStorage.setItem('nova_current_session', appState.currentSessionId);
+                    } else if (appState.messages.length > 0 && appState.messages[appState.messages.length - 1].sessionId) {
+                        appState.currentSessionId = appState.messages[appState.messages.length - 1].sessionId;
+                        localStorage.setItem('nova_current_session', appState.currentSessionId);
+                    }
 
                     // 4. 重新渲染畫面與 UI
                     renderAll();
@@ -1356,12 +1576,25 @@
         }
 
         window.addMessage = function(text, sender, model = null, sources = [], file = null, actionData = null) {
-            const msg = { id: Date.now(), text, sender, model: model || appState.currentModel, time: getTime(), sources, file, actionData };
-            appState.messages.push(msg); saveToDB('messages', msg); renderMessages();
+            if (!appState.currentSessionId) {
+                appState.currentSessionId = Date.now().toString();
+                localStorage.setItem('nova_current_session', appState.currentSessionId);
+            }
+            const msg = { id: Date.now(), sessionId: appState.currentSessionId, text, sender, model: model ||
+appState.currentModel, time: getTime(), sources, file, actionData };
+            appState.messages.push(msg); saveToDB('messages', msg); 
+            renderMessages();
+            if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
         };
-
-        window.clearChatHistory = function() {
-            if(confirm('確定要清空所有對話紀錄嗎？')) { appState.messages = []; clearStoreDB('messages'); renderMessages(); }
+window.clearChatHistory = function() {
+            if(confirm('確定要清空「當前」這筆對話紀錄嗎？(其他對話不會受影響)')) { 
+                const targetSid = String(appState.currentSessionId || 'legacy');
+                const msgsToDelete = appState.messages.filter(m => String(m.sessionId || 'legacy') === targetSid);
+                msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
+                appState.messages = appState.messages.filter(m => String(m.sessionId || 'legacy') !== targetSid);
+                renderMessages(); 
+                if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+            }
         };
 
         window.favoriteMessage = function(id) {
@@ -1428,7 +1661,12 @@
         };
 
         window.toggleSearch = function() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); };
-        window.toggleContext = function() { appState.enableContext = !appState.enableContext; updateModelUI(); showToast(appState.enableContext ? "🧠 已開啟上下文記憶" : "🧠 已關閉上下文記憶 (單次問答)"); };
+        window.toggleDeepDive = function() { 
+            appState.deepDiveMode = !appState.deepDiveMode; 
+            appState.enableContext = appState.deepDiveMode; // 深度模式強制開啟上下文
+            updateModelUI(); 
+            showToast(appState.deepDiveMode ? "🧠 已開啟【AI 深度探究模式】(自主提問與連網深挖)" : "🧠 已關閉深度探究模式 (恢復一問一答)"); 
+        };
         window.setModel = function(val) { appState.currentModel = val; updateModelUI(); };
         window.setGeminiModel = function(val) { appState.geminiModel = val; };
         window.setGrokModel = function(val) { appState.grokModel = val; };
@@ -1573,8 +1811,11 @@
             if(!t || !text) return;
             
             t.text = text;
+            if (t.isAutoSearch) t.searchQuery = text.replace('🔄 自動搜尋任務:', '').trim();
+            if (t.isAutoTask) t.taskQuery = text.replace('🔄 自動化任務:', '').trim();
+
             if(timeStr) { 
-                const d = new Date(timeStr); 
+                const d = new Date(timeStr);
                 t.alertTime = d.getTime(); 
                 t.time = d.toLocaleString(); 
                 t.alertEnabled = true;
@@ -2144,12 +2385,24 @@
             }
         };
 
-        function renderAll() { renderMessages(); renderTodos(); renderFolderTabs(); renderNotes(); renderAudioRecords(); renderWeather(); }
+        function renderAll() { renderMessages(); renderTodos(); renderFolderTabs(); renderNotes(); renderAudioRecords(); 
+            renderWeather(); 
+            if(typeof renderChatHistoryList === 'function') renderChatHistoryList(); 
+            if(typeof applyTheme === 'function') applyTheme(appState.theme);
+        }
         
         // --- UI 渲染功能 (訊息) ---
         function renderMessages() { 
             const container = document.getElementById('chat-container'); if(!container) return;
-            container.innerHTML = appState.messages.map(msg => { 
+            
+            const sessionMsgs = appState.messages.filter(m => String(m.sessionId) === String(appState.currentSessionId) || (!m.sessionId && (!appState.currentSessionId || appState.currentSessionId === 'legacy')));
+            
+            if (sessionMsgs.length === 0) {
+                container.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-slate-500 opacity-50 space-y-4 pt-20"><i class="ph-thin ph-chats-circle text-6xl"></i><p>今天想聊些什麼呢？</p></div>`;
+                return;
+            }
+
+            container.innerHTML = sessionMsgs.map(msg => { 
                 
                 let displayMediaHTML = true;
                 if (appState.hideLiveCapture && msg.file && msg.file.name === 'Live_Capture.jpg') {
@@ -2228,8 +2481,79 @@
                         </div>
                     </div></div>`; 
             }).join(''); 
-            container.scrollTop = container.scrollHeight; 
+            container.scrollTop = container.scrollHeight;
         }
+
+        window.togglePinSession = function(sid, e) {
+            e.stopPropagation();
+            if (!appState.pinnedSessions) appState.pinnedSessions = [];
+            if (appState.pinnedSessions.includes(sid)) {
+                appState.pinnedSessions = appState.pinnedSessions.filter(id => id !== sid);
+            } else {
+                appState.pinnedSessions.push(sid);
+            }
+            localStorage.setItem('nova_pinned_sessions', JSON.stringify(appState.pinnedSessions));
+            if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+        };
+
+        window.renderChatHistoryList = function() {
+            const listEl = document.getElementById('chat-history-list');
+            const mobileListEl = document.getElementById('mobile-chat-history-list');
+            if (!listEl && !mobileListEl) return;
+            
+            const groups = {};
+            appState.messages.forEach(m => {
+                const sid = m.sessionId || 'legacy';
+                if (!groups[sid]) groups[sid] = [];
+                groups[sid].push(m);
+            });
+            
+            if (!appState.pinnedSessions) appState.pinnedSessions = JSON.parse(localStorage.getItem('nova_pinned_sessions') || '[]');
+            
+            const sessionIds = Object.keys(groups).sort((a,b) => {
+                const isPinnedA = appState.pinnedSessions.includes(a);
+                const isPinnedB = appState.pinnedSessions.includes(b);
+                if (isPinnedA && !isPinnedB) return -1;
+                if (!isPinnedA && isPinnedB) return 1;
+                if (a === 'legacy') return 1;
+                if (b === 'legacy') return -1;
+                return Number(b) - Number(a); 
+            });
+            
+            const emptyHtml = '<p class="text-xs text-slate-600 px-2 py-1">尚無歷史對話</p>';
+            if (sessionIds.length === 0) {
+                if (listEl) listEl.innerHTML = emptyHtml;
+                if (mobileListEl) mobileListEl.innerHTML = emptyHtml;
+                return;
+            }
+            
+            const html = sessionIds.map(sid => {
+                const msgs = groups[sid];
+                const firstUserMsg = msgs.find(m => m.sender === 'user');
+                let title = firstUserMsg ? firstUserMsg.text.substring(0, 15) : (sid === 'legacy' ? '舊對話紀錄' : '新對話');
+                if(firstUserMsg && firstUserMsg.text.length >= 15) title += '...';
+                
+                const isActive = String(appState.currentSessionId) === String(sid);
+                const isPinned = appState.pinnedSessions.includes(sid);
+                const pinIcon = isPinned ? 'ph-fill ph-push-pin text-yellow-400' : 'ph-bold ph-push-pin';
+                
+                return `
+                <div class="group flex items-center justify-between p-2 rounded-lg cursor-pointer transition-colors mb-1 ${isActive ? 'bg-slate-800 text-blue-400' : 'hover:bg-slate-800 text-slate-400'}" onclick="loadChatSession('${sid}')">
+                    <div class="flex items-center gap-2 overflow-hidden w-[65%]">
+                        <i class="ph-bold ph-chat-circle text-base shrink-0"></i>
+                        <span class="text-xs truncate font-medium">${escapeHtml(title)}</span>
+                    </div>
+                    <div class="flex items-center space-x-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity shrink-0">
+                        <button onclick="togglePinSession('${sid}', event)" class="p-1 text-slate-500 hover:text-yellow-400 transition-colors"><i class="${pinIcon} text-sm"></i></button>
+                        <button onclick="deleteChatSession('${sid}', event)" class="p-1 text-slate-500 hover:text-red-400 transition-colors"><i class="ph-bold ph-trash text-sm"></i></button>
+                    </div>
+                </div>
+                `;
+            }).join('');
+            
+            if (listEl) listEl.innerHTML = html;
+            if (mobileListEl) mobileListEl.innerHTML = html;
+        };
 
         function renderThinkingState(show) { 
             const el = document.getElementById('thinking-indicator'); const container = document.getElementById('chat-container');
@@ -2437,14 +2761,16 @@
         
         function updateContextUI() {
             const btn = document.getElementById('context-toggle-btn');
-            if (appState.enableContext) {
-                btn.classList.add('bg-blue-600', 'text-white');
-                btn.classList.remove('bg-slate-800', 'text-slate-400');
-                btn.title = "記憶上下文：開啟 (維持連貫對話)";
+            if (!btn) return;
+            btn.setAttribute('onclick', 'toggleDeepDive()'); // 確保點擊事件綁定正確
+            if (appState.deepDiveMode) {
+                btn.classList.add('bg-purple-600', 'text-white', 'animate-pulse');
+                btn.classList.remove('bg-slate-800', 'text-slate-400', 'bg-blue-600');
+                btn.title = "深度探究模式：開啟 (AI 將自主連網、深挖問題與提問)";
             } else {
-                btn.classList.remove('bg-blue-600', 'text-white');
+                btn.classList.remove('bg-purple-600', 'text-white', 'animate-pulse', 'bg-blue-600');
                 btn.classList.add('bg-slate-800', 'text-slate-400');
-                btn.title = "記憶上下文：關閉 (獨立問答)";
+                btn.title = "深度探究模式：關閉 (一般對話)";
             }
         }
 
@@ -3289,6 +3615,7 @@
 - 台灣高鐵/T-EX行動購票：https://irs.thsrc.com.tw/IMINT/?utm_source=thsrc&utm_medium=btnlink&utm_term=booking
 - 蝦皮購物：shopee://tw 或 https://shopee.tw/
 - 其他各式 APP (如銀行、訂票、社群)：請盡全力判斷並使用其專屬的 Custom Scheme (例如 appname://)；若不確定 Scheme，請輸出該 APP 的官方 HTTPS 網址 (現代手機會透過 Universal Link 自動攔截)。
+⚠️極度重要：如果使用者是要求「搜尋知識、找資料、查天氣、查股價」等詢問資訊的指令（例如「幫我找...」、「幫我搜尋...」），請判斷為一般對話，將 intentFound 設為 false，絕對不要產生網頁搜尋的 Deep Link！只有在明確要開啟某個特定 APP 介面時才設為 true。
 注意：所有中文或特殊符號請務必 URL Encoding。只要判斷是開啟 APP，intentFound 就必須為 true。你必須嚴格遵守 JSON 格式。`;
 
             const schema = {
@@ -3329,6 +3656,40 @@
                 console.error("Deep Link 解析失敗", e);
                 return null;
             }
+        }
+async function checkScheduleIntent(text) {
+            const key = appState.keys.gemini;
+            if(!key) return null;
+            const schema = {
+                type: "OBJECT",
+                properties: {
+                    isScheduleTask: { type: "BOOLEAN", description: "判斷使用者是否要求建立自動任務(包含『每天定時』或『單次指定時間』如:四點36分幫我畫圖)" },
+                    isOneTimeTask: { type: "BOOLEAN", description: "是否為單次任務(如:只說『四點36分幫我畫圖』沒說『每天』)。若是則為 true" },
+                    query: { type: "STRING", description: "使用者想要執行的具體指令內容(如:生成風景圖片、找股價)" },
+                    intervalMs: { type: "NUMBER", description: "重複間隔毫秒數 (單次任務則為 0)" },
+                    unit: { type: "STRING", description: "時間單位描述 (如 '天', '小時', 單次任務為 '次')" },
+                    num: { type: "NUMBER", description: "數字 (如 1)" },
+                    isSpecificTimeMissing: { type: "BOOLEAN", description: "是否為循環任務但『未指定具體幾點』開始 (若為true系統會補問時間)" },
+                    targetHour: { type: "NUMBER", description: "指定的具體『小時』(24小時制，如下午4點為 16)。若沒提具體幾點則為 -1" },
+                    targetMinute: { type: "NUMBER", description: "指定的具體『分鐘』。若沒提則為 0，只說幾點半則為 30，完全沒時間則為 -1" }
+                },
+                required: ["isScheduleTask", "isOneTimeTask", "query", "intervalMs", "unit", "num", "isSpecificTimeMissing", "targetHour", "targetMinute"]
+            };
+            const payload = {
+                systemInstruction: { parts: [{ text: "你是語意分析引擎，判斷使用者是否設定『自動任務』。只要語意包含『每天/每週定時』或『指定時間點』(如下午四點36分)，就視為 true。將時間精準轉換為24小時制的 targetHour 與 targetMinute (例如:下午四點36分為 16與36)。若沒提具體時間則為 -1。如果沒有說『每』，只是單純『明天/今天/幾點幾分幫我...』，請將 isOneTimeTask 設為 true，intervalMs 設為 0。" }] },
+                contents: [{ role: "user", parts: [{ text: text }] }],
+                generationConfig: { responseMimeType: "application/json", responseSchema: schema, temperature: 0.1 }
+            };
+            try {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if(data.candidates && data.candidates[0].content.parts[0].text) {
+                    return JSON.parse(data.candidates[0].content.parts[0].text.replace(/```json/g, '').replace(/```/g, '').trim());
+                }
+                return null;
+            } catch(e) { return null; }
         }
 
 // --- 多 AI 深度研究 Multi-Agent 系統 ---
@@ -3618,20 +3979,10 @@ window.startMultiAgentResearch = async function() {
         // --- 核心訊息發送與處理邏輯 ---
         async function handleSendMessage() {
             if(appState.isThinking) return;
-            
-            const input = document.getElementById('user-input'); 
-            let text = input.value.trim();
-            const hasChatFile = appState.chatFile !== null;
-            
-       // 優先攔截：SOS 緊急求救意圖
-            const sosMatch = text.match(/^(call\s*911|call\s*119|救我|救救我|報警|救命|HELP)/i);
-            if (sosMatch) {
-                triggerSosCountdown();
-                input.value = ''; autoResizeInput(input); chatInitialInput = '';
-                return;
-            }
 
+            // 補回被誤刪的排程間隔計算函數，供鬧鐘與一般行程邏輯使用
             const getIntervalMs = (txt) => {
+                if (!txt) return 0;
                 const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
                 let nTxt = txt.replace(/\s+/g, '').replace(/[一二兩三四五六七八九十]+/g, match => {
                     if(match === '十') return '10';
@@ -3650,41 +4001,82 @@ window.startMultiAgentResearch = async function() {
                 return 0;
             };
 
-            const autoSearchMatch = text.match(/每\s*([一二兩三四五六七八九十\d]+)\s*(分鐘|分|小時|天|日|個月|月|年)\s*幫我(?:搜尋|抓取)(.*)/i);
-            if (autoSearchMatch) {
-                let unit = autoSearchMatch[2];
-                let query = autoSearchMatch[3].trim();
-                let ms = getIntervalMs(text);
-                
-                const mapZh = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-                let numStr = autoSearchMatch[1];
-                let num = parseInt(numStr.replace(/[一二兩三四五六七八九十]+/g, m => {
-                    if(m === '十') return '10';
-                    if(m.length === 1) return mapZh[m].toString();
-                    if(m.length === 2 && m[0] === '十') return (10 + mapZh[m[1]]).toString();
-                    if(m.length === 2 && m[1] === '十') return (mapZh[m[0]] * 10).toString();
-                    if(m.length === 3) return (mapZh[m[0]] * 10 + mapZh[m[2]]).toString();
-                    return m;
-                })) || autoSearchMatch[1];
-                const newSearchTask = { 
-                    id: Date.now(), 
-                    text: `🔄 自動搜尋任務: ${query}`, 
-                    done: false, 
-                    time: `每 ${num} ${unit}執行`, 
-                    alertTime: Date.now() + ms, 
-                    repeatInterval: ms,
-                    alertEnabled: true,
-                    alerted: false,
-                    isAutoSearch: true,
-                    searchQuery: query
-                };
-                appState.todos.push(newSearchTask);
-                saveToDB('todos', newSearchTask);
-                renderTodos();
-                
-                addMessage(`🕵️‍♂️ 收到！我已經建立後台任務，將會每 ${num} ${unit} 自動連網搜尋「${query}」並回報給你。`, 'system');
+            const input = document.getElementById('user-input'); 
+            let text = input.value.trim();
+            const hasChatFile = appState.chatFile !== null;
+            // 優先攔截：SOS 緊急求救意圖
+            const sosMatch = text.match(/^(call\s*911|call\s*119|救我|救救我|報警|救命|HELP)/i);
+            if (sosMatch) {
+                triggerSosCountdown();
                 input.value = ''; autoResizeInput(input); chatInitialInput = '';
                 return;
+            }
+
+            // LLM 智慧判斷排程或單次定時任務 (擴大觸發條件包含「點/分」等時間關鍵字)
+            const scheduleTrigger = text.includes('每') || text.includes('定時') || text.includes('循環') || text.includes('排程') || /(?:點|時|分).*?(?:幫|請|替|自動|生成|畫|找|搜尋|做)/.test(text);
+            
+            if (appState.keys.gemini && scheduleTrigger) {
+                appState.messages.push({id: Date.now(), text: `🔄 正在分析任務設定...`, sender: 'system', time: getTime()});
+                renderMessages();
+                const scheduleIntent = await checkScheduleIntent(text);
+                appState.messages.pop(); // 移除系統提示
+                renderMessages(); 
+                
+                if (scheduleIntent && (scheduleIntent.isScheduleTask || scheduleIntent.isScheduleSearch) && scheduleIntent.query) {
+                    
+                    // 防呆：如果是單次任務但 LLM 沒有抓到具體時間，則退回一般對話(不建立排程)
+                    if (scheduleIntent.isOneTimeTask && (scheduleIntent.targetHour === undefined || scheduleIntent.targetHour < 0)) {
+                        // 什麼都不做，讓程式繼續往下跑一般對話邏輯
+                    } else {
+                        addMessage(text, 'user'); // 確保使用者的原始指令顯示在對話框中
+                        
+                        let targetAlertTime = Date.now() + scheduleIntent.intervalMs;
+                        let displayTimeStr = `每 ${scheduleIntent.num} ${scheduleIntent.unit}執行`;
+                        
+                        // 💡 直接使用 LLM 精準提取的 24 小時制目標時間 (完美解決中文「四點36分」的解析問題)
+                        if (scheduleIntent.targetHour !== undefined && scheduleIntent.targetHour >= 0) {
+                            const now = new Date();
+                            const target = new Date();
+                            target.setHours(scheduleIntent.targetHour, scheduleIntent.targetMinute || 0, 0, 0);
+                            
+                            // 若設定的時間在今天已經過了，則自動順延至明天
+                            if (target.getTime() <= now.getTime()) {
+                                target.setDate(target.getDate() + 1);
+                            }
+                            targetAlertTime = target.getTime();
+                            displayTimeStr = target.toLocaleString();
+                            scheduleIntent.isSpecificTimeMissing = false; // 已有明確時間，不須補問
+                        }
+                        
+                        if (scheduleIntent.isOneTimeTask) {
+                            displayTimeStr = `單次執行: ${displayTimeStr}`;
+                        }
+
+                        const newSearchTask = { 
+                            id: Date.now(), text: `🔄 自動化任務: ${scheduleIntent.query}`, done: false, 
+                            time: displayTimeStr, 
+                            alertTime: targetAlertTime, 
+                            repeatInterval: scheduleIntent.isOneTimeTask ? 0 : scheduleIntent.intervalMs, 
+                            alertEnabled: true, alerted: false,
+                            isAutoTask: true, taskQuery: scheduleIntent.query
+                        };
+                        appState.todos.push(newSearchTask); saveToDB('todos', newSearchTask);
+                        
+                        if (scheduleIntent.isSpecificTimeMissing && !scheduleIntent.isOneTimeTask) {
+                            appState.pendingReminder = newSearchTask.id;
+                            appState.reminderStage = 2;
+                            renderTodos();
+                            addMessage(`🤖 收到！已為您建立「${scheduleIntent.query}」的自動任務。請問您希望每天的「幾點」執行呢？(例如: 早上8點)`, 'system');
+                        } else {
+                            renderTodos();
+                            const actionTypeStr = scheduleIntent.isOneTimeTask ? "單次" : `每 ${scheduleIntent.num} ${scheduleIntent.unit}`;
+                            addMessage(`🤖 收到！已排定任務。將於 ${new Date(targetAlertTime).toLocaleString()} ${actionTypeStr}為您執行「${scheduleIntent.query}」。`, 'system');
+                        }
+                        input.value = '';
+                        autoResizeInput(input); chatInitialInput = '';
+                        return;
+                    }
+                }
             }
             
             if (text.length >= 4 && text.length % 2 === 0) { 
@@ -3828,9 +4220,11 @@ window.startMultiAgentResearch = async function() {
                     return;
                 }
 
-                let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n"; 
-                let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled;
-                
+                let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n";
+                if (appState.deepDiveMode) {
+                    systemPromptAddon = "【深度探究模式開啟 - 最高強制指令】：\n1. 絕對脫離被動機器人模式！你現在是一位極具主動性、思維敏捷的真人頂級顧問。\n2. 【動態語意斷橋機制】：每次收到新問題時，請務必先在內心判斷「最新問題是否與歷史對話相關」。若判定為『全新獨立話題』，請立刻切斷與前文的關聯，完全忽略舊對話的情境與設定，以乾淨的狀態回答新問題！\n3. 當使用者提出需求時，必須主動連網搜尋資料並給出洞察。\n4. **絕對強制**：每一次的回覆最後，都必須自主挖掘盲點，主動向使用者提出「一個引導式的好問題」，像人類對話一樣持續追問深挖。\n5. 除非使用者明確表示滿意、停止，否則不准單方面結束對話！\n";
+                }
+                let injectedContext = ""; let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode;
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
                 }
@@ -3841,7 +4235,7 @@ window.startMultiAgentResearch = async function() {
                     }
                 } 
                 else if (appState.translateMode === 'off') {
-                    const searchMatch = text.match(/^(?:搜尋|search)(.*)$/i);
+                    const searchMatch = text.match(/^(?:幫我找|幫我搜尋|搜尋|search)\s*(.*)$/i);
                     if (searchMatch) {
                         const searchKeyword = searchMatch[1].trim() || "今日新聞"; addMessage(`🔍 正在搜尋：${searchKeyword}...`, 'system'); let searchResultText = "";
                         if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchKeyword); } catch (e) { addMessage(`⚠️ ${e.message}`, 'system'); } }
@@ -3867,16 +4261,25 @@ window.startMultiAgentResearch = async function() {
                 }
 
                 const promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
-                let finalRes = await fetchAIResponse(promptToSent, modelToUse, { 
-                    enableSearch: enableSearchTool, 
-                    disableSearch: !enableSearchTool && injectedContext !== "",
-                    file: fileDataToPass,
-                    isAnalysis: !!appState.pendingAnalyzeContextId
-                });
-                
-                let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
-                if(typeof finalRes === 'string') addMessage(finalOutputText, 'ai', modelToUse);
-                else addMessage(finalOutputText, 'ai', modelToUse, finalRes.sources, finalRes.file);
+                let finalRes;
+        try {
+            finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", file: fileDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
+        } catch (apiError) {
+            // 自動跳轉至 GROK 備援機制
+            if (modelToUse === 'gemini' && appState.keys.grok) {
+                addMessage(`⚠️ Gemini 處理發生錯誤 (${apiError.message})，系統自動為您跳轉至 Grok 進行備援分析...`, 'system');
+                modelToUse = 'grok';
+                window.setModel('grok'); // 同步更新 UI 下拉選單與系統狀態
+                finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", file: fileDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
+            } else {
+                throw apiError; // 若非 Gemini 或未填寫 Grok 金鑰，則把錯誤往外拋，由系統正常攔截
+            }
+        }
+
+        let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
+        
+        if(typeof finalRes === 'string') addMessage(finalOutputText, 'ai', modelToUse);
+        else addMessage(finalOutputText, 'ai', modelToUse, finalRes.sources, finalRes.file);
 
                 const aiMsgId = appState.messages[appState.messages.length - 1].id;
                 speakText(finalOutputText, false, String(aiMsgId));
@@ -3913,11 +4316,18 @@ window.startMultiAgentResearch = async function() {
         }
 
         async function fetchAIResponse(userText, model, options = {}) {
-            const fetchWithTimeout = async (url, fetchOpts, timeout = 60000) => { 
-                const controller = new AbortController(); const id = setTimeout(() => controller.abort(), timeout);
-                try { const response = await fetch(url, { ...fetchOpts, signal: controller.signal }); clearTimeout(id); return response; } 
-                catch (error) { clearTimeout(id); throw new Error(error.name === 'AbortError' ? '連線逾時，檔案可能過大或處理過久 (60s)' : error.message); }
-            };
+            const fetchWithTimeout = async (url, fetchOpts, timeout = 600000) => {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { ...fetchOpts, signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw new Error(error.name === 'AbortError' ? '連線逾時，檔案可能過大或處理過久 (600s)' : error.message);
+            }
+        };
 
             try {
                 const key = appState.keys[model]; if(!key) throw new Error(`未填寫 ${MODEL_CONFIG[model]?.name || model} API Key`);
@@ -4368,23 +4778,29 @@ const checkReminders = async () => {
                         saveToDB('todos', t); 
                         renderTodos();
 
-                        // 判斷任務類型：自動搜尋 vs 一般鬧鐘
-                        if (t.isAutoSearch && t.searchQuery) {
-                            addMessage(`🔄 [排程搜尋觸發] 正在為您搜尋最新資訊：${t.searchQuery}...`, 'system');
+                        // 判斷任務類型：自動化任務 vs 一般鬧鐘
+                        if ((t.isAutoTask && t.taskQuery) || (t.isAutoSearch && t.searchQuery)) {
+                            const query = t.taskQuery || t.searchQuery;
+                            addMessage(`🔄 [排程任務觸發] 正在為您執行：${query}...`, 'system');
                             try {
-                                let prompt = `請連網搜尋最新資訊：「${t.searchQuery}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
-                                // 強制開啟 enableSearch: true 交給支援連網的模型去處理
-                                let res = await fetchAIResponse(prompt, appState.currentModel, { enableSearch: true });
+                                const isImageIntent = /^(畫|生成|產生|draw|generate)\s*(一張|一個|圖片|照片|圖|image|photo)/i.test(query.trim());
+                                let prompt = query;
+                                // 針對舊版資料相容，或者純文字找資料意圖強化搜尋提示
+                                if (!isImageIntent && t.isAutoSearch) {
+                                    prompt = `請連網搜尋最新資訊：「${query}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
+                                }
+                                
+                                let res = await fetchAIResponse(prompt, appState.currentModel, { enableSearch: !isImageIntent });
                                 let finalOutputText = typeof res === 'string' ? res : (res.text || "(無文字)");
                                 
                                 if (finalOutputText && finalOutputText !== "(無文字)") {
-                                    addMessage(`📊 **排程搜尋報告 [${t.searchQuery}]**\n\n${finalOutputText}`, 'ai', appState.currentModel);
-                                    if(appState.autoTTS) speakText(`排程搜尋報告出爐：${t.searchQuery}`);
+                                    addMessage(`📊 **排程任務結果 [${query}]**\n\n${finalOutputText}`, 'ai', appState.currentModel, res.sources || [], res.file || null);
+                                    if(appState.autoTTS) speakText(`排程任務執行完畢：${query}`);
                                 } else {
-                                    addMessage(`⚠️ 排程搜尋 [${t.searchQuery}] 失敗：無法取得有效回覆。`, 'system');
+                                    addMessage(`⚠️ 排程任務 [${query}] 失敗：無法取得有效回覆。`, 'system');
                                 }
                             } catch (e) {
-                                addMessage(`⚠️ 排程搜尋異常：${e.message}`, 'system');
+                                addMessage(`⚠️ 排程任務異常：${e.message}`, 'system');
                             }
                         } else {
                             // 原有的一般鬧鐘彈窗與音效邏輯
@@ -4414,7 +4830,33 @@ const checkReminders = async () => {
                 if (alarmInterval) { clearInterval(alarmInterval); alarmInterval = null; }
                 if (alarmAudioCtx) { alarmAudioCtx.close(); alarmAudioCtx = null; }
             };
+
+// --- 新增：支援在對話框直接貼上圖片 (Ctrl+V / Cmd+V) ---
+            const chatInputEl = document.getElementById('user-input');
+            if (chatInputEl) {
+                chatInputEl.addEventListener('paste', function(e) {
+                    if (!e.clipboardData || !e.clipboardData.items) return;
+                    
+                    for (let i = 0; i < e.clipboardData.items.length; i++) {
+                        const item = e.clipboardData.items[i];
+                        if (item.type.indexOf('image') !== -1) {
+                            const file = item.getAsFile();
+                            const fileInput = document.getElementById('chat-file-input');
+                            
+                            // 模擬點擊上傳按鈕，把貼上的檔案交給原有的圖片處理系統
+                            if (file) {
+                                // 💡 修正：直接手動呼叫原有處理函式，完美繞過瀏覽器對 <input file> 的安全限制
+                                window.handleChatFileSelect({ target: { files: [file] } });
+                            }
+                      
+                            e.preventDefault(); // 阻止圖片檔名或亂碼變成純文字貼在輸入框
+                            break;
+                        }
+                    }
+                });
+            }
         };
+
     </script>
 </body>
 </html>
