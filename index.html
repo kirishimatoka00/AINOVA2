@@ -16,6 +16,7 @@
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://unpkg.com/fix-webm-duration"></script>
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1500.0.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <!-- 引入 Google 字體 Inter -->
     <script src="./telegram.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -1080,39 +1081,69 @@
         
         function formatMessage(text) { 
             if (!text) return '';
-
-            // --- 新增：處理 PPT 生成標記 ---
+            
+            // 💡 確保變數只宣告一次
             let pptButtonHtml = '';
+            let excelButtonHtml = '';
+            let images = []; 
+            
+            // 💡 確保 tempText 正確宣告與賦值
             let tempText = text.replace(/```json\s*\n?({[\s\S]*?"slides"[\s\S]*?})\n?\s*```/i, function(match, jsonStr) {
                 try {
                     let pptData = JSON.parse(jsonStr);
                     if (pptData && pptData.slides) {
                         let base64Data = btoa(unescape(encodeURIComponent(JSON.stringify(pptData))));
-                        pptButtonHtml = `<div class="mt-4 p-4 bg-slate-800/80 border border-emerald-500/50 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm">
-                            <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 bg-emerald-900/50 rounded flex items-center justify-center"><i class="ph-fill ph-presentation-chart text-2xl text-emerald-400"></i></div>
-                                <div>
-                                    <h4 class="text-sm font-bold text-white">AI 簡報產生完成</h4>
-                                    <p class="text-xs text-slate-400">${escapeHtml(pptData.title) || '簡報檔案'} (${pptData.slides.length} 頁)</p>
-                                </div>
-                            </div>
-                            <button onclick="downloadGeneratedPPT('${base64Data}')" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors">
-                                <i class="ph-bold ph-download-simple"></i> 下載 .pptx 檔案
-                            </button>
-                        </div>`;
-                        return ''; // 從原本對話文字中移除 JSON 區塊
+                        pptButtonHtml = `<div class="mt-4 p-4 bg-slate-800/80 border border-emerald-500/50 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-emerald-900/50 rounded flex items-center justify-center"><i class="ph-fill ph-presentation-chart text-2xl text-emerald-400"></i></div><div><h4 class="text-sm font-bold text-white">AI 簡報產生完成</h4><p class="text-xs text-slate-400">${escapeHtml(pptData.title) || '簡報檔案'} (${pptData.slides.length} 頁)</p></div></div><button onclick="downloadGeneratedPPT('${base64Data}')" class="w-full mt-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="ph-bold ph-download-simple"></i> 下載 .pptx 檔案</button></div>`;
+                        return ''; 
                     }
-                } catch(e) {
-                    console.error('PPT JSON Parse Error:', e);
-                }
+                } catch(e) { console.error('PPT JSON Parse Error:', e); }
                 return match;
             });
 
-let images = [];
-            tempText = tempText.replace(/!\[(.*?)\]\((https?:\/\/[^\s<]+)\)/g, function(match, alt, url) {
-                images.push({alt: alt, url: url}); return `___IMG_${images.length - 1}___`;
+            // 💡 加入 EXCEL 的解析邏輯
+                       
+            tempText = tempText.replace(/\`\`\`json\s*\n?({[\s\S]*?"excel"\s*:\s*true[\s\S]*?})\n?\s*\`\`\`/i, function(match, jsonStr) {
+                try {
+                    let excelData = JSON.parse(jsonStr);
+                    if (excelData && excelData.excel) {
+                        let base64Data = btoa(unescape(encodeURIComponent(JSON.stringify(excelData))));
+                        let title = excelData.filename || 'Excel報表';
+                        excelButtonHtml = `<div class="mt-4 p-4 bg-slate-800/80 border border-green-500/50 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm"><div class="flex items-center gap-3"><div class="w-10 h-10 bg-green-900/50 rounded flex items-center justify-center"><i class="ph-fill ph-table text-2xl text-green-400"></i></div><div><h4 class="text-sm font-bold text-white">Excel 報表產生完成</h4><p class="text-xs text-slate-400">${escapeHtml(title)}.xlsx</p></div></div><button onclick="downloadGeneratedExcel('${base64Data}', '${escapeHtml(title)}')" class="w-full mt-2 bg-green-600 hover:bg-green-500 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="ph-bold ph-download-simple"></i> 下載 Excel</button></div>`;
+                        return ''; 
+                    }
+                } catch(e) { console.error('Excel JSON Parse Error:', e); }
+                return match;
             });
+
+// 💡 新增：攔截 Base64 Data URI 網址 (處理 AI 直接輸出的檔案連結)
+            let dataUriButtonsHtml = '';
+            tempText = tempText.replace(/\[([^\]]+)\]\((data:[^)\s]+;base64,[^)\s]+)\)/ig, function(match, title, dataUri) {
+                let isExcel = dataUri.includes('spreadsheetml') || dataUri.includes('ms-excel') || dataUri.includes('csv');
+                let iconClass = isExcel ? 'ph-table text-green-400' : 'ph-file-arrow-down text-blue-400';
+                let bgClass = isExcel ? 'bg-green-600 hover:bg-green-500' : 'bg-blue-600 hover:bg-blue-500';
+                let iconBgClass = isExcel ? 'bg-green-900/50' : 'bg-blue-900/50';
+            let ext = (isExcel && !title.includes('.')) ?
+            '.xlsx' : '';
+
+            // 🌟 核心修改 1：在此處直接將 Data URI 轉換成安全的 Blob URL
+            let blobUrl = dataUri; 
+            try {
+                // 使用您系統中既有的 base64ToBlob 函數
+                const blob = base64ToBlob(dataUri);
+                blobUrl = URL.createObjectURL(blob);
+            } catch(e) {
+                console.error("Blob URL 轉換失敗", e);
+            }
+
+            let safeTitle = escapeHtml(title).replace(/'/g, "\\'"); // 🌟 避免檔名有單引號導致程式錯誤
+            
+            // 🌟 核心修改 2：將 button 改回 a 標籤，並將 href 設為剛剛產生好的 blobUrl
+            dataUriButtonsHtml += `<div class="mt-4 p-4 bg-slate-800/80 border border-slate-600 rounded-xl flex flex-col gap-2 shadow-lg max-w-sm"><div class="flex items-center gap-3"><div class="w-10 h-10 ${iconBgClass} rounded flex items-center justify-center"><i class="ph-fill ${iconClass} text-2xl"></i></div><div><h4 class="text-sm font-bold text-white">檔案已準備好</h4><p class="text-xs text-slate-400">${escapeHtml(title)}</p></div></div><a href="${blobUrl}" download="${safeTitle}${ext}" class="w-full mt-2 ${bgClass} text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"><i class="ph-bold ph-download-simple"></i> 下載</a></div>`;
+            return ''; // 隱藏原始的雜亂網址連結
+            });
+
 let safe = tempText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
             safe = safe.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>'); 
            // 放寬解析條件：支援 http, https, sms, tel, mailto 等各種連結協定
             safe = safe.replace(/\[([^\]]+)\]\(([^)\s<]+)\)|(https?:\/\/[^\s<)\]]+)/g, function(match, mdTitle, mdUrl, rawUrl) {
@@ -1140,9 +1171,11 @@ html += '</tr>';
                 html += '</tbody></table></div>';
 return html;
             });        
-        // 原本的 return 保持在最後面
         let finalHtml = safe.replace(/\n/g, '<br>');
         if (pptButtonHtml) finalHtml += pptButtonHtml;
+        if (excelButtonHtml) finalHtml += excelButtonHtml;
+        if (dataUriButtonsHtml) finalHtml += dataUriButtonsHtml; // 🌟 補上這行，將檔案下載按鈕加入最終畫面
+// 💡 重要修正：確保 Excel 按鈕也能顯示
         return finalHtml;
 }
 
@@ -1682,11 +1715,13 @@ window.clearChatHistory = function() {
         window.favoriteMessage = function(id) {
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if (msg) {
-                let finalContent = msg.text;
+                // 💡 修正：將 Markdown 內容轉換為 HTML 以保留表格與排版格式
+                let finalContent = formatMessage(msg.text);
                 if (msg.actionData) finalContent += `<br><br><div class="bg-slate-800 p-3 rounded border border-slate-700 text-sm"><strong>分析結果：</strong><br>${msg.actionData.result}</div>`;
                 const note = { id: Date.now(), title: '收藏對話 ' + new Date().toLocaleDateString(), content: finalContent, isHtml: true, date: new Date().toLocaleString(), type: 'text', folder: '未分類' };
                 // 💡 修正：確保多檔案格式下的所有圖片都能被正確收藏進筆記
-                let msgFiles = msg.files && msg.files.length > 0 ? msg.files : (msg.file ? [msg.file] : []);
+                let msgFiles = msg.files && msg.files.length > 0 ?
+msg.files : (msg.file ? [msg.file] : []);
                 let imageFiles = msgFiles.filter(f => f.category === 'image');
                 if (imageFiles.length > 0) note.images = imageFiles.map(f => f.data);
                 appState.notes.unshift(note); saveToDB('notes', note); renderNotes(); showToast("⭐ 已加入筆記！(表格與格式已保留)");
@@ -1760,12 +1795,25 @@ handleSendMessage(); }
             for (let file of files) {
                 const isImage = file.type.startsWith('image/');
                 const isMedia = file.type.startsWith('audio') || file.type.startsWith('video');
-                const isText = file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md');
+                const isExcel = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls') || file.name.toLowerCase().endsWith('.csv');
+                const isText = file.type.startsWith('text/') || file.name.toLowerCase().endsWith('.txt') || file.name.toLowerCase().endsWith('.md') || isExcel;
                 const category = isImage ? 'image' : (isMedia ? 'media' : (isText ? 'text' : 'document'));
                 const reader = new FileReader();
                 const data = await new Promise(resolve => {
-                    reader.onload = evt => resolve(evt.target.result);
-                    if (category === 'text') reader.readAsText(file);
+                    reader.onload = evt => {
+                        if (isExcel) {
+                            try {
+                                // 修正: 將 ArrayBuffer 轉換為 Uint8Array，避免 XLSX 讀取發生語法與型態錯誤
+                                const dataUint8 = new Uint8Array(evt.target.result);
+                                const wb = XLSX.read(dataUint8, { type: 'array' });
+                                let res = "";
+                                wb.SheetNames.forEach(name => { res += `[Sheet: ${name}]\n` + XLSX.utils.sheet_to_csv(wb.Sheets[name]) + "\n\n"; });
+                                resolve(res);
+                            } catch(e) { resolve("Excel解析失敗: " + e.message); }
+                        } else resolve(evt.target.result);
+                    };
+                    if (isExcel) reader.readAsArrayBuffer(file);
+                    else if (category === 'text') reader.readAsText(file);
                     else reader.readAsDataURL(file);
                 });
                 appState.chatFiles.push({ category, name: file.name, mime: file.type || 'application/octet-stream', data: data });
@@ -2453,6 +2501,42 @@ handleSendMessage(); }
             document.body.removeChild(textArea);
         };
         
+        window.downloadGeneratedExcel = function(base64Data, filename) {
+
+            try {
+                // 將 Base64 還原為 JSON 字串
+                let jsonStr = decodeURIComponent(escape(atob(base64Data)));
+                let excelData = JSON.parse(jsonStr);
+                
+                // 建立新的活頁簿
+                let wb = XLSX.utils.book_new();
+                
+                // 處理每個 Sheet
+                if (excelData.sheets && Array.isArray(excelData.sheets)) {
+                    excelData.sheets.forEach(sheet => {
+                        let wsName = sheet.name || "Sheet1";
+                        let wsData = sheet.data || [];
+                        let ws = XLSX.utils.aoa_to_sheet(wsData);
+                        XLSX.utils.book_append_sheet(wb, ws, wsName);
+                    });
+                } else if (excelData.data) {
+                     // 處理單一 Sheet 的情況
+                     let ws = XLSX.utils.aoa_to_sheet(excelData.data);
+                     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+                } else {
+                     throw new Error("無效的 Excel 資料格式");
+                }
+                
+                // 導出檔案
+                let exportFilename = (filename || excelData.filename || "NOVA_Export") + ".xlsx";
+                XLSX.writeFile(wb, exportFilename);
+                showToast("✅ EXCEL 下載中...");
+            } catch (e) {
+                console.error("Excel Generation Error:", e);
+                alert("❌ EXCEL 產生失敗: " + e.message);
+            }
+        };
+
         window.copyMessageText = function(id) {
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if (!msg) return;
@@ -2527,10 +2611,27 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                 ia[i] = byteString.charCodeAt(i);
             }
             return new Blob([ab], { type: mimeStr });
-        }
+            }
 
-        window.downloadLocalAudio = function(id, type) {
-            let record = type === 'record' ? appState.audioRecords.find(x => String(x.id) === String(id)) : appState.notes.find(x => String(x.id) === String(id));
+            // 🌟 新增：專門處理 Data URI 轉換成 Blob 並強制觸發下載的函數
+            window.downloadDataUriFile = function(dataUri, filename) {
+                try {
+                    const blob = base64ToBlob(dataUri);
+                    const blobUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = blobUrl;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(blobUrl); }, 2000);
+                    if(typeof showToast === 'function') showToast(`✅ 已開始下載：${filename}`);
+                } catch(e) { alert("下載失敗：" + e.message); }
+            };
+
+            window.downloadLocalAudio = function(id, type) {
+                let record = type === 'record' ?
+                appState.audioRecords.find(x => String(x.id) === String(id)) : appState.notes.find(x => String(x.id) === String(id));
             if (!record || !record.audioData) { alert("找不到本地音檔資料"); return; }
             
             const dateObj = new Date(Number(id));
@@ -3906,12 +4007,25 @@ async function checkScheduleIntent(text) {
             for (let file of files) {
                 const isImage = file.type.startsWith('image/');
                 const isMedia = file.type.startsWith('audio') || file.type.startsWith('video');
-                const isText = file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.md');
+                const isExcel = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls') || file.name.toLowerCase().endsWith('.csv');
+                const isText = file.type.startsWith('text/') || file.name.toLowerCase().endsWith('.txt') || file.name.toLowerCase().endsWith('.md') || isExcel;
                 const category = isImage ? 'image' : (isMedia ? 'media' : (isText ? 'text' : 'document'));
                 const reader = new FileReader();
                 const data = await new Promise(resolve => {
-                    reader.onload = evt => resolve(evt.target.result);
-                    if (category === 'text') reader.readAsText(file);
+                    reader.onload = evt => {
+                        if (isExcel) {
+                            try {
+                                // 修正: 將 ArrayBuffer 轉換為 Uint8Array，避免 XLSX 讀取發生語法與型態錯誤
+                                const dataUint8 = new Uint8Array(evt.target.result);
+                                const wb = XLSX.read(dataUint8, { type: 'array' });
+                                let res = "";
+                                wb.SheetNames.forEach(name => { res += `[Sheet: ${name}]\n` + XLSX.utils.sheet_to_csv(wb.Sheets[name]) + "\n\n"; });
+                                resolve(res);
+                            } catch(e) { resolve("Excel解析失敗: " + e.message); }
+                        } else resolve(evt.target.result);
+                    };
+                    if (isExcel) reader.readAsArrayBuffer(file);
+                    else if (category === 'text') reader.readAsText(file);
                     else reader.readAsDataURL(file);
                 });
                 appState.agentFiles.push({ category, name: file.name, mime: file.type || 'application/octet-stream', data: data });
@@ -4442,6 +4556,10 @@ let modelToUse = appState.currentModel; let enableSearchTool = appState.isSearch
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。若使用者問及「我在哪」等問題，請根據此資訊回答。)`;
                 }
+// --- 新增：攔截 Excel 報表意圖，強制回傳 JSON 格式 ---
+            if (text.toUpperCase().includes("EXCEL") || text.includes("報表") || text.includes("試算表") || text.includes("表格")) {
+                systemPromptAddon += `\n【💡 特殊技能觸發】：使用者要求下載 Excel 檔案或處理表格。請你處理完資料後，嚴格使用以下 JSON 格式輸出 (並用 \`\`\`json 和 \`\`\` 包著)，系統會自動轉換為真實的 .xlsx 檔案給使用者下載。**絕對不要捏造 https://example.com 等假網址！**\n\`\`\`json\n{\n  "excel": true,\n  "filename": "AI_Report",\n  "data": [\n    ["標題1", "標題2", "標題3"],\n    ["數值A", "數值B", "數值C"]\n  ]\n}\n\`\`\`\n注意：data 必須是一個乾淨的二維陣列 (Array of Arrays)！\n`;
+            }
 
                 if (filesDataToPass && filesDataToPass.length > 0) {
                     filesDataToPass.forEach(f => {
