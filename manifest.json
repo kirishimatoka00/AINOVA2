@@ -2,7 +2,7 @@
   "name": "AINOVA 2.0",
   "short_name": "AINOVA 2.0",
   "start_url": "index.html",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#020617",
   "theme_color": "#020617",
   "icons": [
