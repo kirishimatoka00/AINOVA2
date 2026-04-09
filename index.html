@@ -3,12 +3,10 @@
 <head>
     <!-- 網頁基本設定：編碼、響應式視口 (防止手機端縮放) -->
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>NOVA 120 SSP</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#020617"
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="icon.png">
 
     
@@ -39,19 +37,15 @@
     <!-- 自訂 CSS 樣式 -->
     <style>
         html, body {
-            background-color: #020617 !important; /* 加 !important 強制覆蓋 */
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            min-height: 100dvh;
-            
-            /* 1. 禁用網頁的「下拉回彈」效果，防止拉出系統預設的白色底 */
-            overscroll-behavior: none;
-            
-            /* 2. 讓背景覆蓋頂部瀏海區與底部導航區 */
-            padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
-        }
+    background-color: #020617; 
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    /* 這裡改用 min-height 和 dvh */
+    min-height: 100vh;
+    min-height: 100dvh; 
+    padding-bottom: env(safe-area-inset-bottom);
+}
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
@@ -101,22 +95,7 @@
         [contenteditable]:empty:before { content: attr(placeholder); color: #64748b; pointer-events: none; display: block; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 font-sans overflow-hidden h-full flex flex-col">
-
-    <header class="flex-shrink-0 p-4 bg-slate-900">
-        <h1>NOVA 120 SSP (這裡不會被往上推)</h1>
-    </header>
-
-    <main class="flex-1 overflow-y-auto p-4">
-        <div class="msg-group">對話內容...</div>
-        <div class="msg-group">對話內容...</div>
-        </main>
-
-    <footer class="flex-shrink-0 p-4 bg-slate-900 pb-[env(safe-area-inset-bottom)]">
-        <input type="text" placeholder="輸入訊息..." class="...">
-    </footer>
-
-</body>
+<body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30 h-full">
 
     <!-- 隱形背景保活無聲引擎 (騙過手機 OS 以防麥克風休眠) -->
     <audio id="bg-keeper" loop playsinline src="data:audio/mpeg;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4LjI5LjEwMAAAAAAAAAAAAAAA//OEwAAAAANIAAAAAExBTUUzLjEwMKqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"></audio>
