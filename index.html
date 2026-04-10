@@ -43,21 +43,33 @@
             background-color: #020617 !important;
             margin: 0 !important;
             padding: 0 !important;
-            width: 100vw !important; /* 強制 100% 螢幕寬 */
-            height: 100vh !important; /* 強制 100% 螢幕高 */
+            width: 100vw !important;
+            height: 100vh !important;
             height: 100dvh !important;
             
-            /* 終極鎖定：把整個畫面釘在螢幕上，不允許任何滑動或誤差 */
             position: fixed !important; 
             top: 0 !important;
             left: 0 !important;
             right: 0 !important;
-            bottom: 0 !important;
+            /* ⚠️ 第一步：刪除這裡原本的 bottom: 0 !important; 讓背景可以沉下去 */
             
             overflow: hidden !important; 
-            overscroll-behavior: none !important; /* 禁止下拉回彈白光 */
+            overscroll-behavior: none !important;
             padding-top: env(safe-area-inset-top);
             padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        /* 🚀 第二步：新增這段終極殺招！在螢幕最底部強制塞入一塊超越邊界的「黑布」 */
+        body::after {
+            content: "";
+            position: fixed;
+            bottom: -50px;
+            left: 0;
+            right: 0;
+            height: 100px;
+            background-color: #020617 !important;
+            z-index: -1;
+            pointer-events: none;
         }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
