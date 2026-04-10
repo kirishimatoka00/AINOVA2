@@ -7,7 +7,7 @@
     <title>NOVA 120 SSP</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#020617">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="color-scheme" content="dark"> <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <link rel="apple-touch-icon" href="icon.png">
 
@@ -38,8 +38,10 @@
     
     <!-- 自訂 CSS 樣式 -->
     <style>
+        :root { background-color: #020617 !important; color-scheme: dark; } /* 新增這行：從最底層根節點徹底塗黑 */
         html, body {
-            background-color: #020617 !important; /* 加 !important 強制覆蓋 */
+            background-color: #020617 !important;
+            /* 加 !important 強制覆蓋 */
             margin: 0;
             padding: 0;
             width: 100%;
