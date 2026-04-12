@@ -4212,11 +4212,13 @@ try {
 
         async function searchViaSerpApi(query, lat = null, lon = null) {
             if (!appState.keys.serpapi) return null;
-            const isGeoSearch = !!(lat && lon);
-            // ✅ 有 GPS 座標時強制用 google_maps engine，ll 參數才真正生效
-            const engine = isGeoSearch ? 'google_maps' : 'google';
-            const llParam = isGeoSearch ? `&ll=@${lat},${lon},14z` : '';
-            const typeParam = isGeoSearch ? `&type=search` : '';
+
+            const isNearby = lat && lon;
+            // ✅ 關鍵修改①：附近搜尋改用 google_maps engine，才能拿到 local_results（含店家座標）
+            const engine = isNearby ? 'google_maps' : 'google';
+            const llParam = isNearby ? `&ll=@${lat},${lon},14z` : '';
+            const typeParam = isNearby ? `&type=search` : '';
+
             const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${appState.keys.serpapi}&engine=${engine}&gl=tw&hl=zh-tw${llParam}${typeParam}`;
             const proxies = [
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
@@ -4968,7 +4970,7 @@ let injectedContext = "";
                     if (appState.lastLat && appState.lastLon) {
                         systemPromptAddon += `使用者的 GPS 座標為緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。`;
                     }
-                    systemPromptAddon += `若使用者問及「我在哪」等問題請根據此資訊回答。若問及附近商家，系統已預先以 GPS 座標完成地點搜尋並注入上下文，請直接整理上下文中的 [📍 GPS 座標附近地點搜尋結果] 資料作答，不需再次啟動 Search 工具，也不得自行估算或捏造距離。)`;
+                    systemPromptAddon += `若使用者問及「我在哪」等問題請根據此資訊回答。若尋找附近商家或機構(如加油站等)，請強制啟動 Search 工具搜尋「${appState.weather.loc} 附近 + 目標商家類型」，列表呈現時**只能列出搜尋結果中有明確地址或距離資訊的項目**，距離欄位若無法從搜尋結果確認則標示「距離未知」，不得自行估算或捏造。每一項加上 Google Maps 連結，格式為：[點此導航至 店名](https://www.google.com/maps/search/?api=1&query=店名+${encodeURIComponent(appState.weather.loc)})。)`;
                 }
 
                 // --- 新增：攔截 Excel 報表意圖，強制回傳 JSON 格式 ---
@@ -5020,25 +5022,20 @@ injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
                         }
                     }
 
-                    // ✅ 附近搜尋：不分 Gemini 或其他模型，統一先用 SerpAPI google_maps 取得真實地點資料
-                    const isNearbyQuery = text.includes('附近') || text.includes('最近的') || text.includes('周邊');
-                    if (isNearbyQuery && appState.lastLat && appState.lastLon && appState.keys.serpapi) {
-                        addMessage(`📍 正在以 GPS 座標搜尋附近地點...`, 'system');
-                        // ✅ query 只保留商家類型，不帶地區名，讓 GPS 座標做定位
-                        const cleanQuery = text.replace(/附近|最近的|周邊|幫我找|找|有沒有|哪裡有/g, '').trim();
-                        let nearbyResult = "";
-                        try { nearbyResult = await searchViaSerpApi(cleanQuery, appState.lastLat, appState.lastLon); } catch(e) {}
-                        if (nearbyResult) {
-                            injectedContext += `\n\n[📍 GPS 座標附近地點搜尋結果（緯度:${appState.lastLat} 經度:${appState.lastLon}），請直接根據此資料整理回覆，不得自行估算距離]:\n${nearbyResult}\n\n`;
-                            // Gemini 有 search tool 時關掉，避免它再做一次文字搜尋蓋掉精確的 GPS 結果
-                            enableSearchTool = false;
-                        }
-                    } else if (enableSearchTool && modelToUse !== 'gemini' && !searchMatch) {
+                    if (enableSearchTool && modelToUse !== 'gemini' && !searchMatch) {
                         addMessage(`🌐 (代理連網) 正在透過網路搜尋相關資訊...`, 'system'); let searchResultText = "";
-                        if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(text, null, null); } catch (e) {} }
-                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(text);
+                        // ✅ 若偵測到「附近」意圖，將精確地名和 GPS 座標一起帶入搜尋 query
+                        const isNearbyQuery = text.includes('附近') || text.includes('最近的') || text.includes('周邊');
+                        const locationPrefix = (isNearbyQuery && appState.weather.loc && appState.weather.loc !== '未定位')
+                            ? `${appState.weather.loc} ` : '';
+                        const searchQuery = locationPrefix + text.replace(/附近|最近的|周邊/g, '');
+                        const searchLat = isNearbyQuery ? appState.lastLat : null;
+                        const searchLon = isNearbyQuery ? appState.lastLon : null;
+                        if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchQuery, searchLat, searchLon); } catch (e) {} }
+                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchQuery);
                         if (searchResultText) { injectedContext += `\n\n[系統自動連網搜尋結果，請參考此最新資訊來回答使用者的問題]:\n${searchResultText}\n\n`; }
-                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system'); }
+                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system');
+                        }
                     }
                 }
 
