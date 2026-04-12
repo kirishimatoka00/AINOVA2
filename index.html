@@ -1753,10 +1753,12 @@ localStorage.setItem('nova_drive_url', data.drive); const el = document.getEleme
         };
         async function getCityName(lat, lon) {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+                // ✅ zoom=14 → 取得區/鄉鎮級（如新莊區），而非 zoom=10 的縣市級
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`);
                 if(!res.ok) return "目前位置";
                 const data = await res.json();
-                return data.address.city || data.address.town || data.address.county || data.address.state || "目前位置";
+                // ✅ 優先取 suburb（行政區）> town > city_district > city，確保精確到區層級
+                return data.address.suburb || data.address.town || data.address.city_district || data.address.city || data.address.county || "目前位置";
             } catch(e) {
                 return "目前位置";
             }
@@ -4199,9 +4201,12 @@ try {
             try { const res = await fetch(appState.docMonitorUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'scrape_and_log', url: url }) }); const text = await res.text(); return (text && !text.startsWith("Error")) ? text : null; } catch (e) { return null; }
         }
         
-        async function searchViaSerpApi(query) {
+        async function searchViaSerpApi(query, lat = null, lon = null) {
             if (!appState.keys.serpapi) return null;
-            const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${appState.keys.serpapi}&engine=google&gl=tw&hl=zh-tw`;
+            // ✅ 若有 GPS 座標，加入 ll 參數（SerpAPI 支援此精確定位格式）
+            const llParam = (lat && lon) ? `&ll=@${lat},${lon},14z` : '';
+            const locationParam = (lat && lon) ? '' : ''; // ll 已足夠，不需重複 location
+            const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${appState.keys.serpapi}&engine=google&gl=tw&hl=zh-tw${llParam}`;
             const proxies = [`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`];
             let serpData = null, lastErrorMsg = "";
             for (const proxy of proxies) {
@@ -4962,9 +4967,16 @@ injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
 
                     if (enableSearchTool && modelToUse !== 'gemini' && !searchMatch) {
                         addMessage(`🌐 (代理連網) 正在透過網路搜尋相關資訊...`, 'system'); let searchResultText = "";
-                        if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(text); } catch (e) {} }
-                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(text);
-                        if (searchResultText) { injectedContext += `\n\n[系統自動連網搜尋結果，請參考此最新資訊來回答使用者的問題]:\n${searchResultText}\n\n`; } 
+                        // ✅ 若偵測到「附近」意圖，將精確地名和 GPS 座標一起帶入搜尋 query
+                        const isNearbyQuery = text.includes('附近') || text.includes('最近的') || text.includes('周邊');
+                        const locationPrefix = (isNearbyQuery && appState.weather.loc && appState.weather.loc !== '未定位')
+                            ? `${appState.weather.loc} ` : '';
+                        const searchQuery = locationPrefix + text.replace(/附近|最近的|周邊/g, '');
+                        const searchLat = isNearbyQuery ? appState.lastLat : null;
+                        const searchLon = isNearbyQuery ? appState.lastLon : null;
+                        if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchQuery, searchLat, searchLon); } catch (e) {} }
+                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchQuery);
+                        if (searchResultText) { injectedContext += `\n\n[系統自動連網搜尋結果，請參考此最新資訊來回答使用者的問題]:\n${searchResultText}\n\n`; }
                         else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system');
                         }
                     }
