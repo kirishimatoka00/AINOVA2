@@ -1753,64 +1753,16 @@ localStorage.setItem('nova_drive_url', data.drive); const el = document.getEleme
         };
         async function getCityName(lat, lon) {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=16&addressdetails=1`);
+                // ✅ zoom=14 → 取得區/鄉鎮級（如新莊區），而非 zoom=10 的縣市級
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`);
                 if(!res.ok) return "目前位置";
                 const data = await res.json();
-                const a = data.address;
-                // ✅ 台灣正確優先順序：city_district(區) > town > suburb(里，不可靠) > city(市)
-                const district = a.city_district || a.town || a.suburb || "";
-                const city     = a.city || a.county || "";
-                // ✅ 同時儲存完整地址供 system prompt 使用，讓 AI 知道「新莊區, 新北市」
-                appState.lastAddress = [district, city].filter(Boolean).join(", ") || data.display_name || "目前位置";
-                return district || city || "目前位置";
+                // ✅ 優先取 suburb（行政區）> town > city_district > city，確保精確到區層級
+                return data.address.suburb || data.address.town || data.address.city_district || data.address.city || data.address.county || "目前位置";
             } catch(e) {
-                appState.lastAddress = "";
                 return "目前位置";
             }
         }
-
-                        fetchWeather(lat, lon);
-
-                        const watchId = navigator.geolocation.watchPosition(
-                            async (refinedPos) => {
-                                if (refinedPos.coords.accuracy < 50) {
-                                    appState.lastLat = refinedPos.coords.latitude;
-                                    appState.lastLon = refinedPos.coords.longitude;
-                                    navigator.geolocation.clearWatch(watchId);
-                                    // ✅ 精化座標後，同步重新查詢地名，確保地名與座標一致
-                                    const refinedName = await getCityName(appState.lastLat, appState.lastLon);
-                                    appState.weather.loc = refinedName;
-                                    renderWeather();
-                                }
-                            },
-                            null,
-                            { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-                        );
-                        setTimeout(() => navigator.geolocation.clearWatch(watchId), 20000);
-
-                       fetchWeather(lat, lon);
-
-                        const watchId = navigator.geolocation.watchPosition(
-                            async (refinedPos) => {
-                                if (refinedPos.coords.accuracy < 50) {
-                                    appState.lastLat = refinedPos.coords.latitude;
-                                    appState.lastLon = refinedPos.coords.longitude;
-                                    navigator.geolocation.clearWatch(watchId);
-                                    // ✅ 精化座標後，同步重新查詢地名，確保地名與座標一致
-                                    const refinedName = await getCityName(appState.lastLat, appState.lastLon);
-                                    appState.weather.loc = refinedName;
-                                    renderWeather();
-                                }
-                            },
-                            null,
-                            { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-                        );
-                        setTimeout(() => navigator.geolocation.clearWatch(watchId), 20000);
-
-               if (appState.weather && appState.weather.loc && ...) {
-                    // ✅ 優先用 lastAddress（完整區+市），沒有時才退回 weather.loc
-                    const locLabel = appState.lastAddress || appState.weather.loc;
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${locLabel}，...`;
 
         function tryGetLocation(isInit = false) {
             if (navigator.geolocation && appState.manualLocIndex === 0) {
