@@ -4201,22 +4201,79 @@ try {
             try { const res = await fetch(appState.docMonitorUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'scrape_and_log', url: url }) }); const text = await res.text(); return (text && !text.startsWith("Error")) ? text : null; } catch (e) { return null; }
         }
         
+        // ── Haversine 公式：計算兩點 GPS 直線距離（公尺）──
+        function haversineDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371000;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
         async function searchViaSerpApi(query, lat = null, lon = null) {
             if (!appState.keys.serpapi) return null;
-            // ✅ 若有 GPS 座標，加入 ll 參數（SerpAPI 支援此精確定位格式）
-            const llParam = (lat && lon) ? `&ll=@${lat},${lon},14z` : '';
-            const locationParam = (lat && lon) ? '' : ''; // ll 已足夠，不需重複 location
-            const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${appState.keys.serpapi}&engine=google&gl=tw&hl=zh-tw${llParam}`;
-            const proxies = [`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`, `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`, `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`];
+
+            const isNearby = lat && lon;
+            // ✅ 關鍵修改①：附近搜尋改用 google_maps engine，才能拿到 local_results（含店家座標）
+            const engine = isNearby ? 'google_maps' : 'google';
+            const llParam = isNearby ? `&ll=@${lat},${lon},14z` : '';
+            const typeParam = isNearby ? `&type=search` : '';
+
+            const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(query)}&api_key=${appState.keys.serpapi}&engine=${engine}&gl=tw&hl=zh-tw${llParam}${typeParam}`;
+            const proxies = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+                `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
+            ];
             let serpData = null, lastErrorMsg = "";
             for (const proxy of proxies) {
-                try { const controller = new AbortController(); const timeoutId = setTimeout(() => controller.abort(), 10000); const res = await fetch(proxy, { signal: controller.signal }); clearTimeout(timeoutId); if (!res.ok) { lastErrorMsg = `HTTP ${res.status}`; continue; } const data = await res.json(); if (data.error) throw new Error(data.error); serpData = data; break; } 
-                catch (err) { lastErrorMsg = err.name === 'AbortError' ? '連線逾時' : err.message; if (err.message.toLowerCase().includes("invalid api key")) throw new Error("SerpApi 金鑰無效"); }
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000);
+                    const res = await fetch(proxy, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    if (!res.ok) { lastErrorMsg = `HTTP ${res.status}`; continue; }
+                    const data = await res.json();
+                    if (data.error) throw new Error(data.error);
+                    serpData = data; break;
+                } catch (err) {
+                    lastErrorMsg = err.name === 'AbortError' ? '連線逾時' : err.message;
+                    if (err.message.toLowerCase().includes("invalid api key")) throw new Error("SerpApi 金鑰無效");
+                }
             }
             if (!serpData) throw new Error(`SerpApi 連線皆失敗 (${lastErrorMsg})`);
+
             let resultText = "【SerpApi 搜尋結果】\n";
-            if (serpData.organic_results?.length > 0) { serpData.organic_results.slice(0, 5).forEach((item, i) => resultText += `${i + 1}. [${item.title}](${item.link})\n   ${item.snippet || ''}\n`); } 
-            else resultText += "未找到相關結果。";
+
+            // ✅ 關鍵修改②：優先讀 local_results（商家結果），才有距離和座標
+            const places = serpData.local_results?.places || serpData.local_results || [];
+            if (places.length > 0) {
+                resultText += `[本地商家搜尋結果 - 共 ${places.length} 筆]\n`;
+                places.slice(0, 6).forEach((p, i) => {
+                    // ✅ 關鍵修改③：用 Haversine 公式從兩點 GPS 座標計算精確直線距離
+                    let distStr = '距離未知';
+                    const pLat = p.gps_coordinates?.latitude;
+                    const pLon = p.gps_coordinates?.longitude;
+                    if (isNearby && pLat && pLon) {
+                        const meters = haversineDistance(lat, lon, pLat, pLon);
+                        distStr = meters < 1000
+                            ? `約 ${Math.round(meters)} 公尺`
+                            : `約 ${(meters / 1000).toFixed(1)} 公里`;
+                    }
+                    const addr = p.address || '地址未提供';
+                    const rating = p.rating ? `⭐${p.rating}(${p.reviews || 0}則)` : '無評分';
+                    const mapsUrl = (pLat && pLon)
+                        ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.title)}&ll=${pLat},${pLon}`
+                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.title + ' ' + addr)}`;
+                    resultText += `${i+1}. 【${p.title}】\n   📍 地址：${addr}\n   📏 距離：${distStr}\n   ${rating}\n   🗺️ 導航：${mapsUrl}\n`;
+                });
+            } else if (serpData.organic_results?.length > 0) {
+                // 備援：無本地結果才 fallback 到一般網頁結果
+                serpData.organic_results.slice(0, 5).forEach((item, i) =>
+                    resultText += `${i+1}. [${item.title}](${item.link})\n   ${item.snippet || ''}\n`);
+            } else {
+                resultText += "未找到相關結果。";
+            }
             return resultText;
         }
 
