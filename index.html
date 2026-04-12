@@ -2560,7 +2560,7 @@ return; }
                 let cleanText = text;
 
                 // 💡 修正 2：優化擷取邏輯，無論全半形冒號，只要有「翻譯」字樣，強制只取後方內容，徹底封殺原文唸出
-                const transMatch = cleanText.match(/(?:\*\*翻譯(?:結果)?[:：]\*\*|翻譯(?:結果)?[:：])([\s\S]+)/);
+                const transMatch = cleanText.match(/(?:\*\*翻譯(?:結果)?[:：]\*\*|\*\*【翻譯】\*\*|翻譯(?:結果)?[:：])([\s\S]+)/);
                 if (transMatch && transMatch[1]) {
                     cleanText = transMatch[1].trim();
                 } else {
@@ -4989,6 +4989,7 @@ let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text |
         let textToSpeak = finalOutputText;
         
         if (appState.translateMode !== 'off') {
+            appState.translateMuteUntilFirstCapture = false; // ← 加入這行
             try {
                 let jsonMatch = finalOutputText.match(/\{[\s\S]*\}/);
                 if (jsonMatch) {
