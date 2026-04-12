@@ -1769,56 +1769,6 @@ localStorage.setItem('nova_drive_url', data.drive); const el = document.getEleme
             }
         }
 
-修改 2｜watchPosition 精化後補呼叫 getCityName（第 1784～1796 行）
-js// === 上文（1781～1783）===
-                        fetchWeather(lat, lon);
-
-                        const watchId = navigator.geolocation.watchPosition(
-                            async (refinedPos) => {
-                                if (refinedPos.coords.accuracy < 50) {
-                                    appState.lastLat = refinedPos.coords.latitude;
-                                    appState.lastLon = refinedPos.coords.longitude;
-                                    navigator.geolocation.clearWatch(watchId);
-                                    // ✅ 精化座標後，同步重新查詢地名，確保地名與座標一致
-                                    const refinedName = await getCityName(appState.lastLat, appState.lastLon);
-                                    appState.weather.loc = refinedName;
-                                    renderWeather();
-                                }
-                            },
-                            null,
-                            { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-                        );
-                        setTimeout(() => navigator.geolocation.clearWatch(watchId), 20000);
-// === 下文（1791～1796）===
-                            null,
-                            { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-                        );
-                        setTimeout(() => navigator.geolocation.clearWatch(watchId), 20000);
-改為：
-js                        fetchWeather(lat, lon);
-
-                        const watchId = navigator.geolocation.watchPosition(
-                            async (refinedPos) => {
-                                if (refinedPos.coords.accuracy < 50) {
-                                    appState.lastLat = refinedPos.coords.latitude;
-                                    appState.lastLon = refinedPos.coords.longitude;
-                                    navigator.geolocation.clearWatch(watchId);
-                                    // ✅ 精化座標後，同步重新查詢地名，確保地名與座標一致
-                                    const refinedName = await getCityName(appState.lastLat, appState.lastLon);
-                                    appState.weather.loc = refinedName;
-                                    renderWeather();
-                                }
-                            },
-                            null,
-                            { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
-                        );
-                        setTimeout(() => navigator.geolocation.clearWatch(watchId), 20000);
-
-               if (appState.weather && appState.weather.loc && ...) {
-                    // ✅ 優先用 lastAddress（完整區+市），沒有時才退回 weather.loc
-                    const locLabel = appState.lastAddress || appState.weather.loc;
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${locLabel}，...`;
-
         function tryGetLocation(isInit = false) {
             if (navigator.geolocation && appState.manualLocIndex === 0) {
                 // 先用低精度快速取得初始位置
@@ -1838,17 +1788,19 @@ js                        fetchWeather(lat, lon);
                         // ✅ 新增：取得初位後，再啟動高精度監聽，等到 accuracy < 50m 才更新
                         const watchId = navigator.geolocation.watchPosition(
                             async (refinedPos) => {
-                                if (refinedPos.coords.accuracy < 50) { // 精確度 < 50 公尺才採用
+                                if (refinedPos.coords.accuracy < 50) {
                                     appState.lastLat = refinedPos.coords.latitude;
                                     appState.lastLon = refinedPos.coords.longitude;
-                                    navigator.geolocation.clearWatch(watchId); // 達標後停止監聽
+                                    navigator.geolocation.clearWatch(watchId);
+                                    // 精化後同步更新地名，確保地名與座標一致
+                                    const refinedName = await getCityName(appState.lastLat, appState.lastLon);
+                                    appState.weather.loc = refinedName;
+                                    renderWeather();
                                 }
                             },
                             null,
                             { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
                         );
-                        // 最多監聽 20 秒後自動停止，避免耗電
-                        setTimeout(() => navigator.geolocation.clearWatch(watchId), 20000);
                     },
                     (err) => {
                         console.warn("Location error:", err);
@@ -5019,7 +4971,8 @@ let injectedContext = "";
                 let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || text.includes('附近') || text.includes('最近的');
                 
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。`;
+                    const locLabel = appState.lastAddress || appState.weather.loc;
+                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${locLabel}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。`;
                     if (appState.lastLat && appState.lastLon) {
                         systemPromptAddon += `使用者的 GPS 座標為緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。`;
                     }
