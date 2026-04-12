@@ -2494,21 +2494,25 @@ handleSendMessage(); }
         }
 
         window.playMessageAudio = function(id) {
-            if (appState.isTTSPlaying && appState.playingMsgId === String(id)) {
-                window.speechSynthesis.cancel();
-                if (currentPollyAudio) currentPollyAudio.pause();
-                pollyAudioQueue = []; // 清空佇列以終止連續播放
-                isPollyPlayingQueue = false;
-                appState.isTTSPlaying = false;
-                appState.playingMsgId = null;
-                renderMessages();
-                return;
-            }
-            const msg = appState.messages.find(m => String(m.id) === String(id));
-            if (!msg || !msg.text) return;
-            speakText(msg.text, true, String(id));
-            renderMessages();
-        };
+    // 新增：若在即時口譯模式，先停止收音再播放
+    if (appState.translateMode === 'auto') {
+        stopTranslateBAndSend(true); // 先暫停麥克風，防止 TTS 被收入
+    }
+
+    if (appState.isTTSPlaying && appState.playingMsgId === String(id)) {
+        // ... 現有停止邏輯 ...
+        // 新增：若在即時口譯模式，停止後重啟收音
+        if (appState.translateMode === 'auto') {
+            setTimeout(() => startTranslateBAutoRecord(), 1000);
+        }
+        return;
+    }
+
+    const msg = appState.messages.find(m => String(m.id) === String(id));
+    if (!msg || !msg.text) return;
+    speakText(msg.text, true, String(id));
+    renderMessages();
+};
 
         function speakText(text, force = false, msgId = null) {
             const shouldAutoPlay = appState.isLiveMode || appState.translateMode !== 'off' || appState.isContinuous;
@@ -2518,9 +2522,10 @@ handleSendMessage(); }
                     // 安全鎖：不斷輪詢確認系統語音與「播放佇列」已經完全停止，才敢重啟麥克風
                     const checkAndStart = () => {
                         const isPollySpeaking = !currentPollyAudio.paused && currentPollyAudio.currentTime > 0 && !currentPollyAudio.ended;
-                        if (window.speechSynthesis.speaking || isPollySpeaking || isPollyPlayingQueue) {
-                            setTimeout(checkAndStart, 500);
-                        } else {
+if (window.speechSynthesis.speaking || isPollySpeaking || isPollyPlayingQueue || appState.isTTSPlaying) {
+    setTimeout(startTranslateBAutoRecord, 500);
+    return;
+} else {
                             setTimeout(() => { startTranslateBAutoRecord(); }, 1000);
                         }
                     };
