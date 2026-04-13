@@ -1757,9 +1757,14 @@ localStorage.setItem('nova_drive_url', data.drive); const el = document.getEleme
                 const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`);
                 if(!res.ok) return "目前位置";
                 const data = await res.json();
+                
+                // ✅ 記錄包含緯度、縣市及區的詳細資訊供 AI 後台調用
+                appState.weather.fullLoc = `緯度: ${lat}, 經度: ${lon}, 縣市: ${data.address.county || data.address.city || ''}, 區: ${data.address.suburb || data.address.town || data.address.city_district || ''}`;
+                
                 // ✅ 優先取 suburb（行政區）> town > city_district > city，確保精確到區層級
                 return data.address.suburb || data.address.town || data.address.city_district || data.address.city || data.address.county || "目前位置";
             } catch(e) {
+                appState.weather.fullLoc = `緯度: ${lat}, 經度: ${lon}`;
                 return "目前位置";
             }
         }
@@ -4909,17 +4914,9 @@ let injectedContext = "";
                 let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || text.includes('附近') || text.includes('最近的');
                 
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C，天氣狀況 ${appState.weather.condition}。`;
-                    if (appState.lastLat && appState.lastLon) {
-                        systemPromptAddon += `使用者的 GPS 座標為緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。`;
-                    }
-                    systemPromptAddon += `若使用者問及「我在哪」等問題請根據此資訊回答。若尋找附近商家或機構(如加油站等)，請強制啟動 Search 工具搜尋「${appState.weather.loc} 附近 + 目標商家類型」，列表呈現時**只能列出搜尋結果中有明確地址或距離資訊的項目**，距離欄位若無法從搜尋結果確認則標示「距離未知」，不得自行估算或捏造。每一項加上 Google Maps 連結，格式為：[點此導航至 店名](https://www.google.com/maps/search/?api=1&query=店名+${encodeURIComponent(appState.weather.loc)})。)`;
+                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，詳細座標與行政區為 ${appState.weather.fullLoc || ''}，當地氣溫 ${appState.weather.temp}°C。`;
+                    systemPromptAddon += `\n請嚴格遵守以下規則：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. 當詢問附近地點及其距離時，請基於上述 GPS 座標計算高精確度的距離，並在回答時主動詢問使用者是「步行還是開車」。\n3. 請主動提供 Google Maps 的導航或搜尋連結以增加可靠度，例如：https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱 。)\n`;
                 }
-
-                // --- 新增：攔截 Excel 報表意圖，強制回傳 JSON 格式 ---
-                if (text.toUpperCase().includes("EXCEL") || text.includes("報表") || text.includes("試算表") || text.includes("表格")) {
-                systemPromptAddon += `\n【💡 特殊技能觸發】：使用者要求下載 Excel 檔案或處理表格。請你處理完資料後，嚴格使用以下 JSON 格式輸出 (並用 \`\`\`json 和 \`\`\` 包著)，系統會自動轉換為真實的 .xlsx 檔案給使用者下載。**絕對不要捏造 https://example.com 等假網址！**\n\`\`\`json\n{\n  "excel": true,\n  "filename": "AI_Report",\n  "data": [\n    ["標題1", "標題2", "標題3"],\n    ["數值A", "數值B", "數值C"]\n  ]\n}\n\`\`\`\n注意：data 必須是一個乾淨的二維陣列 (Array of Arrays)！\n`;
-            }
 
                 if (filesDataToPass && filesDataToPass.length > 0) {
                     filesDataToPass.forEach(f => {
