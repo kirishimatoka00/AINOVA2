@@ -4915,7 +4915,7 @@ let injectedContext = "";
                 
                 if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，詳細座標與行政區為 ${appState.weather.fullLoc || ''}，當地氣溫 ${appState.weather.temp}°C。`;
-                    systemPromptAddon += `\n請嚴格遵守以下規則：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. 當詢問附近地點及其距離時，請基於上述 GPS 座標計算高精確度的距離，並在回答時主動詢問使用者是「步行還是開車」。\n3. 請主動提供 Google Maps 的導航或搜尋連結以增加可靠度，例如：https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱 。)\n`;
+                    systemPromptAddon += `\n請嚴格遵守以下規則：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. 當詢問附近地點及其距離時，請基於上述 GPS 座標計算出「直線距離」，並且請你直接「同時預估並列出」【步行所需的距離與時間】以及【開車所需的距離與時間】，絕對不要反問使用者交通方式以免喪失上下文。\n3. 請主動提供正確的 Google Maps 路線導航連結：https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱 。)\n`;
                 }
 
                 if (filesDataToPass && filesDataToPass.length > 0) {
