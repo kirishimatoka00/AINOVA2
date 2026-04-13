@@ -4911,11 +4911,12 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
 
 let injectedContext = "";
                 let modelToUse = appState.currentModel;
-                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || text.includes('附近') || text.includes('最近的');
+                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離/.test(text);
                 
                 if (appState.lastLat && appState.lastLon) {
                     systemPromptAddon += `\n(系統隱藏資訊：使用者的絕對 GPS 座標為 緯度 ${appState.lastLat}, 經度 ${appState.lastLon}，大約位於 ${appState.weather ? appState.weather.loc : '未知'}，詳細行政區為 ${appState.weather ? appState.weather.fullLoc : ''}，當地氣溫 ${appState.weather ? appState.weather.temp : '--'}°C。)\n`;
-                    systemPromptAddon += `【距離計算與導航嚴格指令】：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. 當詢問地點距離時，請嚴格使用上述「GPS經緯度」作為起點計算兩地的直線距離，然後將直線距離乘上 1.35 倍作為「預估實際道路距離」。請同時列出「預估步行時間(約5km/h)」與「預估開車時間(約30km/h)」，絕對不要反問使用者交通方式以免喪失對話記憶。\n3. 最後，必須附上此精確導航連結供使用者點擊： https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱\n`;
+                    // ✅ 增加禁止捏造指令，並修正 Google Maps 標準導航 URL 格式
+                    systemPromptAddon += `【距離計算與導航嚴格指令】：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. **絕對禁止憑空捏造地標名稱與地址**。你必須「僅依賴」搜尋工具回傳的真實結果。若搜尋未提到地址，請誠實告知，禁止亂編。\n3. 當詢問地點距離時，請嚴格使用上述「GPS經緯度」起點計算兩地直線距離，並乘上 1.35 倍作為「預估道路距離」。請同時列出「預估步行時間(約5km/h)」與「預估開車時間(約30km/h)」，絕對不要反問交通方式。\n4. 最後，必須附上此精確導航連結供使用者點擊： https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱\n`;
                 } else if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     // 備用方案：如果 GPS 沒抓到，至少給出大略位置
                     systemPromptAddon += `\n(系統隱藏資訊：使用者目前大略位置為 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C。)\n`;
