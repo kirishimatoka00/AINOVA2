@@ -4913,9 +4913,12 @@ let injectedContext = "";
                 let modelToUse = appState.currentModel;
                 let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || text.includes('附近') || text.includes('最近的');
                 
-                if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前的位置位於 ${appState.weather.loc}，詳細座標與行政區為 ${appState.weather.fullLoc || ''}，當地氣溫 ${appState.weather.temp}°C。`;
-                    systemPromptAddon += `\n請嚴格遵守以下規則：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. 當詢問附近地點及其距離時，請基於上述 GPS 座標計算出「直線距離」，並且請你直接「同時預估並列出」【步行所需的距離與時間】以及【開車所需的距離與時間】，絕對不要反問使用者交通方式以免喪失上下文。\n3. 請主動提供正確的 Google Maps 路線導航連結：https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱 。)\n`;
+                if (appState.lastLat && appState.lastLon) {
+                    systemPromptAddon += `\n(系統隱藏資訊：使用者的絕對 GPS 座標為 緯度 ${appState.lastLat}, 經度 ${appState.lastLon}，大約位於 ${appState.weather ? appState.weather.loc : '未知'}，詳細行政區為 ${appState.weather ? appState.weather.fullLoc : ''}，當地氣溫 ${appState.weather ? appState.weather.temp : '--'}°C。)\n`;
+                    systemPromptAddon += `【距離計算與導航嚴格指令】：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. 當詢問地點距離時，請嚴格使用上述「GPS經緯度」作為起點計算兩地的直線距離，然後將直線距離乘上 1.35 倍作為「預估實際道路距離」。請同時列出「預估步行時間(約5km/h)」與「預估開車時間(約30km/h)」，絕對不要反問使用者交通方式以免喪失對話記憶。\n3. 最後，必須附上此精確導航連結供使用者點擊： https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱\n`;
+                } else if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
+                    // 備用方案：如果 GPS 沒抓到，至少給出大略位置
+                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前大略位置為 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C。)\n`;
                 }
 
                 if (filesDataToPass && filesDataToPass.length > 0) {
