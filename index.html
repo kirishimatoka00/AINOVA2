@@ -4917,15 +4917,18 @@ let injectedContext = "";
                 let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離/.test(text);
                 
                 // --- 判斷是否為地點搜尋或導航意圖 ---
-                const isLocationIntent = text.includes('附近') || text.includes('最近的') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離');
+                const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離');
+                
+                // 擷取使用者的真實目標 (例如把「告訴我附近的加油站」變成「加油站」)
+                let userQueryTarget = text.replace(/我附近|附近有什麼|附近|最近的|我的位置|幫我找|告訴我/g, '').trim() || '地標與商家';
 
                 if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
-                    // 🌟 方案 A：有設定 Google Maps Key，直接在背景呼叫官方 API 獲取真實資料
+                    // 🌟 方案 A：有設定 Google Maps Key，直接在背景呼叫官方 API
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try {
-                        const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': appState.keys.gmaps, 'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating' }, body: JSON.stringify({ textQuery: text, locationBias: { circle: { center: { latitude: appState.lastLat, longitude: appState.lastLon }, radius: 5000.0 } } }) });
+                        const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': appState.keys.gmaps, 'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating' }, body: JSON.stringify({ textQuery: userQueryTarget, locationBias: { circle: { center: { latitude: appState.lastLat, longitude: appState.lastLon }, radius: 5000.0 } } }) });
                         const placeData = await placeRes.json();
-                        let mapContext = "【Google Maps API 真實數據回報】\n";
+                        let mapContext = "【Google Maps API 真實數據】\n";
                         if (placeData.places && placeData.places.length > 0) {
                             const topPlaces = placeData.places.slice(0, 3);
                             for (let i = 0; i < topPlaces.length; i++) {
@@ -4940,20 +4943,24 @@ let injectedContext = "";
                                     mapContext += `導航連結: http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
                                 }
                             }
-                            injectedContext += `\n\n${mapContext}`;
-                            // 🌟 終極破解 1：把送給 AI 的文字中的敏感詞拔除，騙過安全濾網
-                            text = `(這是一項地圖查詢任務，請依照下方提供之資訊整理成清單：) ` + text.replace(/我附近|附近|最近的|我的位置/g, '基準點周邊');
-                            systemPromptAddon += `\n(系統資訊：基準座標為 緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。)\n`;
-                            systemPromptAddon += `【🚨 最高強制指令】：絕對禁止回答「無法存取位置」。請直接使用上述數據清楚回答使用者，並務必為每一個地點附上上述提供的計算專屬導航連結。\n`;
+                            // 🚀 終極破解 1：攔截並竄改對話，讓 AI 以為這只是一個排版任務！
+                            text = `請扮演親切的語音助理，幫我把下方這份已經查好的地點清單，用自然的語氣條列出來給使用者看。絕對不可回答「無法定位」或「無法存取位置」，因為資料已經在此：\n\n${mapContext}`;
+                            systemPromptAddon += `\n【系統強制指令】：你是一個文字排版處理器，請直接輸出對話內容中的地點資訊。禁止使用任何拒絕存取的罐頭回覆。\n`;
                         }
                     } catch(e) { console.warn("Maps API Error", e); }
-                } else if (appState.lastLat && appState.lastLon) {
-                    // 🌟 方案 B (原本的邏輯)：沒有輸入 Maps Key，使用網頁搜尋精確推算邏輯
-                    if (isLocationIntent) {
-                        enableSearchTool = true; 
-                        // 🌟 終極破解 2：沒有 API key 時，把搜尋文字換成絕對座標搜尋
-                        text = `請搜尋座標 (緯度 ${appState.lastLat}, 經度 ${appState.lastLon}) 周邊的：` + text.replace(/我附近|附近|最近的|我的位置/g, '');
-                    }
+                } else if (isLocationIntent && appState.lastLat && appState.lastLon) {
+                    // 🌟 方案 B：沒有輸入 Maps Key，依賴 AI 的 Search 工具
+                    enableSearchTool = true; 
+                    const searchArea = appState.weather ? (appState.weather.fullLoc || appState.weather.loc) : '當地';
+                    
+                    // 🚀 終極破解 2：把「附近的加油站」竄改成明確的「台北市信義區 加油站」
+                    text = `請使用網路搜尋工具，幫我尋找位於「${searchArea}」的「${userQueryTarget}」。請列表出店名，並自行估算距離，附上介紹。`;
+                    
+                    systemPromptAddon += `\n【系統強制指令】：這是一項普通的區域資訊查詢任務。你已獲得明確的地點「${searchArea}」，絕對禁止回答「無法存取即時地理位置」。\n請直接整理搜尋結果。並為每個地點附上導航連結，格式為：http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=店家名稱\n`;
+                } else if (isLocationIntent && appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
+                    // 備用方案：只有大略城市名稱時
+                    text = `請搜尋位於「${appState.weather.loc}」的「${userQueryTarget}」。`;
+                }
                     systemPromptAddon += `\n(系統資訊：基準座標為 緯度 ${appState.lastLat}, 經度 ${appState.lastLon}，大約位於 ${appState.weather ? appState.weather.loc : '未知'}，行政區為 ${appState.weather ? appState.weather.fullLoc : ''}。)\n`;
                     systemPromptAddon += `【🚨 最高強制指令】：這是一項客觀的座標周邊查詢任務，絕對禁止回答「無法存取即時地理位置」。\n1. 若搜尋未提到地址，請誠實告知，禁止憑空亂編地標。\n2. 當詢問地點距離時，請嚴格以起點計算直線距離，並乘上 1.35 倍作為「預估道路距離」。請列出「預估步行(5km/h)」與「開車(30km/h)」時間。\n3. 必須為每個地點附上導航連結供點擊： http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱\n`;
                 } else if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
