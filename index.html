@@ -4919,9 +4919,7 @@ let injectedContext = "";
                 // --- 判斷是否為地點搜尋或導航意圖 ---
                 const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離');
                 
-                // 擷取使用者的真實目標 (例如把「告訴我附近的加油站」變成「加油站」)
                 let userQueryTarget = text.replace(/我附近|附近有什麼|附近|最近的|我的位置|幫我找|告訴我/g, '').trim() || '地標與商家';
-
                 if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
                     // 🌟 方案 A：有設定 Google Maps Key，直接在背景呼叫官方 API
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
@@ -4960,13 +4958,6 @@ let injectedContext = "";
                 } else if (isLocationIntent && appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     // 備用方案：只有大略城市名稱時
                     text = `請搜尋位於「${appState.weather.loc}」的「${userQueryTarget}」。`;
-                }
-                    systemPromptAddon += `\n(系統資訊：基準座標為 緯度 ${appState.lastLat}, 經度 ${appState.lastLon}，大約位於 ${appState.weather ? appState.weather.loc : '未知'}，行政區為 ${appState.weather ? appState.weather.fullLoc : ''}。)\n`;
-                    systemPromptAddon += `【🚨 最高強制指令】：這是一項客觀的座標周邊查詢任務，絕對禁止回答「無法存取即時地理位置」。\n1. 若搜尋未提到地址，請誠實告知，禁止憑空亂編地標。\n2. 當詢問地點距離時，請嚴格以起點計算直線距離，並乘上 1.35 倍作為「預估道路距離」。請列出「預估步行(5km/h)」與「開車(30km/h)」時間。\n3. 必須為每個地點附上導航連結供點擊： http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱\n`;
-                } else if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
-                    // 備用方案：如果 GPS 沒抓到，至少給出大略位置
-                    if (isLocationIntent) text = `請搜尋地標「${appState.weather.loc}」周邊的：` + text.replace(/我附近|附近|最近的|我的位置/g, '');
-                    systemPromptAddon += `\n(系統資訊：大略基準位置為 ${appState.weather.loc}。你正在執行地圖資料查詢任務，禁止拒絕回答。)\n`;
                 }
 
                 if (filesDataToPass && filesDataToPass.length > 0) {
