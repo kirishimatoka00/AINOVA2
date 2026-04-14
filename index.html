@@ -4937,23 +4937,22 @@ let injectedContext = "";
                                     const dist = (routeData.routes[0].distanceMeters / 1000).toFixed(1);
                                     const dur = Math.ceil(parseInt(routeData.routes[0].duration.replace('s','')) / 60);
                                     mapContext += `開車距離: ${dist}公里, 預估時間: ${dur}分鐘\n`;
-                                    mapContext += `導航連結: https://www.google.com/maps/dir/?api=1&origin=$${appState.lastLat},${appState.lastLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
+                                    mapContext += `導航連結: http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
                                 }
                             }
                             injectedContext += `\n\n${mapContext}`;
                             systemPromptAddon += `\n(系統隱藏資訊：使用者的絕對 GPS 座標為 緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。)\n`;
-                            systemPromptAddon += `【距離計算與導航嚴格指令】：\n請直接使用上述 [Google Maps API 真實數據回報] 中的精確資訊（包含地址、距離、時間、與專屬導航連結）來回答使用者。請條列式清楚呈現，不需自行計算直線距離或預估時間，直接顯示 API 提供的數值即可。\n`;
+                            systemPromptAddon += `【🚨 最高強制指令】：你已獲得系統授權並取得使用者的精確定位與上述 [Google Maps API 真實數據]。絕對禁止回答「無法存取即時地理位置」等拒絕話語。請直接使用上述數據，條列式清楚回答使用者，並務必附上計算出的專屬導航連結。\n`;
                         }
                     } catch(e) { console.warn("Maps API Error", e); }
                 } else if (appState.lastLat && appState.lastLon) {
                     // 🌟 方案 B (原本的邏輯)：沒有輸入 Maps Key，或者詢問的不是導航，使用您的精確推算邏輯
                     if (isLocationIntent) enableSearchTool = true; // 若詢問導航但無 API Key，強制開啟網頁搜尋
                     systemPromptAddon += `\n(系統隱藏資訊：使用者的絕對 GPS 座標為 緯度 ${appState.lastLat}, 經度 ${appState.lastLon}，大約位於 ${appState.weather ? appState.weather.loc : '未知'}，詳細行政區為 ${appState.weather ? appState.weather.fullLoc : ''}，當地氣溫 ${appState.weather ? appState.weather.temp : '--'}°C。)\n`;
-                    // ✅ 增加禁止捏造指令，並修正 Google Maps 標準導航 URL 格式 (補上 $ 符號)
-                    systemPromptAddon += `【距離計算與導航嚴格指令】：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. **絕對禁止憑空捏造地標名稱與地址**。你必須「僅依賴」搜尋工具回傳的真實結果。若搜尋未提到地址，請誠實告知，禁止亂編。\n3. 當詢問地點距離時，請嚴格使用上述「GPS經緯度」起點計算兩地直線距離，並乘上 1.35 倍作為「預估道路距離」。請同時列出「預估步行時間(約5km/h)」與「預估開車時間(約30km/h)」，絕對不要反問交通方式。\n4. 最後，必須附上此精確導航連結供使用者點擊： https://www.google.com/maps/dir/?api=1&origin=$${appState.lastLat},${appState.lastLon}&destination=目標地點名稱\n`;
+                    systemPromptAddon += `【🚨 最高強制指令】：你已獲得系統授權並取得使用者的精確定位，絕對禁止回答「無法存取即時地理位置」。\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. **絕對禁止憑空捏造地標名稱與地址**。你必須「僅依賴」搜尋工具回傳的真實結果。若搜尋未提到地址，請誠實告知，禁止亂編。\n3. 當詢問地點距離時，請嚴格使用上述「GPS經緯度」起點計算兩地直線距離，並乘上 1.35 倍作為「預估道路距離」。請同時列出「預估步行時間(約5km/h)」與「預估開車時間(約30km/h)」，絕對不要反問交通方式。\n4. 最後，必須附上此精確導航連結供使用者點擊： http://googleusercontent.com/maps.google.com/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱\n`;
                 } else if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
                     // 備用方案：如果 GPS 沒抓到，至少給出大略位置
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前大略位置為 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C。)\n`;
+                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前大略位置為 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C。你已被授權存取大略位置，禁止拒絕回答。)\n`;
                 }
 
                 if (filesDataToPass && filesDataToPass.length > 0) {
