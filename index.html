@@ -4964,6 +4964,9 @@ let injectedContext = "";
                     }
                 }
 
+                // 🌟 確保在呼叫 API 前，宣告 promptToSent (通常就是我們處理好的 text 變數)
+                let promptToSent = text; 
+
                 // 執行 API 呼叫
                 try {
                     finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
