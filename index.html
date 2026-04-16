@@ -261,6 +261,7 @@
                         <div class="space-y-3 pt-2 pb-4 border-b border-slate-800">
                             <div><label class="block text-xs text-blue-400 mb-1">Gemini API Key</label><input type="password" id="key-gemini" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-blue-500 outline-none"></div>
                             <div><label class="block text-xs text-green-400 mb-1">SerpApi Key</label><input type="password" id="key-serpapi" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-green-500 outline-none" placeholder="Your SerpApi Key"></div>
+                            <div><label class="block text-xs text-sky-400 mb-1">Google Maps API Key</label><input type="password" id="key-gmaps" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-sky-500 outline-none" placeholder="Places/Routes API Key"></div>
                             <div><label class="block text-xs text-rose-400 mb-1">Groq API Key</label><input type="password" id="key-groq" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-rose-500 outline-none"></div>
                             <div><label class="block text-xs text-violet-400 mb-1">Cohere API Key</label><input type="password" id="key-cohere" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-violet-500 outline-none"></div>
                             <div><label class="block text-xs text-emerald-400 mb-1">OpenAI API Key</label><input type="password" id="key-openai" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-emerald-500 outline-none"></div>
@@ -1198,7 +1199,7 @@
             chatTitles: JSON.parse(localStorage.getItem('nova_chat_titles') || '{}'),
             theme: localStorage.getItem('nova_theme') || 'dark',
             weather: { temp: '--', condition: 'cloudy', humidity: '--', wind: '--', loc: '未定位' },
-            keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'', aws_ak: localStorage.getItem('nova_key_aws_ak')||'', aws_sk: localStorage.getItem('nova_key_aws_sk')||'', aws_region: localStorage.getItem('nova_key_aws_region')||'ap-northeast-1' },
+            keys: { gemini: localStorage.getItem('nova_key_gemini')||'', groq: localStorage.getItem('nova_key_groq')||'', cohere: localStorage.getItem('nova_key_cohere')||'', openai: localStorage.getItem('nova_key_openai')||'', grok: localStorage.getItem('nova_key_grok')||'', serpapi: localStorage.getItem('nova_key_serpapi')||'', aws_ak: localStorage.getItem('nova_key_aws_ak')||'', aws_sk: localStorage.getItem('nova_key_aws_sk')||'', aws_region: localStorage.getItem('nova_key_aws_region')||'ap-northeast-1', gmaps: localStorage.getItem('nova_key_gmaps')||'' },
             isThinking: false, isListening: false, isNoteListening: false, noteVoiceActive: false, isSearchEnabled: false, isContinuous: false, manualLocIndex: 0,
             isLiveMode: false, 
             translateMode: 'off', 
@@ -1603,8 +1604,10 @@ container.parentNode.insertBefore(header, container);
         };
         
         window.saveKeys = function() {
-            const s = (id, key) => { const v = document.getElementById(id).value.trim(); appState.keys[key] = v; localStorage.setItem('nova_key_'+key, v); };
-            s('key-gemini', 'gemini'); s('key-groq', 'groq'); s('key-cohere', 'cohere'); s('key-openai', 'openai'); s('key-grok', 'grok'); s('key-serpapi', 'serpapi'); s('key-aws-ak', 'aws_ak'); s('key-aws-sk', 'aws_sk'); s('key-aws-region', 'aws_region');
+            const s = (id, key) => { const v = document.getElementById(id).value.trim();
+appState.keys[key] = v; localStorage.setItem('nova_key_'+key, v); };
+            s('key-gemini', 'gemini'); s('key-groq', 'groq'); s('key-cohere', 'cohere'); s('key-openai', 'openai'); s('key-grok', 'grok'); s('key-serpapi', 'serpapi'); s('key-aws-ak', 'aws_ak');
+s('key-aws-sk', 'aws_sk'); s('key-aws-region', 'aws_region'); s('key-gmaps', 'gmaps');
             appState.docMonitorUrl = document.getElementById('key-doc-url').value.trim(); localStorage.setItem('nova_doc_url', appState.docMonitorUrl);
             appState.driveUrl = document.getElementById('key-drive-url').value.trim(); localStorage.setItem('nova_drive_url', appState.driveUrl);
             
@@ -4151,7 +4154,7 @@ try {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
                 appState.chatFile = { category: 'media', data: r.audioData, mime: r.mimeType || 'audio/webm', name: r.filename || 'audio.weba' };
-                showFilePreview(appState.chatFile.name, false, null); switchTab('dashboard');
+                renderChatFilePreview(); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
                 if(!confirm(`即將對「${r.title}」進行深度分析。\n\n請在接下來的視窗中，手動選取您的原始音檔 (.webm, .weba 等)。`)) {
@@ -4174,7 +4177,7 @@ try {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
                 appState.chatFile = { category: 'media', data: n.audioData, mime: n.mimeType || 'audio/webm', name: n.filename || 'audio.weba' };
-                showFilePreview(appState.chatFile.name, false, null); switchTab('dashboard');
+                renderChatFilePreview(); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
                 if(!confirm(`即將對「${n.title}」進行深度分析。\n\n請在接下來的視窗中，選取該語音筆記的原始音檔。`)) {
@@ -4908,20 +4911,210 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
             if (text.includes("簡報") || text.includes("PPT") || text.includes("ppt") || text.includes("Ppt")) {
                 systemPromptAddon += `\n【💡 特殊技能觸發】：使用者希望製作 PPT 簡報。請你蒐集並整理完資訊後，嚴格在對話最後面使用以下 JSON 格式輸出(並用 \`\`\`json 和 \`\`\` 包著)，系統會自動攔截並轉換為真正的 .pptx 檔案給使用者下載：\n\`\`\`json\n{\n  "title": "簡報主標題",\n  "subtitle": "簡報副標題 (選填)",\n  "slides": [\n    { "title": "第一頁標題", "content": ["重點項目1", "重點項目2"] },\n    { "title": "第二頁標題", "content": ["段落或重點..."] }\n  ]\n}\n\`\`\`\n絕對要保證 JSON 格式正確！\n`;
             }
-
-let injectedContext = "";
-                let modelToUse = appState.currentModel;
-                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離/.test(text);
                 
+                // --- 1. 變數初始化 (確保整個函式只宣告這一次，絕不重複) ---
+                let injectedContext = ""; 
+                let promptToSent = text;
+                let modelToUse = appState.currentModel;
+                
+                // 🌟 寫入 GPS 座標記憶
                 if (appState.lastLat && appState.lastLon) {
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者的絕對 GPS 座標為 緯度 ${appState.lastLat}, 經度 ${appState.lastLon}，大約位於 ${appState.weather ? appState.weather.loc : '未知'}，詳細行政區為 ${appState.weather ? appState.weather.fullLoc : ''}，當地氣溫 ${appState.weather ? appState.weather.temp : '--'}°C。)\n`;
-                    // ✅ 增加禁止捏造指令，並修正 Google Maps 標準導航 URL 格式
-                    systemPromptAddon += `【距離計算與導航嚴格指令】：\n1. 當使用者詢問自己的所在地時，請給出包含「緯度、縣市及區」的詳細資訊。\n2. **絕對禁止憑空捏造地標名稱與地址**。你必須「僅依賴」搜尋工具回傳的真實結果。若搜尋未提到地址，請誠實告知，禁止亂編。\n3. 當詢問地點距離時，請嚴格使用上述「GPS經緯度」起點計算兩地直線距離，並乘上 1.35 倍作為「預估道路距離」。請同時列出「預估步行時間(約5km/h)」與「預估開車時間(約30km/h)」，絕對不要反問交通方式。\n4. 最後，必須附上此精確導航連結供使用者點擊： https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=目標地點名稱\n`;
-                } else if (appState.weather && appState.weather.loc && appState.weather.loc !== '未定位' && appState.weather.loc !== '定位中...') {
-                    // 備用方案：如果 GPS 沒抓到，至少給出大略位置
-                    systemPromptAddon += `\n(系統隱藏資訊：使用者目前大略位置為 ${appState.weather.loc}，當地氣溫 ${appState.weather.temp}°C。)\n`;
+                    injectedContext += `\n【系統真實數據】使用者目前的 GPS 座標為：緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。若使用者問及「我在哪」、「我的位置」或「座標」，請務必直接提供此精確數據給使用者。\n`;
                 }
 
+                // 🌟 擴充關鍵字：把「位置」、「座標」、「定位」加進去
+                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位/.test(text);
+                
+                // --- 2. 判斷是否為地點搜尋或導航意圖 ---
+                const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離') || text.includes('位置') || text.includes('座標') || text.includes('定位');
+                
+                // 🌟 攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
+                let originalUserMessage = "";
+                let lastMsgIndex = -1;
+                if (isLocationIntent && appState.currentChat && appState.currentChat.messages.length > 0) {
+                    lastMsgIndex = appState.currentChat.messages.length - 1;
+                    originalUserMessage = appState.currentChat.messages[lastMsgIndex].content;
+                }
+
+                // --- 3. 👇 全新升級的 Google Maps 處理邏輯 👇 ---
+                if (isLocationIntent && (!appState.lastLat || !appState.lastLon)) {
+                    addMessage(`⚠️ 無法取得 GPS 定位，正嘗試依據您輸入的地址進行搜尋...`, 'system');
+                    enableSearchTool = true; 
+                    const finalPromptNoGPS = `請使用連網搜尋工具，尋找使用者原始提問：「${text}」周圍的地點資訊。若對話中有給定地址或城市（例如桃園市），請以此為中心搜尋。不要回答預設的台北地點。`;
+                    
+                    if (lastMsgIndex !== -1) {
+                        appState.currentChat.messages[lastMsgIndex].content = finalPromptNoGPS;
+                    }
+                    text = finalPromptNoGPS; // 🌟 覆寫
+                } 
+                else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
+                    addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
+                    try { 
+                        const userQueryTarget = text.replace(/離我最近的|離我最近|離我|附近有什麼|我附近|附近|最近的|最近|在哪裡|在哪|地點|地址|導航|怎麼走|距離|我的位置|幫我找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
+                        
+                        const userLat = parseFloat(appState.lastLat);
+                        const userLon = parseFloat(appState.lastLon);
+                        
+                        // 1. 逆地址解析 (Geocoding)
+                        let realAddress = appState.weather?.fullLoc || appState.weather?.loc || "精確位址解析中...";
+                        try {
+                            const geoRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${userLat},${userLon}&language=zh-TW&key=${appState.keys.gmaps}`);
+                            const geoRawText = await geoRes.text();
+                            if (geoRes.ok && geoRawText.trim().startsWith('{')) {
+                                const geoData = JSON.parse(geoRawText);
+                                if (geoData.results && geoData.results.length > 0) {
+                                    realAddress = geoData.results[0].formatted_address;
+                                }
+                            }
+                        } catch (err) { console.warn("Geocoding failed", err.message); }
+
+                        // 2. 取得周邊地點 (Places API)
+                        const latDelta = 5.0 / 111.32;
+                        const lonDelta = 5.0 / (111.32 * Math.cos(userLat * Math.PI / 180));
+
+                        const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { 
+                            method: 'POST', 
+                            headers: { 
+                                'Content-Type': 'application/json', 
+                                'X-Goog-Api-Key': appState.keys.gmaps, 
+                                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating' 
+                            }, 
+                            body: JSON.stringify({ 
+                                textQuery: userQueryTarget, 
+                                locationRestriction: { 
+                                    rectangle: { 
+                                        low: { latitude: userLat - latDelta, longitude: userLon - lonDelta }, 
+                                        high: { latitude: userLat + latDelta, longitude: userLon + lonDelta } 
+                                    } 
+                                } 
+                            }) 
+                        });
+                        
+                        const placeRawText = await placeRes.text();
+                        let placeData = {};
+                        if (placeRes.ok && placeRawText.trim().startsWith('{')) {
+                            placeData = JSON.parse(placeRawText);
+                        } else {
+                            throw new Error(`Google API 拒絕存取。詳細訊息: ${placeRawText}`);
+                        }
+                        
+                        let mapContext = "【Google Maps API 真實數據】\n";
+                        mapContext += `📍 目前您的精確座標：緯度 ${userLat.toFixed(6)}, 經度 ${userLon.toFixed(6)}\n`;
+                        mapContext += `🏠 目前所在真實地址：${realAddress}\n\n`;
+                        
+                        if (placeData.places && placeData.places.length > 0) { 
+                            const topPlaces = placeData.places.slice(0, 3);
+                            for (let i = 0; i < topPlaces.length; i++) { 
+                                const p = topPlaces[i]; 
+                                mapContext += `🚩 ${i+1}. ${p.displayName?.text || '未知名稱'} (評分: ${p.rating||'無'})\n地址: ${p.formattedAddress || '無'}\n`; 
+                                
+                                if (p.location && p.location.latitude && p.location.longitude) {
+                                    const travelModes = [
+                                        { mode: 'WALK', name: '🚶 步行' },
+                                        { mode: 'DRIVE', name: '🚗 開車' },
+                                        { mode: 'TWO_WHEELER', name: '🛵 騎機車' }
+                                    ];
+                                    
+                                    for (const tm of travelModes) {
+                                        try {
+                                            const routeRes = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', { 
+                                                method: 'POST', 
+                                                headers: { 
+                                                    'Content-Type': 'application/json', 
+                                                    'X-Goog-Api-Key': appState.keys.gmaps, 
+                                                    'X-Goog-FieldMask': 'routes.distanceMeters,routes.duration' 
+                                                }, 
+                                                body: JSON.stringify({ 
+                                                    origin: { location: { latLng: { latitude: userLat, longitude: userLon } } }, 
+                                                    destination: { location: { latLng: { latitude: parseFloat(p.location.latitude), longitude: parseFloat(p.location.longitude) } } }, 
+                                                    travelMode: tm.mode 
+                                                }) 
+                                            });
+                                            
+                                            const routeRawText = await routeRes.text();
+                                            if (routeRes.ok && routeRawText.trim().startsWith('{')) {
+                                                const routeData = JSON.parse(routeRawText);
+                                                if (routeData.routes && routeData.routes.length > 0) { 
+                                                    const dist = (routeData.routes[0].distanceMeters / 1000).toFixed(1);
+                                                    const dur = Math.ceil(parseInt(routeData.routes[0].duration.replace('s','')) / 60); 
+                                                    mapContext += `   └ ${tm.name}: 約 ${dist} 公里 (約 ${dur} 分鐘)\n`;
+                                                }
+                                            }
+                                        } catch (re) {}
+                                    }
+                                    mapContext += `🔗 導航: https://www.google.com/maps/dir/?api=1&origin=${userLat},${userLon}&destination=${p.location.latitude},${p.location.longitude}\n\n`;
+                                }
+                            } 
+                            
+                            const finalPromptGmaps = `請根據以下數據進行排版回覆，必須包含座標與真實地址：\n\n${mapContext}`;
+                            if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptGmaps; }
+                            text = finalPromptGmaps; // 🌟 覆寫
+                            
+                            systemPromptAddon += `\n【系統強制指令】：你現在是純粹的資料排版助理，只能使用上述提供的真實數據，絕對禁止使用內部知識或網路搜尋補充。\n`; 
+                            enableSearchTool = false;
+                        } else {
+                            addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
+                            const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
+                            
+                            if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty; } 
+                            text = finalPromptEmpty; // 🌟 覆寫
+                            
+                            systemPromptAddon += `\n【系統最高指令】：停止捏造！搜尋結果為空，請乖乖回報找不到。\n`;
+                            enableSearchTool = false;
+                        }
+                    } catch (e) { 
+                        console.error("Maps API 發生嚴重錯誤:", e.message);
+                        addMessage(`⚠️ 地圖資料抓取失敗 (${e.message})`, 'system');
+                    }
+                } else if (isLocationIntent && appState.keys.serpapi && appState.lastLat && appState.lastLon) {
+                    // --- 備援 SerpApi 邏輯 ---
+                    addMessage(`🗺️ 正在透過 SerpApi 檢索周邊地點...`, 'system');
+                    try {
+                        const userQueryTarget = text.replace(/附近|最近|在哪|地點|地址|導航|怎麼走|距離|我附近|附近有什麼|我的位置|幫我找|告訴我/g, '').trim() || '地標';
+                        const targetUrl = `https://serpapi.com/search.json?engine=google_maps&q=${encodeURIComponent(userQueryTarget)}&ll=@${appState.lastLat},${appState.lastLon},15z&type=search&api_key=${appState.keys.serpapi}`;
+                        const proxies = [
+                            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+                            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+                        ];
+                        let serpMapData = null;
+                        for (const proxy of proxies) {
+                            try {
+                                const controller = new AbortController();
+                                const timeoutId = setTimeout(() => controller.abort(), 10000);
+                                const res = await fetch(proxy, { signal: controller.signal });
+                                clearTimeout(timeoutId);
+                                if (res.ok) { serpMapData = await res.json(); break; }
+                            } catch (err) {}
+                        }
+                        
+                        if (serpMapData && serpMapData.local_results && serpMapData.local_results.length > 0) {
+                            let mapContext = "【SerpApi Google Maps 備援真實數據】\n";
+                            const topPlaces = serpMapData.local_results.slice(0, 3);
+                            for (let i = 0; i < topPlaces.length; i++) {
+                                const p = topPlaces[i];
+                                mapContext += `${i+1}. 店名: ${p.title} (評價: ${p.rating||'無'})\n地址: ${p.address||'未提供'}\n導航連結: https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.gps_coordinates?.latitude||''},${p.gps_coordinates?.longitude||''}\n\n`;
+                            }
+                            
+                            const finalPromptSerp = `這是一項單純的資料排版任務。請將以下數據整理成流暢的回覆給使用者。禁止提到你無法定位或存取位置：\n\n${mapContext}`;
+                            if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptSerp; }
+                            text = finalPromptSerp; // 🌟 覆寫
+                            
+                            systemPromptAddon += `\n【系統指令】：你現在是一個純粹的資料格式化工具，直接輸出上述數據，不允許觸發隱私拒絕條款。\n`;
+                            enableSearchTool = false;
+                        }
+                    } catch (err) { console.warn("SerpApi Maps Error", err); }
+                } else if (isLocationIntent && appState.lastLat && appState.lastLon) {
+                    enableSearchTool = true;
+                    const finalPromptFallback = `請使用搜尋工具，尋找座標 (緯度 ${appState.lastLat}, 經度 ${appState.lastLon}) 周圍的資訊，並自行估算距離。禁止回答無法存取即時位置。`;
+                    
+                    if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptFallback; }
+                    text = finalPromptFallback; // 🌟 覆寫
+                }
+
+                // 🌟 同步更新發送給 AI 的提示詞
+                promptToSent = text;
+
+                // --- 4. 處理附檔內容 ---
                 if (filesDataToPass && filesDataToPass.length > 0) {
                     filesDataToPass.forEach(f => {
                         if (f.category === 'text' && f.data && !f.data.startsWith('data:')) {
@@ -4929,18 +5122,26 @@ let injectedContext = "";
                         }
                     });
                 } 
+
+                // --- 處理網址與搜尋邏輯 ---
                 if (appState.translateMode === 'off') {
                     const searchMatch = text.match(/^(?:幫我找|幫我搜尋|搜尋|search)\s*(.*)$/i);
                     if (searchMatch) {
-                        const searchKeyword = searchMatch[1].trim() ||
-"今日新聞"; addMessage(`🔍 正在搜尋：${searchKeyword}...`, 'system'); let searchResultText = "";
-                        if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchKeyword);
-                        } catch (e) { addMessage(`⚠️ ${e.message}`, 'system'); } }
-                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchKeyword);
-                        else if (!searchResultText && appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(請使用 Search 工具)`;
+                        const searchKeyword = searchMatch[1].trim() || "今日新聞"; 
+                        addMessage(`🔍 正在搜尋：${searchKeyword}...`, 'system'); 
+                        let searchResultText = "";
+                        if (appState.keys.serpapi) { 
+                            try { searchResultText = await searchViaSerpApi(searchKeyword); } catch (e) { addMessage(`⚠️ ${e.message}`, 'system'); } 
                         }
-                        if (searchResultText) { text = `請根據以下搜尋結果摘要回答：\n\n${searchResultText}`;
-injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
+                        if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchKeyword);
+                        else if (!searchResultText && appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(請使用 Search 工具)`; }
+                        
+                        if (searchResultText) { 
+                            text = `請根據以下搜尋結果摘要回答：\n\n${searchResultText}`;
+                            injectedContext = ""; 
+                            systemPromptAddon = ""; 
+                            enableSearchTool = false; 
+                        }
                     } else {
                         const urlMatch = text.match(/https?:\/\/[^\s]+/);
                         if (urlMatch) {
@@ -4953,64 +5154,69 @@ injectedContext = ""; systemPromptAddon = ""; enableSearchTool = false; }
                                     const noembedData = await noembedRes.json();
                                     if (noembedData && noembedData.title) ytContent = `影片標題: ${noembedData.title}\n頻道作者: ${noembedData.author_name || '未知'}`;
                                 } catch(e) { console.warn("Noembed 解析失敗", e); }
-                                if (!ytContent) ytContent = await fetchUrlViaGas(url); // 備援機制
+                                if (!ytContent) ytContent = await fetchUrlViaGas(url);
                                 if (ytContent) injectedContext = `\n\n[YouTube 影片資訊擷取]:\n${ytContent}\n\n`;
                                 if (appState.keys.gemini && modelToUse === 'gemini') enableSearchTool = true;
                                 systemPromptAddon += `\n【重要防幻覺指令：這是一個 YouTube 影片連結。請優先閱讀上方[YouTube 影片資訊擷取]內的「標題」與「描述」。若需更多內容，請使用 Search 工具「搜尋該影片標題」來獲取資訊後再進行摘要。絕對禁止在缺乏資訊時憑空捏造無關的內容！】`;
+                            } else if (!url.includes('twitter')) { 
+                                addMessage(`🔍 抓取網頁中...`, 'system'); 
+                                const content = await fetchUrlViaGas(url); 
+                                if (content) injectedContext = `\n\n[網頁內容]:\n${content}\n\n`;
+                                else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(網頁抓取失敗，請使用 Search 工具搜尋此連結)`; }
+                            } else if (appState.keys.gemini && modelToUse === 'gemini') { 
+                                enableSearchTool = true;
+                                systemPromptAddon += `(請搜尋此連結)`; 
                             }
-                            else if (!url.includes('twitter')) { addMessage(`🔍 抓取網頁中...`, 'system'); const content = await fetchUrlViaGas(url); if (content) injectedContext = `\n\n[網頁內容]:\n${content}\n\n`;
-                            else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true; systemPromptAddon += `(網頁抓取失敗，請使用 Search 工具搜尋此連結)`; }
-                            } 
-                            else if (appState.keys.gemini && modelToUse === 'gemini') { enableSearchTool = true;
-        systemPromptAddon += `(請搜尋此連結)`; }
                         }
                     }
 
                     if (enableSearchTool && modelToUse !== 'gemini' && !searchMatch) {
                         addMessage(`🌐 (代理連網) 正在透過網路搜尋相關資訊...`, 'system'); let searchResultText = "";
-                        // ✅ 若偵測到「附近」意圖，將精確地名和 GPS 座標一起帶入搜尋 query
                         const isNearbyQuery = text.includes('附近') || text.includes('最近的') || text.includes('周邊');
-                        const locationPrefix = (isNearbyQuery && appState.weather.loc && appState.weather.loc !== '未定位')
-                            ? `${appState.weather.loc} ` : '';
+                        const locationPrefix = (isNearbyQuery && appState.weather.loc && appState.weather.loc !== '未定位') ? `${appState.weather.loc} ` : '';
                         const searchQuery = locationPrefix + text.replace(/附近|最近的|周邊/g, '');
                         const searchLat = isNearbyQuery ? appState.lastLat : null;
                         const searchLon = isNearbyQuery ? appState.lastLon : null;
                         if (appState.keys.serpapi) { try { searchResultText = await searchViaSerpApi(searchQuery, searchLat, searchLon); } catch (e) {} }
                         if (!searchResultText && appState.docMonitorUrl) searchResultText = await searchViaGas(searchQuery);
                         if (searchResultText) { injectedContext += `\n\n[系統自動連網搜尋結果，請參考此最新資訊來回答使用者的問題]:\n${searchResultText}\n\n`; }
-                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system');
-                        }
+                        else { addMessage(`⚠️ 代理搜尋失敗，將以原始知識庫回答。`, 'system'); }
                     }
                 }
 
-let promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
+                // 🌟 正確的單一提示詞組合
+                promptToSent = `${text}\n${systemPromptAddon}\n${injectedContext}`;
                 if (appState.translateMode !== 'off') {
                     const langB = document.getElementById('trans-lang-b').options[document.getElementById('trans-lang-b').selectedIndex].text;
                     promptToSent = `請進行文字翻譯。\n要翻譯的內容：${text}\n要求：\n1. 若為${langB}則翻為中文，否則翻為${langB}。\n2. 嚴格以 JSON 格式輸出：\n\`\`\`json\n{\n  "original": "原文內容",\n  "translated": "翻譯後的結果"\n}\n\`\`\``;
                 }
 
+                // 🌟 唯一且正確的 API 呼叫區塊
                 let finalRes;
-        try {
-            let origGeminiModel = appState.geminiModel;
-            if (appState.translateMode !== 'off') appState.geminiModel = 'gemini-3.1-flash-live-preview';
-            
-            finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
-            
-            if (appState.translateMode !== 'off') appState.geminiModel = origGeminiModel;
-} catch (apiError) {
-            // 自動跳轉至 GROK 備援機制
-            if (modelToUse === 'gemini' && appState.keys.grok) {
-                addMessage(`⚠️ Gemini 處理發生錯誤 (${apiError.message})，系統自動為您跳轉至 Grok 進行備援分析...`, 'system');
-                modelToUse = 'grok';
-                window.setModel('grok'); // 同步更新 UI 下拉選單與系統狀態
-                finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
-            } else {
-                throw apiError;
-                // 若非 Gemini 或未填寫 Grok 金鑰，則把錯誤往外拋，由系統正常攔截
-            }
-        }
+                try {
+                    let origGeminiModel = appState.geminiModel;
+                    if (appState.translateMode !== 'off') appState.geminiModel = 'gemini-3.1-flash-live-preview';
+                    
+                    finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
+                    
+                    if (appState.translateMode !== 'off') appState.geminiModel = origGeminiModel;
+                } catch (apiError) {
+                    if (modelToUse === 'gemini' && appState.keys.grok) {
+                        addMessage(`⚠️ Gemini 處理發生錯誤 (${apiError.message})，系統自動為您跳轉至 Grok 進行備援分析...`, 'system');
+                        modelToUse = 'grok';
+                        window.setModel('grok'); 
+                        finalRes = await fetchAIResponse(promptToSent, modelToUse, { enableSearch: enableSearchTool, disableSearch: !enableSearchTool && injectedContext !== "", files: filesDataToPass, isAnalysis: !!appState.pendingAnalyzeContextId });
+                    } else {
+                        throw apiError;
+                    }
+                } finally {
+                    // 🌟 神不知鬼不覺地還原歷史紀錄文字
+                    if (isLocationIntent && lastMsgIndex !== -1 && originalUserMessage !== "") {
+                        appState.currentChat.messages[lastMsgIndex].content = originalUserMessage;
+                    }
+                }
 
-let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
+                let finalOutputText = typeof finalRes === 'string' ? finalRes : (finalRes.text || "(無文字)");
         
         // --- 關鍵修復：徹底清除 Gemini 內部的來源標籤網址雜訊 ---
         finalOutputText = finalOutputText.replace(/https?:\/\/googleusercontent\.com\/immersive_entry_chip\/\d+/g, '');
@@ -5122,9 +5328,9 @@ if (appState.pendingAnalyzeContextId) {
                     } 
                     else if (selectedModelName === 'gemini-multi') {
                         isAutoRouted = true;
-                        selectedModelName = 'gemini-3.0-flash'; 
+                        selectedModelName = 'gemini-3-flash-preview'; 
                         if (finalPrompt.length > 500 || /(深入|詳細|分析|總結|論文|報告|程式碼|複雜|重點摘要|結構化)/.test(finalPrompt) || (options.file && options.file.category === 'media')) {
-                            selectedModelName = 'gemini-3.1-pro'; 
+                            selectedModelName = 'gemini-3.1-pro-preview'; 
                         }
                     }
 
@@ -5360,7 +5566,7 @@ if (appState.pendingAnalyzeContextId) {
             renderAll();
             
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
-            safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-aws-ak', appState.keys.aws_ak); safeSet('key-aws-sk', appState.keys.aws_sk); safeSet('key-aws-region', appState.keys.aws_region); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl);
+            safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-aws-ak', appState.keys.aws_ak); safeSet('key-aws-sk', appState.keys.aws_sk); safeSet('key-aws-region', appState.keys.aws_region); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl); safeSet('key-gmaps', appState.keys.gmaps);
             safeSet('key-voice-timeout', appState.voiceTimeout);
             safeSet('key-translate-b-timeout', appState.translateBTimeout);
             safeSet('key-vad-multiplier', appState.vadMultiplier);
