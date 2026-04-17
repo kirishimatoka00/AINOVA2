@@ -326,6 +326,16 @@
                                 </div>
                                 <div class="flex items-center justify-between">
                                     <div>
+                                        <label class="block text-xs text-purple-400 font-bold flex items-center gap-1"><i class="ph-fill ph-brain"></i> 長文記憶 (同對話記憶)</label>
+                                        <p class="text-[10px] text-slate-500 mt-1">開啟後，同一對話下 AI 會記住所有前文與人設，不會互相干擾。</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                        <input type="checkbox" id="key-long-memory" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-500"></div>
+                                    </label>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div>
                                         <label class="block text-xs text-emerald-400 font-bold flex items-center gap-1"><i class="ph-fill ph-eye-slash"></i> 隱藏 LIVE 自動截圖訊息</label>
                                         <p class="text-[10px] text-slate-500 mt-1">開啟後，聊天室不顯示自動傳送的相片畫面。</p>
                                     </div>
@@ -1261,6 +1271,8 @@ async function encodeMp3(audioBuffer) {
             hideLiveCapture: localStorage.getItem('nova_hide_live_capture') === 'true',
             autoTTS: localStorage.getItem('nova_auto_tts') !== 'false',
             isTTSPlaying: false,
+            enableLongMemory: localStorage.getItem('nova_long_memory') === 'true',
+            uiColor: localStorage.getItem('nova_ui_color') || 'blue',
             playingMsgId: null,
             enableContext: false,
             replyLength: localStorage.getItem('nova_reply_length') || 'medium',
@@ -1495,7 +1507,7 @@ return html;
                 const text = el.textContent || el.innerText || '';
                 
                 // 💡 針對每一個設定區塊進行「獨立」關鍵字判定
-                const isVoiceFeature = /AWS|Polly|語音|翻譯|TTS|語氣|長度|VAD|麥克風|朗讀|字幕/i.test(text);
+                const isVoiceFeature = /AWS|Polly|語音|翻譯|TTS|語氣|長度|長文記憶|VAD|麥克風|朗讀|字幕/i.test(text);
                 
                 if (isVoiceFeature) {
                     tabVoice.appendChild(el);
@@ -1503,17 +1515,22 @@ return html;
                     tabApi.appendChild(el);
                 }
             });
-
             tabUi.innerHTML = `
                 <div>
                     <label class="block text-sm font-medium text-slate-300 mb-2">介面主題配色 (自動套用於全設備)</label>
-                    <select id="key-theme-mode" class="w-full bg-slate-800 text-white border border-slate-700 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500">
+                    <select id="key-theme-mode" class="w-full bg-slate-800 text-white border border-slate-700 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500 mb-4">
                         <option value="dark">🌙 黑夜模式 (Dark Mode)</option>
                         <option value="light">☀️ 白晝模式 (Light Mode)</option>
                     </select>
+                    <label class="block text-sm font-medium text-slate-300 mb-2">主色調 (UI 顏色)</label>
+                    <select id="key-ui-color" class="w-full bg-slate-800 text-white border border-slate-700 rounded-lg p-3 text-sm focus:outline-none focus:border-blue-500">
+                        <option value="blue">🔵 科技藍 (預設)</option>
+                        <option value="emerald">🟢 翡翠綠</option>
+                        <option value="purple">🟣 魅影紫</option>
+                        <option value="rose">🔴 玫瑰紅</option>
+                    </select>
                 </div>
             `;
-
             container.innerHTML = '';
             container.appendChild(tabApi); container.appendChild(tabVoice); container.appendChild(tabUi);
 
@@ -1524,10 +1541,21 @@ return html;
                 <button onclick="switchSettingsTab('voice')" id="tab-btn-voice" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-400 hover:bg-slate-700 transition-colors">語音/行為</button>
                 <button onclick="switchSettingsTab('ui')" id="tab-btn-ui" class="flex-1 py-2 text-xs font-bold rounded-md text-slate-400 hover:bg-slate-700 transition-colors">外觀/主題</button>
             `;
-container.parentNode.insertBefore(header, container);
+            container.parentNode.insertBefore(header, container);
             container.setAttribute('data-tabbed', 'true');
             
             document.getElementById('key-theme-mode').value = appState.theme || 'dark';
+            document.getElementById('key-ui-color').value = appState.uiColor || 'blue';
+            const longMemoryEl = document.getElementById('key-long-memory');
+            if (longMemoryEl) longMemoryEl.checked = appState.enableLongMemory;
+            
+            window.applyUiColor = function(color) {
+                let style = document.getElementById('ui-color-fix');
+                if(!style) { style = document.createElement('style'); style.id = 'ui-color-fix'; document.head.appendChild(style); }
+                let colorHex = '#2563eb'; if (color === 'emerald') colorHex = '#059669'; if (color === 'purple') colorHex = '#9333ea'; if (color === 'rose') colorHex = '#e11d48';
+                style.innerHTML = `.bg-blue-600 { background-color: ${colorHex} !important; } .hover\\:bg-blue-500:hover { filter: brightness(1.2); } .text-blue-400 { color: ${colorHex} !important; filter: brightness(1.5); } .text-blue-500 { color: ${colorHex} !important; filter: brightness(1.3); } .border-blue-500 { border-color: ${colorHex} !important; } .focus\\:border-blue-500:focus { border-color: ${colorHex} !important; }`;
+            };
+            applyUiColor(appState.uiColor || 'blue');
 
             const tgTokenEl = document.getElementById('key-tg-token'); if (tgTokenEl) tgTokenEl.value = appState.tgToken || '';
             const tgChatIdEl = document.getElementById('key-tg-chatid'); if (tgChatIdEl) tgChatIdEl.value = appState.tgChatId || '';
@@ -1670,10 +1698,20 @@ s('key-aws-sk', 'aws_sk'); s('key-aws-region', 'aws_region'); s('key-gmaps', 'gm
             appState.autoTTS = document.getElementById('key-auto-tts').checked; localStorage.setItem('nova_auto_tts', appState.autoTTS);
 
             const themeModeEl = document.getElementById('key-theme-mode');
+            const longMemoryEl = document.getElementById('key-long-memory');
+            if (longMemoryEl) { appState.enableLongMemory = longMemoryEl.checked; localStorage.setItem('nova_long_memory', appState.enableLongMemory); }
+            
             if (themeModeEl) {
                 appState.theme = themeModeEl.value;
                 localStorage.setItem('nova_theme', appState.theme);
                 applyTheme(appState.theme);
+            }
+            
+            const uiColorEl = document.getElementById('key-ui-color');
+            if (uiColorEl) {
+                appState.uiColor = uiColorEl.value;
+                localStorage.setItem('nova_ui_color', appState.uiColor);
+                if(typeof applyUiColor === 'function') applyUiColor(appState.uiColor);
             }
 
             closeSettings(); showToast("✅ 設定已儲存"); updateModelUI();
@@ -5402,9 +5440,15 @@ if (appState.pendingAnalyzeContextId) {
                 // 如果是雙 AI 協作模式 (有帶入自訂歷史)
                 if (options.customHistory) {
                     chatHistory = options.customHistory;
-                } else if (appState.enableContext && appState.translateMode === 'off') {
-                    chatHistory = appState.messages.filter(m => m.sender === 'user' || m.sender === 'ai').slice(-4);
-                }
+                } else if (appState.enableLongMemory && appState.translateMode === 'off') {
+                // 長文記憶功能：獲取同一對話 (sessionId) 下的所有歷史紀錄，各自獨立不干擾
+                chatHistory = appState.messages.filter(m => (m.sender === 'user' || m.sender === 'ai') && String(m.sessionId || 'legacy') === String(appState.currentSessionId || 'legacy'));
+                // 賦予系統提示，使其能根據當下對話決定是否提起歷史，並保持人設
+                userText = `【系統記憶提示：在此對話中你具有長期記憶。請自然地依據我們過去的對話歷史與你被賦予的人設來回應。判斷當下我的問題是否跟前文有關：若無關，請直接針對新問題做出回答，切勿強行拉回舊話題，但必須繼續維持你的人設語氣。】\n\n` + userText;
+            } else if (appState.enableContext && appState.translateMode === 'off') {
+                // 原有的短記憶也修正為同一對話內才觸發，避免互相干擾
+                chatHistory = appState.messages.filter(m => (m.sender === 'user' || m.sender === 'ai') && String(m.sessionId || 'legacy') === String(appState.currentSessionId || 'legacy')).slice(-4);
+            }
 
                 let finalPrompt = userText;
                 if (!options.isAnalysis && !options.isCollab) {
