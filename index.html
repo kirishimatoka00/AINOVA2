@@ -5182,7 +5182,22 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                         else if (kmMatchNum) { searchRadiusMeters = parseFloat(kmMatchNum[1]) * 1000; }
                         else if (mMatchNum) { searchRadiusMeters = parseFloat(mMatchNum[1]); }
 
-                        const userQueryTarget = text.replace(/離我最近的?|離我|附近有什麼|我附近|附近(?:[一二兩三四五六七八九十\d\.]+(?:公里|公尺|米|m)內?)?|[一二兩三四五六七八九十\d\.]+(?:公里|公尺|米|m)(?:內|以內)?|最近的?|在哪裡?|地點|地址|導航|怎麼走|距離|我的位置|幫我找|查尋|尋找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
+                        // 解析使用者指定筆數（如「10間」「5家」「三筆」「20個」）
+                        let searchMaxCount = 5; // 預設 5 筆
+                        const countMatchNum = text.match(/(\d+)\s*(?:間|家|筆|個|處|結果|條)/);
+                        const countMatchCh = text.match(/([一二兩三四五六七八九十百]+)\s*(?:間|家|筆|個|處)/);
+                        if (countMatchNum) { searchMaxCount = Math.min(Math.max(parseInt(countMatchNum[1]), 1), 20); }
+                        else if (countMatchCh) {
+                            const raw = countMatchCh[1].replace(/[一二兩三四五六七八九十百]+/g, m => {
+                                if(m==='十') return '10'; if(m.length===1) return chNumMap[m]||m;
+                                if(m[0]==='十') return 10+(chNumMap[m[1]]||0);
+                                if(m[1]==='十') return (chNumMap[m[0]]||0)*10+(m[2]?chNumMap[m[2]]||0:0);
+                                return m;
+                            });
+                            searchMaxCount = Math.min(Math.max(parseInt(raw)||5, 1), 20);
+                        }
+
+                        const userQueryTarget = text.replace(/離我最近的?|離我|附近有什麼|我附近|附近(?:[一二兩三四五六七八九十\d\.]+(?:公里|公尺|米|m)內?)?|[一二兩三四五六七八九十\d\.]+(?:公里|公尺|米|m)(?:內|以內)?|\d+\s*(?:間|家|筆|個|處|結果|條)|[一二兩三四五六七八九十百]+\s*(?:間|家|筆|個|處)|最近的?|在哪裡?|地點|地址|導航|怎麼走|距離|我的位置|幫我找|查尋|尋找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
                         
                         const userLat = parseFloat(appState.lastLat);
                         const userLon = parseFloat(appState.lastLon);
@@ -5210,6 +5225,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             }, 
                             body: JSON.stringify({ 
                                 textQuery: userQueryTarget, 
+                                maxResultCount: searchMaxCount,
                                 locationBias: { 
                                     circle: { 
                                         center: { latitude: userLat, longitude: userLon }, 
