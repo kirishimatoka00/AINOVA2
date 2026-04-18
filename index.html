@@ -5129,10 +5129,10 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 }
 
                 // 🌟 擴充關鍵字：把「位置」、「座標」、「定位」加進去
-                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位|查尋|尋找|離我|幫我找/.test(text);
+                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位/.test(text);
                 
                 // --- 2. 判斷是否為地點搜尋或導航意圖 ---
-                const isLocationIntent = /附近|最近|導航|帶我|怎麼走|路線|距離|位置|座標|定位|離我|查尋|尋找/.test(text) || /幫我找.{0,10}(?:店|餐廳|咖啡|超商|醫院|學校|公園|銀行|加油|藥局|便利)/.test(text);
+                const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離') || text.includes('位置') || text.includes('座標') || text.includes('定位');
                 
                 // 🌟 攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
                 let originalUserMessage = "";
@@ -5156,17 +5156,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try { 
-                        const chNumMap = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
-                        let searchRadiusMeters = 5000; // 預設 5 公里
-                        const kmMatchCh = text.match(/([一二兩三四五六七八九十]+)公里/);
-                        const kmMatchNum = text.match(/(\d+(?:\.\d+)?)公里/);
-                        const mMatchNum = text.match(/(\d+(?:\.\d+)?)(?:公尺|米|m)/);
-                        if (text.includes('半公里')) { searchRadiusMeters = 500; }
-                        else if (kmMatchCh) { searchRadiusMeters = (chNumMap[kmMatchCh[1]] || 1) * 1000; }
-                        else if (kmMatchNum) { searchRadiusMeters = parseFloat(kmMatchNum[1]) * 1000; }
-                        else if (mMatchNum) { searchRadiusMeters = parseFloat(mMatchNum[1]); }
-
-                        const userQueryTarget = text.replace(/離我最近的?|離我|附近有什麼|我附近|附近(?:[一二兩三四五六七八九十\d\.]+(?:公里|公尺|米|m)內?)?|[一二兩三四五六七八九十\d\.]+(?:公里|公尺|米|m)(?:內|以內)?|最近的?|在哪裡?|地點|地址|導航|怎麼走|距離|我的位置|幫我找|查尋|尋找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
+                        const userQueryTarget = text.replace(/離我最近的|離我最近|離我|附近有什麼|我附近|附近|最近的|最近|在哪裡|在哪|地點|地址|導航|怎麼走|距離|我的位置|幫我找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
                         
                         const userLat = parseFloat(appState.lastLat);
                         const userLon = parseFloat(appState.lastLon);
@@ -5185,6 +5175,9 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                         } catch (err) { console.warn("Geocoding failed", err.message); }
 
                         // 2. 取得周邊地點 (Places API)
+                        const latDelta = 5.0 / 111.32;
+                        const lonDelta = 5.0 / (111.32 * Math.cos(userLat * Math.PI / 180));
+
                         const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { 
                             method: 'POST', 
                             headers: { 
@@ -5195,9 +5188,9 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             body: JSON.stringify({ 
                                 textQuery: userQueryTarget, 
                                 locationRestriction: { 
-                                    circle: { 
-                                        center: { latitude: userLat, longitude: userLon }, 
-                                        radius: searchRadiusMeters 
+                                    rectangle: { 
+                                        low: { latitude: userLat - latDelta, longitude: userLon - lonDelta }, 
+                                        high: { latitude: userLat + latDelta, longitude: userLon + lonDelta } 
                                     } 
                                 } 
                             }) 
@@ -5266,9 +5259,8 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             systemPromptAddon += `\n【系統強制指令】：你現在是純粹的資料排版助理，只能使用上述提供的真實數據，絕對禁止使用內部知識或網路搜尋補充。\n`; 
                             enableSearchTool = false;
                         } else {
-                            const radiusDisplay = searchRadiusMeters >= 1000 ? `${(searchRadiusMeters/1000).toFixed(1)} 公里` : `${searchRadiusMeters} 公尺`;
-                            addMessage(`⚠️ 附近 ${radiusDisplay} 內找不到相關地點。`, 'system');
-                            const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 ${radiusDisplay} 內找不到此地點。絕對禁止自行捏造任何假資料。`;
+                            addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
+                            const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
                             
                             if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty; } 
                             text = finalPromptEmpty; // 🌟 覆寫
