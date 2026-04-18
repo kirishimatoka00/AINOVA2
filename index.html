@@ -5335,7 +5335,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                         
                         if (serpMapData && serpMapData.local_results && serpMapData.local_results.length > 0) {
                             let mapContext = "【SerpApi Google Maps 備援真實數據】\n";
-                            const topPlaces = serpMapData.local_results.slice(0, 3);
+                            const topPlaces = serpMapData.local_results.slice(0, searchMaxCount);
                             for (let i = 0; i < topPlaces.length; i++) {
                                 const p = topPlaces[i];
                                 mapContext += `${i+1}. 店名: ${p.title} (評價: ${p.rating||'無'})\n地址: ${p.address||'未提供'}\n導航連結: https://www.google.com/maps/dir/?api=1&origin=${appState.lastLat},${appState.lastLon}&destination=${p.gps_coordinates?.latitude||''},${p.gps_coordinates?.longitude||''}\n\n`;
