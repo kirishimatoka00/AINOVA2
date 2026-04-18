@@ -2133,6 +2133,71 @@ handleSendMessage(); }
             const now = new Date();
             let target = new Date(now); let complete = false; let missing = null;
             let hasDate = false, hasTime = false, hasAmPm = false;
+
+            // 相對日期
+            if(text.includes('今天')) { hasDate = true; }
+            else if(text.includes('大後天')) { target.setDate(target.getDate() + 3); hasDate = true; }
+            else if(text.includes('後天')) { target.setDate(target.getDate() + 2); hasDate = true; }
+            else if(text.includes('明天')) { target.setDate(target.getDate() + 1); hasDate = true; }
+
+            // 絕對日期：支援 4/20、4月20日、4月20號
+            if (!hasDate) {
+                const slashMatch = text.match(/(\d{1,2})\/(\d{1,2})/);
+                const chDateMatch = text.match(/(\d{1,2})月(\d{1,2})[日號]?/);
+                const dateM = slashMatch || chDateMatch;
+                if (dateM) {
+                    const mo = parseInt(dateM[1]) - 1;
+                    const dy = parseInt(dateM[2]);
+                    target.setMonth(mo, dy);
+                    if (target.getTime() < now.getTime() - 86400000) target.setFullYear(target.getFullYear() + 1);
+                    hasDate = true;
+                }
+            }
+
+            // 上午/下午判斷
+            const isAfternoon = text.includes('下午') || text.includes('晚上');
+            const isMorning = text.includes('上午') || text.includes('早上') || text.includes('凌晨');
+            if (isAfternoon || isMorning) hasAmPm = true;
+
+            // 解析時間 (X點 / X點Y分)
+            const timeMatch = text.match(/(\d+)(?:點|時)(?:(\d+)分?)?/);
+            if(timeMatch) {
+                hasTime = true;
+                let h = parseInt(timeMatch[1]);
+                const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+                if(isAfternoon && h < 12) h += 12;
+                if(text.includes('凌晨') && h === 12) h = 0;
+                target.setHours(h, m, 0, 0);
+            }
+
+            // 純「X分後」格式（例如：10分後、30分鐘後）
+            if(!hasTime && !complete) {
+                const minAfterMatch = text.match(/(\d+)分(?:後|鐘後)/);
+                if (minAfterMatch) { target = new Date(now.getTime() + parseInt(minAfterMatch[1]) * 60000); complete = true; }
+            }
+
+            // 相對時間（X小時後）
+            if(!complete) {
+                if(text.includes('半小時後')) { target = new Date(now.getTime() + 30*60000); complete = true; }
+                else {
+                    const hrAfterMatch = text.match(/(\d+)小時後/);
+                    if(hrAfterMatch) { target = new Date(now.getTime() + parseInt(hrAfterMatch[1])*3600000); complete = true; }
+                }
+            }
+
+            // 完整性判斷
+            if(!complete) {
+                if(hasDate && hasTime && hasAmPm) complete = true;
+                else if(hasDate && hasTime && !hasAmPm) missing = 'ampm';
+                else if(!hasDate && hasTime) missing = 'date';
+                else if(hasDate && !hasTime) missing = 'time';
+            }
+
+            return { complete, timestamp: target.getTime(), missing };
+        };
+            const now = new Date();
+            let target = new Date(now); let complete = false; let missing = null;
+            let hasDate = false, hasTime = false, hasAmPm = false;
             if(text.includes('今天')) hasDate = true;
             else if(text.includes('明天')) { target.setDate(target.getDate() + 1); hasDate = true; }
             else if(text.includes('後天')) { target.setDate(target.getDate() + 2); hasDate = true; }
@@ -5036,10 +5101,38 @@ input.value = ''; autoResizeInput(input); chatInitialInput = ''; clearChatFile()
                          }
                      return;
                 }
-                const reminderMatch = text.match(/^(?:提醒|reminder)(.*)$/i);
+                const reminderMatch = text.match(/^(?:提醒我?|幫我提醒我?|請提醒我?|提醒一下|幫我設提醒|reminder)\s*(.*)$/i);
                 if (reminderMatch) {
-                    const content = reminderMatch[1].trim() || "未命名事項"; const newTodo = { id: Date.now(), text: content, done: false, time: '詢問中...', alerted: false, alertEnabled: true };
-                    appState.todos.push(newTodo); saveToDB('todos', newTodo); appState.pendingReminder = newTodo.id; appState.reminderStage = 1; renderTodos(); addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`, 'system'); speakText(` 已將「${content}」加入行程，請問什麼時候提醒？需要每隔多久重複一次嗎？(例如：明天下午三點，每天重複)`); return; } let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n";
+                    // 取得原始內容，剔除開頭殘留的「我」字
+                    let rawContent = reminderMatch[1].trim().replace(/^我\s*/, '');
+
+                    // 嘗試直接從句子解析時間
+                    const timeInfo = parseTimeNatural(rawContent);
+
+                    // 萃取「事件名稱」：去掉時間片段，剩下的是事件內容
+                    const timeTokensPattern = /(?:[今明後大]+天|上午|下午|早上|凌晨|晚上|\d{1,2}月\d{1,2}[日號]?|\d{1,2}\/\d{1,2}|[一二三四五六七八九十]+點(?:[一二三四五六七八九十\d]+分)?|\d+(?:點|時)(?:\d+分)?|半小時後|[一兩\d]+小時後|\d+分(?:後|鐘後)?|每天|每週|每日|每月|每年|每\d+小時|每\d+分|不重複|單次)/g;
+                    let content = rawContent.replace(timeTokensPattern, '').replace(/[的去要來做在]+$/g, '').replace(/[，。、！!？? ]+/g, '').trim() || "未命名事項";
+
+                    const newTodo = { id: Date.now(), text: content, done: false, time: '詢問中...', alerted: false, alertEnabled: true };
+
+                    if (timeInfo.complete) {
+                        // 句子中已包含完整時間，直接設定，再詢問是否重複
+                        newTodo.time = new Date(timeInfo.timestamp).toLocaleString();
+                        newTodo.alertTime = timeInfo.timestamp;
+                        newTodo.alerted = false;
+                        newTodo.repeatInterval = getIntervalMs(rawContent);
+                        appState.todos.push(newTodo); saveToDB('todos', newTodo); renderTodos();
+                        appState.pendingReminder = newTodo.id; appState.reminderStage = 3;
+                        addMessage(`📝 已將「${content}」加入行程，提醒時間：${newTodo.time}。\n請問需要重複提醒嗎？(例如：每天、每週，或回答「不重複」)`, 'system');
+                        speakText(`已將「${content}」加入行程。請問需要重複提醒嗎？`);
+                    } else {
+                        appState.todos.push(newTodo); saveToDB('todos', newTodo);
+                        appState.pendingReminder = newTodo.id; appState.reminderStage = 1; renderTodos();
+                        addMessage(`📝 已將「${content}」加入行程，請問什麼時候提醒？(例如：明天下午三點)`, 'system');
+                        speakText(`已將「${content}」加入行程，請問什麼時候提醒？`);
+                    }
+                    return;
+                } let systemPromptAddon = "【系統強烈約束指令：請優先且專注地回答使用者的「最新問題」。前文紀錄僅供代名詞解析參考，嚴禁被舊話題干擾而給出無關的答覆。】\n";
 if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 最高強制指令】：\n1. 絕對脫離被動機器人模式！你現在是一位極具主動性、思維敏捷的真人頂級顧問。\n2. 【動態語意斷橋機制】：每次收到新問題時，請務必先在內心判斷「最新問題是否與歷史對話相關」。若判定為『全新獨立話題』，請立刻切斷與前文的關聯，完全忽略舊對話的情境與設定，以乾淨的狀態回答新問題！\n3. 當使用者提出需求時，必須主動連網搜尋資料並給出洞察。\n4. **絕對強制**：每一次的回覆最後，都必須自主挖掘盲點，主動向使用者提出「一個引導式的好問題」，像人類對話一樣持續追問深挖。\n5. 除非使用者明確表示滿意、停止，否則不准單方面結束對話！\n"; } 
 
             // --- 新增：攔截 PPT 簡報意圖，強制回傳 JSON 格式 ---
@@ -5058,10 +5151,10 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 }
 
                 // 🌟 擴充關鍵字：把「位置」、「座標」、「定位」加進去
-                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位/.test(text);
+                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位|查尋|尋找|離我|幫我找/.test(text);
                 
                 // --- 2. 判斷是否為地點搜尋或導航意圖 ---
-                const isLocationIntent = text.includes('附近') || text.includes('最近') || text.includes('導航') || text.includes('帶我') || text.includes('怎麼走') || text.includes('路線') || text.includes('距離') || text.includes('位置') || text.includes('座標') || text.includes('定位');
+                const isLocationIntent = /附近|最近|導航|帶我|怎麼走|路線|距離|位置|座標|定位|離我|查尋|尋找/.test(text) || /幫我找.{0,10}(?:店|餐廳|咖啡|超商|醫院|學校|公園|銀行|加油|藥局|便利)/.test(text);
                 
                 // 🌟 攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
                 let originalUserMessage = "";
@@ -5085,7 +5178,17 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try { 
-                        const userQueryTarget = text.replace(/離我最近的|離我最近|離我|附近有什麼|我附近|附近|最近的|最近|在哪裡|在哪|地點|地址|導航|怎麼走|距離|我的位置|幫我找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
+                        const chNumMap = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
+                        let searchRadiusMeters = 5000; // 預設 5 公里
+                        const kmMatchCh = text.match(/([一二兩三四五六七八九十]+)公里/);
+                        const kmMatchNum = text.match(/(\d+(?:\.\d+)?)公里/);
+                        const mMatchNum = text.match(/(\d+(?:\.\d+)?)(?:公尺|米|m)/);
+                        if (text.includes('半公里')) { searchRadiusMeters = 500; }
+                        else if (kmMatchCh) { searchRadiusMeters = (chNumMap[kmMatchCh[1]] || 1) * 1000; }
+                        else if (kmMatchNum) { searchRadiusMeters = parseFloat(kmMatchNum[1]) * 1000; }
+                        else if (mMatchNum) { searchRadiusMeters = parseFloat(mMatchNum[1]); }
+
+                        const userQueryTarget = text.replace(/離我最近的?|離我|附近有什麼|我附近|附近(?:[一二兩三四五六七八九十\d\.]+(?:公里|公尺|米|m)內?)?|[一二兩三四五六七八九十\d\.]+(?:公里|公尺|米|m)(?:內|以內)?|最近的?|在哪裡?|地點|地址|導航|怎麼走|距離|我的位置|幫我找|查尋|尋找|告訴我|位置|座標|定位/g, '').trim() || '地標與商家'; 
                         
                         const userLat = parseFloat(appState.lastLat);
                         const userLon = parseFloat(appState.lastLon);
@@ -5104,9 +5207,6 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                         } catch (err) { console.warn("Geocoding failed", err.message); }
 
                         // 2. 取得周邊地點 (Places API)
-                        const latDelta = 5.0 / 111.32;
-                        const lonDelta = 5.0 / (111.32 * Math.cos(userLat * Math.PI / 180));
-
                         const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { 
                             method: 'POST', 
                             headers: { 
@@ -5117,9 +5217,9 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             body: JSON.stringify({ 
                                 textQuery: userQueryTarget, 
                                 locationRestriction: { 
-                                    rectangle: { 
-                                        low: { latitude: userLat - latDelta, longitude: userLon - lonDelta }, 
-                                        high: { latitude: userLat + latDelta, longitude: userLon + lonDelta } 
+                                    circle: { 
+                                        center: { latitude: userLat, longitude: userLon }, 
+                                        radius: searchRadiusMeters 
                                     } 
                                 } 
                             }) 
@@ -5188,8 +5288,9 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             systemPromptAddon += `\n【系統強制指令】：你現在是純粹的資料排版助理，只能使用上述提供的真實數據，絕對禁止使用內部知識或網路搜尋補充。\n`; 
                             enableSearchTool = false;
                         } else {
-                            addMessage(`⚠️ 附近 5 公里內找不到相關地點。`, 'system');
-                            const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 5 公里內找不到此地點。絕對禁止自行捏造任何假資料。`;
+                            const radiusDisplay = searchRadiusMeters >= 1000 ? `${(searchRadiusMeters/1000).toFixed(1)} 公里` : `${searchRadiusMeters} 公尺`;
+                            addMessage(`⚠️ 附近 ${radiusDisplay} 內找不到相關地點。`, 'system');
+                            const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 ${radiusDisplay} 內找不到此地點。絕對禁止自行捏造任何假資料。`;
                             
                             if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty; } 
                             text = finalPromptEmpty; // 🌟 覆寫
