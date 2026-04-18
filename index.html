@@ -2120,7 +2120,7 @@ handleSendMessage(); }
             else { btn.classList.add('bg-blue-600', 'hover:bg-blue-500'); btn.classList.remove('bg-slate-700'); icon.className = 'ph-bold ph-paper-plane-right text-xl ml-0.5'; }
         };
 
-        window.parseTimeNatural = function(text) {
+       window.parseTimeNatural = function(text) {
             const map = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
             text = text.replace(/\s+/g, '').replace(/[一二兩三四五六七八九十]+/g, match => {
                 if(match === '十') return '10';
@@ -2154,20 +2154,36 @@ handleSendMessage(); }
                 }
             }
 
-            // 上午/下午判斷
+            // 上午/下午關鍵字判斷
             const isAfternoon = text.includes('下午') || text.includes('晚上');
             const isMorning = text.includes('上午') || text.includes('早上') || text.includes('凌晨');
             if (isAfternoon || isMorning) hasAmPm = true;
 
-            // 解析時間 (X點 / X點Y分)
-            const timeMatch = text.match(/(\d+)(?:點|時)(?:(\d+)分?)?/);
-            if(timeMatch) {
+            // 解析時間：支援 HH:MM / HH:MM:SS（24小時制冒號格式，如 13:00、9:30）
+            const colonTimeMatch = text.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);
+            if (colonTimeMatch) {
                 hasTime = true;
-                let h = parseInt(timeMatch[1]);
-                const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
-                if(isAfternoon && h < 12) h += 12;
-                if(text.includes('凌晨') && h === 12) h = 0;
+                let h = parseInt(colonTimeMatch[1]);
+                const m = parseInt(colonTimeMatch[2]);
+                // 24小時制：小時>=13 或 ==0 視為已知AM/PM，不需再追問
+                if (h >= 13 || h === 0) hasAmPm = true;
+                if (isAfternoon && h < 12) h += 12;
                 target.setHours(h, m, 0, 0);
+            }
+
+            // 解析時間：X點 / X點Y分（中文格式，若冒號格式未匹配才執行）
+            if (!hasTime) {
+                const timeMatch = text.match(/(\d+)(?:點|時)(?:(\d+)分?)?/);
+                if(timeMatch) {
+                    hasTime = true;
+                    let h = parseInt(timeMatch[1]);
+                    const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
+                    // 24小時制自動識別
+                    if (h >= 13 || h === 0) hasAmPm = true;
+                    if(isAfternoon && h < 12) h += 12;
+                    if(text.includes('凌晨') && h === 12) h = 0;
+                    target.setHours(h, m, 0, 0);
+                }
             }
 
             // 純「X分後」格式（例如：10分後、30分鐘後）
