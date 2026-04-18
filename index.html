@@ -5248,7 +5248,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                         mapContext += `🏠 目前所在真實地址：${realAddress}\n\n`;
                         
                         if (placeData.places && placeData.places.length > 0) { 
-                            const topPlaces = placeData.places.slice(0, 3);
+                            const topPlaces = placeData.places.slice(0, searchMaxCount);
                             for (let i = 0; i < topPlaces.length; i++) { 
                                 const p = topPlaces[i]; 
                                 mapContext += `🚩 ${i+1}. ${p.displayName?.text || '未知名稱'} (評分: ${p.rating||'無'})\n地址: ${p.formattedAddress || '無'}\n`; 
