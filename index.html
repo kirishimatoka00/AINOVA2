@@ -5072,8 +5072,8 @@ window.startMultiAgentResearch = async function() {
             try {
                 const actionKeywords = ['打開', '開啟', 'open', '播放', '傳', '發', '發送', '導航', '帶我', '撥打', 'call', '打給', '幫我'];
                 const isAction = actionKeywords.some(kw => text.toLowerCase().startsWith(kw));
-                const _imgTest = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|photo)|(圖片|照片|圖像|picture|image|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
-const isImageIntent = _imgTest(text.trim());
+                const _imgTest = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|impage|photo)|(圖片|照片|圖像|picture|image|impage|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
+                const isImageIntent = _imgTest(text.trim());
 
                 if (isAction && !isImageIntent && appState.currentModel === 'gemini' && appState.keys.gemini && !hasChatFile && !appState.isLiveMode && appState.translateMode === 'off') {
                     const sysMsgId = Date.now();
@@ -5670,17 +5670,16 @@ if (appState.pendingAnalyzeContextId) {
 
                 let finalPrompt = userText;
                 if (!options.isAnalysis && !options.isCollab) {
-                    if (appState.replyLength === 'short') finalPrompt += "\n【限制：請使用極簡短的篇幅回覆，將字數控制在50字以內。】";
-                    else if (appState.replyLength === 'medium') finalPrompt += "\n【限制：請使用中等長度的篇幅回覆，扼要說明重點即可。】";
-
-                }
-
-                const _imgTestF = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|photo)|(圖片|照片|圖像|picture|image|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
-const isImageIntent = _imgTestF(finalPrompt.trim());
-
-                if(model === 'gemini') {
-                    let selectedModelName = appState.geminiModel;
-                    let isAutoRouted = false;
+                if (appState.replyLength === 'short') finalPrompt += "\n【限制：請使用極簡短的篇幅回覆，將字數控制在50字以內。】";
+                else if (appState.replyLength === 'medium') finalPrompt += "\n【限制：請使用中等長度的篇幅回覆，扼要說明重點即可。】";
+            }
+            
+            const _imgTestF = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|impage|photo)|(圖片|照片|圖像|picture|image|impage|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
+            const isImageIntent = _imgTestF(finalPrompt.trim());
+            
+            if(model === 'gemini') {
+                let selectedModelName = appState.geminiModel;
+                let isAutoRouted = false;
 
                     // ============================================================
                     // 🎨 圖片生成自動路由邏輯
@@ -5699,10 +5698,12 @@ const isImageIntent = _imgTestF(finalPrompt.trim());
                             // Gemini 3 Pro-Image 已知只會回覆「為我創作中請稍後」，強制改用 Flash-Image
                             selectedModelName = 'gemini-2.5-flash-image';
                             isAutoRouted = true;
-                        } else if (isImagenModel && (selectedModelName.includes('generate-001') || selectedModelName.includes('fast'))) {
-                            // Imagen 4.0 Standard / Fast 會生成無關圖片，改用 Gemini Flash-Image
-                            selectedModelName = 'gemini-2.5-flash-image';
+                        // === 修改處：調整 Imagen 的判斷與路由 ===
+                        } else if (isImagenModel && (selectedModelName.includes('fast') || (selectedModelName.includes('generate-001') && !selectedModelName.includes('ultra')))) {
+                            // Imagen 4.0 Standard / Fast 會生成無關圖片，若手動選到則強制升級為 Imagen 4.0 Ultra
+                            selectedModelName = 'imagen-4.0-ultra-generate-001';
                             isAutoRouted = true;
+                        // ==========================================
                         } else if (!isAlreadyImageModel && !isImagenModel) {
                             // 目前是一般文字模型，自動切換至 Gemini 2.5 Flash-Image
                             selectedModelName = 'gemini-2.5-flash-image';
@@ -6201,17 +6202,18 @@ if (t.repeatInterval && t.repeatInterval > 0) { t.alertTime += t.repeatInterval;
                         // 判斷任務類型：自動化任務 vs 一般鬧鐘
                         if ((t.isAutoTask && t.taskQuery) || (t.isAutoSearch && t.searchQuery)) {
                             const query = t.taskQuery || t.searchQuery;
-                            addMessage(`🔄 [排程任務觸發] 正在為您執行：${query}...`, 'system');
-                            try {
-                                const _imgTestR = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|photo)|(圖片|照片|圖像|picture|image|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
-const isImageIntent = _imgTestR(query.trim());
-                                let prompt = query;
-                                // 針對舊版資料相容，或者純文字找資料意圖強化搜尋提示
-                                if (!isImageIntent && t.isAutoSearch) {
-                                    prompt = `請連網搜尋最新資訊：「${query}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
-                                }
-                                
-                                let res = await fetchAIResponse(prompt, appState.currentModel, { enableSearch: !isImageIntent });
+                        addMessage(`🔄 [排程任務觸發] 正在為您執行：${query}...`, 'system');
+                        try {
+                            const _imgTestR = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|impage|photo)|(圖片|照片|圖像|picture|image|impage|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
+                            const isImageIntent = _imgTestR(query.trim());
+                            let prompt = query;
+                            
+                            // 針對舊版資料相容，或者純文字找資料意圖強化搜尋提示
+                            if (!isImageIntent && t.isAutoSearch) {
+                                prompt = `請連網搜尋最新資訊：「${query}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
+                            }
+                            
+                            let res = await fetchAIResponse(prompt, appState.currentModel, { enableSearch: !isImageIntent });
                                 let finalOutputText = typeof res === 'string' ? res : (res.text || "(無文字)");
                                 
                                 if (finalOutputText && finalOutputText !== "(無文字)") {
