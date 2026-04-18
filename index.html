@@ -2195,28 +2195,6 @@ handleSendMessage(); }
 
             return { complete, timestamp: target.getTime(), missing };
         };
-            const now = new Date();
-            let target = new Date(now); let complete = false; let missing = null;
-            let hasDate = false, hasTime = false, hasAmPm = false;
-            if(text.includes('今天')) hasDate = true;
-            else if(text.includes('明天')) { target.setDate(target.getDate() + 1); hasDate = true; }
-            else if(text.includes('後天')) { target.setDate(target.getDate() + 2); hasDate = true; }
-            if(text.includes('上午') || text.includes('早上')) hasAmPm = true;
-            if(text.includes('下午') || text.includes('晚上')) { hasAmPm = true; target.setHours(target.getHours() >= 12 ? target.getHours() : target.getHours() + 12); }
-            const timeMatch = text.match(/(\d+)(?:點|時)(?:(\d+)(?:分)?)?/);
-            if(timeMatch) {
-                hasTime = true; let h = parseInt(timeMatch[1]); const m = timeMatch[2] ? parseInt(timeMatch[2]) : 0;
-                if(text.includes('下午') || text.includes('晚上') && h < 12) h += 12;
-                target.setHours(h, m, 0, 0);
-            }
-            if(text.includes('半小時後')) { target = new Date(now.getTime() + 30*60000); complete = true; }
-            else if(text.includes('1小時後') || text.includes('一小時後')) { target = new Date(now.getTime() + 60*60000); complete = true; }
-            else if(hasDate && hasTime && hasAmPm) complete = true;
-            else if(hasDate && hasTime && !hasAmPm) missing = 'ampm';
-            else if(!hasDate && hasTime) missing = 'date';
-            else if(hasDate && !hasTime) missing = 'time';
-            return { complete, timestamp: target.getTime(), missing };
-        };
 
         // --- 強制硬體釋放與防佔用系統 ---
         window.releaseMicrophone = function() {
