@@ -1151,16 +1151,20 @@ async function encodeMp3(audioBuffer) {
                 try {
                     const res = await fetch(appState.driveUrl, {
                         method: 'POST',
-                        redirect: 'follow', // 💡 修正：允許 GAS 的重新導向
+                        redirect: 'follow',
                         headers: {
-                            'Content-Type': 'text/plain;charset=utf-8' // 💡 修正：使用 text/plain 避免觸發 CORS 預檢請求被擋
+                            'Content-Type': 'text/plain;charset=utf-8'
                         },
                         body: JSON.stringify({ action: "sync_up", filename: "NOVA120livebackup", data: fullBackupData })
                     });
-                    if(res.ok) lastLiveSyncTime = fullBackupData.timestamp;
+                    if(res.ok) {
+                        lastLiveSyncTime = fullBackupData.timestamp;
+                        // 上傳成功後立刻拉取一次雲端，確保雙向即時同步
+                        setTimeout(fetchSyncFromDrive, 300);
+                    }
                 } catch(e) { console.error("Live Sync Up Error:", e); }
                 isLiveSyncing = false;
-            }, 3000); // 防抖動 3 秒
+            }, 500); // 防抖動 3 秒
         }
 
         async function fetchSyncFromDrive() {
