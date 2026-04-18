@@ -5060,7 +5060,7 @@ window.startMultiAgentResearch = async function() {
             try {
                 const actionKeywords = ['打開', '開啟', 'open', '播放', '傳', '發', '發送', '導航', '帶我', '撥打', 'call', '打給', '幫我'];
                 const isAction = actionKeywords.some(kw => text.toLowerCase().startsWith(kw));
-                const isImageIntent = /^(畫|生成|產生|draw|generate)\s*(一張|一個|圖片|照片|圖|image|photo)/i.test(text.trim());
+                const isImageIntent = /^(畫|生成|產生|製作|create|make|draw|generate)\b.{0,80}(圖片|照片|圖像|picture|image|photo)\b/i.test(text.trim());
 
                 if (isAction && !isImageIntent && appState.currentModel === 'gemini' && appState.keys.gemini && !hasChatFile && !appState.isLiveMode && appState.translateMode === 'off') {
                     const sysMsgId = Date.now();
@@ -5662,17 +5662,42 @@ if (appState.pendingAnalyzeContextId) {
 
                 }
 
-                const isImageIntent = /^(畫|生成|產生|draw|generate)\s*(一張|一個|圖片|照片|圖|image|photo)/i.test(finalPrompt.trim());
+                const isImageIntent = /^(畫|生成|產生|製作|create|make|draw|generate)\b.{0,80}(圖片|照片|圖像|picture|image|photo)\b/i.test(finalPrompt.trim());
 
                 if(model === 'gemini') {
                     let selectedModelName = appState.geminiModel;
                     let isAutoRouted = false;
 
-                    if (isImageIntent && !selectedModelName.includes('imagen') && !selectedModelName.includes('image')) {
-                        selectedModelName = 'imagen-4.0-generate-001'; 
-                        isAutoRouted = true;
-                    } 
-                    else if (selectedModelName === 'gemini-multi') {
+                    // ============================================================
+                    // 🎨 圖片生成自動路由邏輯
+                    // 優先順序：Gemini 2.5 Flash-Image → Gemini 3.1 Flash-Image
+                    //           → Grok Image Pro (備援)
+                    // Gemini 3 Pro-Image：已知無法產出圖片，禁止自動路由
+                    // Imagen Standard/Fast：會生成無關圖片，禁止自動路由（手動選擇才使用）
+                    // ============================================================
+                    if (isImageIntent) {
+                        const isAlreadyImageModel = selectedModelName.includes('image') && 
+                                                    !selectedModelName.includes('gemini-3-pro-image'); // 3 Pro-Image 已知損壞
+                        const isImagenModel = selectedModelName.includes('imagen');
+                        const isProImageModel = selectedModelName.includes('gemini-3-pro-image');
+                        
+                        if (isProImageModel) {
+                            // Gemini 3 Pro-Image 已知只會回覆「為我創作中請稍後」，強制改用 Flash-Image
+                            selectedModelName = 'gemini-2.5-flash-image';
+                            isAutoRouted = true;
+                        } else if (isImagenModel && (selectedModelName.includes('generate-001') || selectedModelName.includes('fast'))) {
+                            // Imagen 4.0 Standard / Fast 會生成無關圖片，改用 Gemini Flash-Image
+                            selectedModelName = 'gemini-2.5-flash-image';
+                            isAutoRouted = true;
+                        } else if (!isAlreadyImageModel && !isImagenModel) {
+                            // 目前是一般文字模型，自動切換至 Gemini 2.5 Flash-Image
+                            selectedModelName = 'gemini-2.5-flash-image';
+                            isAutoRouted = true;
+                        }
+                        // Imagen 4.0 Ultra：手動選擇時照常使用（品質較好）
+                    }
+
+                    if (!isImageIntent && selectedModelName === 'gemini-multi') {
                         isAutoRouted = true;
                         selectedModelName = 'gemini-3-flash-preview'; 
                         if (finalPrompt.length > 500 || /(深入|詳細|分析|總結|論文|報告|程式碼|複雜|重點摘要|結構化)/.test(finalPrompt) || (options.file && options.file.category === 'media')) {
@@ -5740,19 +5765,38 @@ if (appState.pendingAnalyzeContextId) {
                     }
                     if (currentRole) contents.push({ role: currentRole, parts: currentParts });
 
+                    const isGeminiImageModel = selectedModelName.includes('image') && !selectedModelName.includes('imagen');
                     const payload = { contents: contents, generationConfig: { temperature: 0.7, maxOutputTokens: 8192 } };
-                    if ((appState.isSearchEnabled || options.enableSearch) && !options.disableSearch && !options.file) { payload.tools = [{ google_search: {} }]; }
+                    // 🎨 Gemini 圖片生成模型需要明確啟用 IMAGE 輸出模式，且不可同時開啟 Google Search
+                    if (isGeminiImageModel) {
+                        payload.generationConfig.responseModalities = ["TEXT", "IMAGE"];
+                    } else if ((appState.isSearchEnabled || options.enableSearch) && !options.disableSearch && !options.file) {
+                        payload.tools = [{ google_search: {} }];
+                    }
                     
                     let endpoint = `https://generativelanguage.googleapis.com/${apiVersion}/models/${selectedModelName}:generateContent?key=${key}`;
                     let res = await fetchWithTimeout(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                     let data = await res.json();
                     
+                    // 🔄 Gemini image model 失敗時：先試 3.1 Flash-Image，再試 2.5 Flash-Image
+                    if (!res.ok && isGeminiImageModel) {
+                        const fallbackImageModel = selectedModelName.includes('3.1') ? 'gemini-2.5-flash-image' : 'gemini-3.1-flash-image-preview';
+                        console.warn(`[Image Fallback] ${selectedModelName} failed, trying ${fallbackImageModel}`);
+                        selectedModelName = fallbackImageModel;
+                        apiVersion = fallbackImageModel.includes('preview') ? 'v1alpha' : 'v1beta';
+                        endpoint = `https://generativelanguage.googleapis.com/${apiVersion}/models/${selectedModelName}:generateContent?key=${key}`;
+                        res = await fetchWithTimeout(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        data = await res.json();
+                        isAutoRouted = true;
+                    }
+
                     if (!res.ok && data.error && data.error.code === 404 && (selectedModelName.includes('preview') || selectedModelName.includes('3.'))) {
                         console.warn(`[Auto-Fallback] Model ${selectedModelName} not found, retrying with 2.5 series.`);
                         let fallbackModel = 'gemini-2.5-flash';
                         if (selectedModelName.includes('pro')) fallbackModel = 'gemini-2.5-pro';
                         selectedModelName = fallbackModel;
                         apiVersion = 'v1beta';
+                        payload.generationConfig.responseModalities = undefined;
                         endpoint = `https://generativelanguage.googleapis.com/${apiVersion}/models/${selectedModelName}:generateContent?key=${key}`;
                         res = await fetchWithTimeout(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
                         data = await res.json();
@@ -5776,6 +5820,33 @@ if (appState.pendingAnalyzeContextId) {
                                 name: 'AI_Generated_Image.png'
                             };
                         }
+                    }
+
+                    // 🔄 Gemini 圖片模型未回傳圖片時，嘗試以 Grok 作為備援
+                    if (isGeminiImageModel && isImageIntent && !responseImageFile && appState.keys.grok) {
+                        console.warn(`[Grok Backup] Gemini image model returned no image, falling back to Grok...`);
+                        const grokKey = appState.keys.grok;
+                        const myProxy = 'https://grokcaller.kirishimatoka00.workers.dev/';
+                        const grokImageModel = 'grok-imagine-image-pro';
+                        const grokApiUrl = 'https://api.x.ai/v1/images/generations';
+                        const grokPayload = { model: grokImageModel, prompt: finalPrompt, response_format: "b64_json" };
+                        try {
+                            const grokRes = await fetchWithTimeout(`${myProxy}?url=${encodeURIComponent(grokApiUrl)}`, {
+                                method: 'POST',
+                                headers: { 'Authorization': `Bearer ${grokKey}`, 'Content-Type': 'application/json' },
+                                body: JSON.stringify(grokPayload)
+                            });
+                            if (grokRes.ok) {
+                                const grokData = await grokRes.json();
+                                if (grokData.data && grokData.data[0]) {
+                                    const imgData = grokData.data[0].b64_json 
+                                        ? `data:image/png;base64,${grokData.data[0].b64_json}` 
+                                        : grokData.data[0].url;
+                                    responseImageFile = { category: 'image', data: imgData, name: 'Grok_Backup_Image.png' };
+                                    outputText = `✨ 圖片生成成功！已為您附在下方。\n\n*(備援提示：Gemini 圖片模型本次未回傳圖片，已自動切換至 **Grok Imagine Image Pro** 備援生成)*`;
+                                }
+                            }
+                        } catch(grokErr) { console.warn("Grok backup failed:", grokErr); }
                     }
 
                     let sources = []; if (candidate.groundingMetadata?.groundingAttributions) { candidate.groundingMetadata.groundingAttributions.forEach(attr => { if (attr.web?.uri) sources.push({ title: attr.web.title || "參考連結", uri: attr.web.uri }); }); }
@@ -6118,7 +6189,7 @@ if (t.repeatInterval && t.repeatInterval > 0) { t.alertTime += t.repeatInterval;
                             const query = t.taskQuery || t.searchQuery;
                             addMessage(`🔄 [排程任務觸發] 正在為您執行：${query}...`, 'system');
                             try {
-                                const isImageIntent = /^(畫|生成|產生|draw|generate)\s*(一張|一個|圖片|照片|圖|image|photo)/i.test(query.trim());
+                                const isImageIntent = /^(畫|生成|產生|製作|create|make|draw|generate)\b.{0,80}(圖片|照片|圖像|picture|image|photo)\b/i.test(query.trim());
                                 let prompt = query;
                                 // 針對舊版資料相容，或者純文字找資料意圖強化搜尋提示
                                 if (!isImageIntent && t.isAutoSearch) {
