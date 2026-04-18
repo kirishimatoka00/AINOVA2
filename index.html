@@ -5072,7 +5072,8 @@ window.startMultiAgentResearch = async function() {
             try {
                 const actionKeywords = ['打開', '開啟', 'open', '播放', '傳', '發', '發送', '導航', '帶我', '撥打', 'call', '打給', '幫我'];
                 const isAction = actionKeywords.some(kw => text.toLowerCase().startsWith(kw));
-                const isImageIntent = /^(畫|生成|產生|製作|create|make|draw|generate)\b.{0,80}(圖片|照片|圖像|picture|image|photo)\b/i.test(text.trim());
+                const _imgTest = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|photo)|(圖片|照片|圖像|picture|image|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
+const isImageIntent = _imgTest(text.trim());
 
                 if (isAction && !isImageIntent && appState.currentModel === 'gemini' && appState.keys.gemini && !hasChatFile && !appState.isLiveMode && appState.translateMode === 'off') {
                     const sysMsgId = Date.now();
@@ -5674,7 +5675,8 @@ if (appState.pendingAnalyzeContextId) {
 
                 }
 
-                const isImageIntent = /^(畫|生成|產生|製作|create|make|draw|generate)\b.{0,80}(圖片|照片|圖像|picture|image|photo)\b/i.test(finalPrompt.trim());
+                const _imgTestF = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|photo)|(圖片|照片|圖像|picture|image|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
+const isImageIntent = _imgTestF(finalPrompt.trim());
 
                 if(model === 'gemini') {
                     let selectedModelName = appState.geminiModel;
@@ -6201,7 +6203,8 @@ if (t.repeatInterval && t.repeatInterval > 0) { t.alertTime += t.repeatInterval;
                             const query = t.taskQuery || t.searchQuery;
                             addMessage(`🔄 [排程任務觸發] 正在為您執行：${query}...`, 'system');
                             try {
-                                const isImageIntent = /^(畫|生成|產生|製作|create|make|draw|generate)\b.{0,80}(圖片|照片|圖像|picture|image|photo)\b/i.test(query.trim());
+                                const _imgTestR = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|photo)|(圖片|照片|圖像|picture|image|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
+const isImageIntent = _imgTestR(query.trim());
                                 let prompt = query;
                                 // 針對舊版資料相容，或者純文字找資料意圖強化搜尋提示
                                 if (!isImageIntent && t.isAutoSearch) {
