@@ -1140,6 +1140,7 @@ async function encodeMp3(audioBuffer) {
                 isLiveSyncing = true;
                 const fullBackupData = {
                     timestamp: Date.now(),
+                    deletedIds: appState.deletedIds || {},
                     keys: appState.keys, doc: appState.docMonitorUrl, drive: appState.driveUrl, 
                     tgToken: appState.tgToken, tgChatId: appState.tgChatId, voiceTimeout: appState.voiceTimeout, 
                     translateBTimeout: appState.translateBTimeout, vadMultiplier: appState.vadMultiplier, 
@@ -1187,15 +1188,18 @@ async function encodeMp3(audioBuffer) {
                     if (!Array.isArray(cloudItems) || cloudItems.length === 0) return { merged: localItems, changed: false };
                     if (!Array.isArray(localItems) || localItems.length === 0) return { merged: cloudItems, changed: true };
 
+                    const deleted = appState.deletedIds || {};
                     const map = new Map();
-                    // 先放本地
-                    localItems.forEach(item => map.set(String(item.id), item));
+                    // 先放本地（已刪除的不放入）
+                    localItems.forEach(item => { if (!deleted[String(item.id)]) map.set(String(item.id), item); });
                     let cloudHasNew = false;
                     // 再用雲端合併
                     cloudItems.forEach(cloudItem => {
                         const key = String(cloudItem.id);
+                        // 已被本地刪除的 → 永遠跳過，不允許雲端把它救回來
+                        if (deleted[key]) return;
                         if (!map.has(key)) {
-                            // 雲端有、本地沒有 → 加入
+                            // 雲端有、本地沒有（且未被刪除）→ 加入
                             map.set(key, cloudItem);
                             cloudHasNew = true;
                         } else {
@@ -1228,6 +1232,11 @@ async function encodeMp3(audioBuffer) {
                     }
                 };
 
+// 合併雙端的刪除墓碑（取聯集：任何一端刪過的都算刪掉）
+                if (cloudData.deletedIds) {
+                    appState.deletedIds = Object.assign({}, appState.deletedIds || {}, cloudData.deletedIds);
+                    localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
+                }
                 applyMerge('messages', cloudData.messages);
                 applyMerge('notes', cloudData.notes);
                 applyMerge('todos', cloudData.todos);
@@ -1311,6 +1320,7 @@ async function encodeMp3(audioBuffer) {
         // --- 核心應用狀態 ---
         const appState = {
             currentModel: 'gemini', grokModel: 'grok-multi', geminiModel: 'gemini-multi',
+            deletedIds: JSON.parse(localStorage.getItem('nova_deleted_ids') || '{}'),
             chatFiles: [], currentDeviceId: null,
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '', 
             driveUrl: localStorage.getItem('nova_drive_url') || '',
@@ -2067,6 +2077,7 @@ msg.files : (msg.file ? [msg.file] : []);
             } 
         };
         window.deleteMessage = function(id) {
+            appState.deletedIds[String(id)] = Date.now(); localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
             appState.messages = appState.messages.filter(m => String(m.id) !== String(id));
             deleteFromDB('messages', id); renderMessages();
         };
@@ -2333,6 +2344,7 @@ handleSendMessage(); }
         };
 
         window.deleteTodo = function(id) {
+            appState.deletedIds[String(id)] = Date.now(); localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
             appState.todos = appState.todos.filter(x => String(x.id) !== String(id)); deleteFromDB('todos', id); renderTodos();
         };
 
@@ -2603,8 +2615,8 @@ handleSendMessage(); }
 
         window.deleteNote = function(id) {
             if(confirm('確定要刪除這則筆記嗎？')) { 
-                appState.notes = appState.notes.filter(x => String(x.id) !== String(id));
-                deleteFromDB('notes', id); 
+                appState.deletedIds[String(id)] = Date.now(); localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
+                appState.notes = appState.notes.filter(x => String(x.id) !== String(id)); 
                 renderNotes(); 
             }
         };
@@ -2672,7 +2684,7 @@ handleSendMessage(); }
         };
 
         window.deleteAudioRecord = function(id) {
-            if(confirm('確定要刪除這筆錄音紀錄嗎？')) { appState.audioRecords = appState.audioRecords.filter(x => String(x.id) !== String(id)); deleteFromDB('audioRecords', id); renderAudioRecords(); }
+            if(confirm('確定要刪除這筆錄音紀錄嗎？')) { appState.deletedIds[String(id)] = Date.now(); localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds)); appState.audioRecords = appState.audioRecords.filter(x => String(x.id) !== String(id)); deleteFromDB('audioRecords', id); renderAudioRecords(); }
         };
 
         function updateNoteVoiceUI() {}
