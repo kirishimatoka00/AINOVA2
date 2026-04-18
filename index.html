@@ -5169,7 +5169,32 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                     }
                     text = finalPromptNoGPS; // 🌟 覆寫
                 } 
-                else if (isLocationIntent && appState.keys.gmaps && appState.lastLat && appState.lastLon) {
+                else if (isLocationIntent && appState.keys.gmaps) {
+                    addMessage(`📡 正在重新取得 GPS 精確位置...`, 'system');
+                    // 每次搜尋前強制重新取得 GPS 座標
+                    await new Promise((resolve) => {
+                        if (!navigator.geolocation) {
+                            addMessage(`⚠️ 裝置不支援 GPS 定位。`, 'system'); resolve(); return;
+                        }
+                        navigator.geolocation.getCurrentPosition(
+                            (pos) => {
+                                appState.lastLat = pos.coords.latitude;
+                                appState.lastLon = pos.coords.longitude;
+                                const acc = pos.coords.accuracy ? `（精度 ±${Math.round(pos.coords.accuracy)}m）` : '';
+                                addMessage(`✅ GPS 定位成功 ${acc}，開始搜尋...`, 'system');
+                                resolve();
+                            },
+                            (err) => {
+                                addMessage(`⚠️ GPS 重新定位失敗（${err.message}），使用上次位置繼續搜尋。`, 'system');
+                                resolve(); // 失敗也繼續，不卡住
+                            },
+                            { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                        );
+                    });
+                    if (!appState.lastLat || !appState.lastLon) {
+                        addMessage(`⚠️ 無法取得任何定位資料，無法執行地點搜尋。`, 'system');
+                        return;
+                    }
                     addMessage(`🗺️ 正在透過 Google Maps API 精確檢索周邊與規劃路線...`, 'system');
                     try { 
                         const chNumMap = {'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9,'十':10};
