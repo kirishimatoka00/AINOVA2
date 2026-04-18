@@ -1173,75 +1173,140 @@ async function encodeMp3(audioBuffer) {
                 const res = await fetch(appState.driveUrl + "?action=sync_down&filename=NOVA120livebackup");
                 if (!res.ok) return;
                 const cloudData = await res.json();
-                if (cloudData && cloudData.timestamp > lastLiveSyncTime) {
-                    
-                    // 1. 解決「刪除不同步」與「順序顛倒」：直接用雲端覆蓋本地，並確保 a.id - b.id 升冪排序
-                    const replaceStoreData = (storeName, cloudItems) => {
-                        if (!cloudItems || !Array.isArray(cloudItems)) return;
-                        appState[storeName] = cloudItems;
-                        appState[storeName].sort((a, b) => a.id - b.id); // 確保由舊到新排列 (發出端/接收端統一)
-                        if (db) {
-                            try {
-                                clearStoreDB(storeName); // 絕對覆寫，解決一端刪除另一端卻殘留的問題
-                                cloudItems.forEach(cItem => db.transaction(storeName, 'readwrite').objectStore(storeName).put(cItem));
-                            } catch(e) {}
-                        }
-                    };
-                    
-                    replaceStoreData('messages', cloudData.messages);
-                    replaceStoreData('notes', cloudData.notes);
-                    replaceStoreData('todos', cloudData.todos);
-                    replaceStoreData('audioRecords', cloudData.audioRecords);
-                    
-                    if(cloudData.chatTitles) { appState.chatTitles = cloudData.chatTitles; localStorage.setItem('nova_chat_titles', JSON.stringify(cloudData.chatTitles)); }
-                    if(cloudData.pinnedSessions) { appState.pinnedSessions = cloudData.pinnedSessions; localStorage.setItem('nova_pinned_sessions', JSON.stringify(cloudData.pinnedSessions)); }
-                    if(cloudData.currentSessionId) { appState.currentSessionId = cloudData.currentSessionId; localStorage.setItem('nova_current_session', appState.currentSessionId); }
+                if (!cloudData) return;
 
-                    // 2. 解決「設定未同步」：強制覆寫所有設定值並更新 UI
-                    if(cloudData.keys) {
-                        appState.keys = cloudData.keys;
-                        Object.keys(cloudData.keys).forEach(k => {
-                            localStorage.setItem('nova_key_'+k, cloudData.keys[k]);
-                            const el = document.getElementById('key-' + k.replace(/_/g, '-'));
-                            if(el) el.value = cloudData.keys[k] || '';
-                        });
+                // ═══════════════════════════════════════════════════════
+                // 雙向合併引擎：以 id 為唯一鍵，兩端各取所長，不互相覆蓋
+                // 規則：
+                //   1. 本地有、雲端沒有 → 保留本地（不刪除）
+                //   2. 雲端有、本地沒有 → 加入本地
+                //   3. 兩端都有同一 id  → 取 updatedAt/timestamp 較新的那筆
+                // 合併結果若與雲端不同（本地有更多資料），則反推上傳
+                // ═══════════════════════════════════════════════════════
+                const mergeArrays = (localItems, cloudItems) => {
+                    if (!Array.isArray(cloudItems) || cloudItems.length === 0) return { merged: localItems, changed: false };
+                    if (!Array.isArray(localItems) || localItems.length === 0) return { merged: cloudItems, changed: true };
+
+                    const map = new Map();
+                    // 先放本地
+                    localItems.forEach(item => map.set(String(item.id), item));
+                    let cloudHasNew = false;
+                    // 再用雲端合併
+                    cloudItems.forEach(cloudItem => {
+                        const key = String(cloudItem.id);
+                        if (!map.has(key)) {
+                            // 雲端有、本地沒有 → 加入
+                            map.set(key, cloudItem);
+                            cloudHasNew = true;
+                        } else {
+                            // 兩端都有 → 比較時間，取較新的
+                            const localItem = map.get(key);
+                            const localTs = localItem.updatedAt || localItem.timestamp || localItem.id || 0;
+                            const cloudTs = cloudItem.updatedAt || cloudItem.timestamp || cloudItem.id || 0;
+                            if (cloudTs > localTs) { map.set(key, cloudItem); cloudHasNew = true; }
+                        }
+                    });
+                    // 本地有多出來的項目（雲端沒有）→ 標記需要反推上傳
+                    const localHasExtra = localItems.some(li => !cloudItems.find(ci => String(ci.id) === String(li.id)));
+                    const merged = Array.from(map.values()).sort((a, b) => (a.id - b.id));
+                    return { merged, changed: cloudHasNew || localHasExtra, needsUpload: localHasExtra };
+                };
+
+                let needsReupload = false;
+
+                const applyMerge = (storeName, cloudItems) => {
+                    const result = mergeArrays(appState[storeName] || [], cloudItems);
+                    appState[storeName] = result.merged;
+                    if (result.needsUpload) needsReupload = true;
+                    if (result.changed && db) {
+                        try {
+                            // 只寫入有變動的項目，不清除整個 store（保留本地獨有資料）
+                            result.merged.forEach(item => {
+                                db.transaction(storeName, 'readwrite').objectStore(storeName).put(item);
+                            });
+                        } catch(e) {}
                     }
-                    
-                    const syncProp = (cloudKey, appStateKey, localKey, elId, isCheck = false) => {
-                        if(cloudData[cloudKey] !== undefined) {
-                            appState[appStateKey] = cloudData[cloudKey];
-                            if(typeof cloudData[cloudKey] === 'object') {
-                                localStorage.setItem(localKey, JSON.stringify(cloudData[cloudKey]));
-                            } else {
-                                localStorage.setItem(localKey, cloudData[cloudKey]);
-                            }
-                            if(elId) {
-                                const el = document.getElementById(elId);
-                                if(el) { if(isCheck) el.checked = cloudData[cloudKey]; else el.value = cloudData[cloudKey]; }
-                            }
-                        }
-                    };
-                    
-                    syncProp('doc', 'docMonitorUrl', 'nova_doc_url', 'key-doc-url');
-                    syncProp('drive', 'driveUrl', 'nova_drive_url', 'key-drive-url');
-                    syncProp('tgToken', 'tgToken', 'nova_tg_token', 'key-tg-token');
-                    syncProp('tgChatId', 'tgChatId', 'nova_tg_chatid', 'key-tg-chatid');
-                    syncProp('voiceTimeout', 'voiceTimeout', 'nova_voice_timeout', 'key-voice-timeout');
-                    syncProp('translateBTimeout', 'translateBTimeout', 'nova_trans_b_timeout', 'key-translate-b-timeout');
-                    syncProp('vadMultiplier', 'vadMultiplier', 'nova_vad_multiplier', 'key-vad-multiplier');
-                    syncProp('replyLength', 'replyLength', 'nova_reply_length', 'key-reply-length');
-                    syncProp('ttsRate', 'ttsRate', 'nova_tts_rate', 'key-tts-rate');
-                    syncProp('ttsVoice', 'ttsVoice', 'nova_tts_voice', 'key-tts-voice');
-                    syncProp('hideLiveCapture', 'hideLiveCapture', 'nova_hide_live_capture', 'key-hide-live-capture', true);
-                    syncProp('autoTTS', 'autoTTS', 'nova_auto_tts', 'key-auto-tts', true);
-                    syncProp('noteFolders', 'noteFolders', 'nova_folders', null);
+                };
 
-                    lastLiveSyncTime = cloudData.timestamp;
-                    if(typeof renderAll === 'function') renderAll();
+                applyMerge('messages', cloudData.messages);
+                applyMerge('notes', cloudData.notes);
+                applyMerge('todos', cloudData.todos);
+                applyMerge('audioRecords', cloudData.audioRecords);
+
+                // chatTitles 合併（物件型態，以 key 為單位合併）
+                if (cloudData.chatTitles) {
+                    const merged = Object.assign({}, cloudData.chatTitles, appState.chatTitles || {});
+                    appState.chatTitles = merged;
+                    localStorage.setItem('nova_chat_titles', JSON.stringify(merged));
+                    if (Object.keys(appState.chatTitles).some(k => !cloudData.chatTitles[k])) needsReupload = true;
                 }
-            } catch(e) {}
+
+                // pinnedSessions 合併（陣列，取聯集）
+                if (cloudData.pinnedSessions) {
+                    const localPinned = appState.pinnedSessions || [];
+                    const merged = [...new Set([...cloudData.pinnedSessions, ...localPinned])];
+                    appState.pinnedSessions = merged;
+                    localStorage.setItem('nova_pinned_sessions', JSON.stringify(merged));
+                    if (localPinned.some(p => !cloudData.pinnedSessions.includes(p))) needsReupload = true;
+                }
+
+                if (cloudData.currentSessionId) {
+                    appState.currentSessionId = cloudData.currentSessionId;
+                    localStorage.setItem('nova_current_session', appState.currentSessionId);
+                }
+
+                // 設定值同步（以雲端為準，本地沒設定的才覆寫）
+                if (cloudData.keys) {
+                    appState.keys = Object.assign({}, cloudData.keys, appState.keys || {});
+                    Object.keys(appState.keys).forEach(k => {
+                        localStorage.setItem('nova_key_'+k, appState.keys[k]);
+                        const el = document.getElementById('key-' + k.replace(/_/g, '-'));
+                        if(el) el.value = appState.keys[k] || '';
+                    });
+                }
+
+                const syncProp = (cloudKey, appStateKey, localKey, elId, isCheck = false) => {
+                    if(cloudData[cloudKey] !== undefined) {
+                        appState[appStateKey] = cloudData[cloudKey];
+                        if(typeof cloudData[cloudKey] === 'object') {
+                            localStorage.setItem(localKey, JSON.stringify(cloudData[cloudKey]));
+                        } else {
+                            localStorage.setItem(localKey, cloudData[cloudKey]);
+                        }
+                        if(elId) {
+                            const el = document.getElementById(elId);
+                            if(el) { if(isCheck) el.checked = cloudData[cloudKey]; else el.value = cloudData[cloudKey]; }
+                        }
+                    }
+                };
+
+                syncProp('doc', 'docMonitorUrl', 'nova_doc_url', 'key-doc-url');
+                syncProp('drive', 'driveUrl', 'nova_drive_url', 'key-drive-url');
+                syncProp('tgToken', 'tgToken', 'nova_tg_token', 'key-tg-token');
+                syncProp('tgChatId', 'tgChatId', 'nova_tg_chatid', 'key-tg-chatid');
+                syncProp('voiceTimeout', 'voiceTimeout', 'nova_voice_timeout', 'key-voice-timeout');
+                syncProp('translateBTimeout', 'translateBTimeout', 'nova_trans_b_timeout', 'key-translate-b-timeout');
+                syncProp('vadMultiplier', 'vadMultiplier', 'nova_vad_multiplier', 'key-vad-multiplier');
+                syncProp('replyLength', 'replyLength', 'nova_reply_length', 'key-reply-length');
+                syncProp('ttsRate', 'ttsRate', 'nova_tts_rate', 'key-tts-rate');
+                syncProp('ttsVoice', 'ttsVoice', 'nova_tts_voice', 'key-tts-voice');
+                syncProp('hideLiveCapture', 'hideLiveCapture', 'nova_hide_live_capture', 'key-hide-live-capture', true);
+                syncProp('autoTTS', 'autoTTS', 'nova_auto_tts', 'key-auto-tts', true);
+                syncProp('noteFolders', 'noteFolders', 'nova_folders', null);
+
+                lastLiveSyncTime = cloudData.timestamp || Date.now();
+
+                // 本地有雲端缺少的資料 → 反推上傳，讓雲端也補齊
+                if (needsReupload) {
+                    console.log('[Sync] 本地有雲端未收錄的資料，反推上傳以同步雲端...');
+                    triggerLiveSync();
+                }
+
+                if(typeof renderAll === 'function') renderAll();
+
+            } catch(e) { console.error('[Sync Down Error]', e); }
         }
-        setInterval(fetchSyncFromDrive, 15000); // 每 15 秒檢查一次雲端資料更新
+        setInterval(fetchSyncFromDrive, 60000); // 每 60 秒保底檢查一次（主要靠事件觸發)
 
         // --- 核心應用狀態 ---
         const appState = {
