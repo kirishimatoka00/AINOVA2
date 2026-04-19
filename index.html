@@ -117,8 +117,26 @@
         .note-html-content a { color: #60a5fa !important; text-decoration: underline !important; }
         .note-html-content ul { list-style-type: disc; margin-left: 1.5rem; }
         .note-html-content ol { list-style-type: decimal; margin-left: 1.5rem; }
-        .note-html-content iframe { border-radius: 0.5rem; max-width: 100%; }
-        [contenteditable]:empty:before { content: attr(placeholder); color: #64748b; pointer-events: none; display: block; }
+        .note-html-content iframe { border-radius: 0.5rem; max-width: 100%;
+        }
+        [contenteditable]:empty:before { content: attr(placeholder); color: #64748b; pointer-events: none; display: block;
+        }
+        
+        /* --- Mobile Light Mode Specific Overrides --- */
+        body.mobile-light .top-nav-bar,
+        body.mobile-light .bottom-input-area { background-color: #000000 !important; border-color: #1a1a1a !important; }
+        body.mobile-light .top-nav-bar * { color: #ffffff !important; }
+        body.mobile-light .bottom-input-area button, body.mobile-light .bottom-input-area i { color: #ffffff !important; }
+        body.mobile-light #chat-container { background-color: #000000 !important; }
+        body.mobile-light .user-bubble { background-color: #1a1a1a !important; color: #ffffff !important; border: none !important; }
+        body.mobile-light .user-bubble * { color: #ffffff !important; }
+        body.mobile-light .ai-bubble { background-color: transparent !important; border: 1px solid #1a1a1a !important; color: #ffffff !important; }
+        body.mobile-light .ai-bubble .msg-content, body.mobile-light .ai-bubble .msg-content * { color: #ffffff !important; }
+        body.mobile-light .ai-avatar-icon { display: none !important; }
+        body.mobile-light #input-wrapper { border: none !important; background-color: #000000 !important; }
+        body.mobile-light #input-wrapper textarea { color: #ffffff !important; }
+        body.mobile-light .ai-bubble .ai-actions-row button { background-color: #000000 !important; color: #ffffff !important; border: none !important; }
+        body.mobile-light .ai-bubble .ai-actions-row button i { color: #ffffff !important; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30 h-full">
@@ -182,27 +200,26 @@
 
         <!-- ================= 主要內容顯示區 ================= -->
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
-            <!-- 手機版頂部導航列 -->
-            <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 120 SSP</span></div>
+            <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0 top-nav-bar">
+                <div class="flex items-center space-x-3 shrink-0">
+                    <button onclick="toggleMobileMenu()"><i class="ph ph-list text-white text-2xl"></i></button>
+                    <span id="mobile-chat-title" class="font-bold text-white text-sm truncate max-w-[180px]">新對話</span>
+                </div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
-                        <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
+                        <i id="mobile-weather-icon" class="ph-fill ph-cloud-sun text-yellow-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
                     </div>
-                    <button onclick="openSettings()"><i class="ph ph-gear text-slate-400 text-xl"></i></button>
-                    <button onclick="toggleMobileMenu()"><i class="ph ph-list text-white text-2xl"></i></button>
                 </div>
-            </div>
+             </div>
 
-            <!-- 手機版全螢幕彈出選單 -->
-            <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-md flex-col">
+            <div id="mobile-menu-overlay" class="hidden md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onclick="toggleMobileMenu()"></div>
+            <div id="mobile-menu" class="hidden md:hidden fixed top-0 left-0 bottom-0 w-[80vw] z-50 bg-slate-900 shadow-2xl flex-col">
                 <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
                     <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center"><i class="ph-bold ph-infinity text-white"></i></div>
-                        <span class="text-lg font-bold text-white">NOVA 120</span>
+                         <div class="w-8 h-8 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center"><i class="ph-bold ph-infinity text-white"></i></div>
+                        <span class="text-lg font-bold text-white">NOVA</span>
                     </div>
-                    <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-2xl"></i></button>
-                </div>
+                 </div>
                 
                 <div class="p-4 shrink-0">
                     <button onclick="createNewChat(); toggleMobileMenu();" class="flex items-center justify-center space-x-2 w-full p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 shadow-sm">
@@ -695,16 +712,14 @@
                     <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700 relative"></div>
                     
                     <!-- Line 風格底部輸入區塊 -->
-                    <div class="bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col relative w-full">
+                    <div class="bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col relative w-full bottom-input-area">
                          
                         <div id="chat-file-preview-container" class="hidden relative flex-wrap gap-2 bg-slate-900 p-2 m-2 rounded-lg self-start">
                             </div>
                         <input type="file" id="audio-analyze-input" accept="*/*" class="hidden" onchange="handleAudioAnalyzeSelect(event)">
                         
-                        <!-- 連網搜尋提示 -->
                         <div id="search-hint" class="text-[10px] text-blue-400 text-center hidden mt-1 absolute -top-5 w-full">🌐 已開啟連網搜尋 (支援各模型)</div>
                         
-                        <!-- 附加功能展開選單 (+) -->
                         <div id="plus-menu" class="hidden absolute bottom-full left-0 mb-1 w-full bg-slate-900 border-t border-slate-800 p-4 grid grid-cols-5 gap-2 z-40 rounded-t-2xl shadow-[0_-10px_20px_rgba(0,0,0,0.5)] transition-all">
                             
                             <button onclick="openAgentModal()" class="flex flex-col items-center justify-center gap-2 p-2 rounded-xl bg-slate-800 border border-purple-500/50 hover:bg-slate-700 text-purple-400 transition-colors active:scale-95 shadow-lg shadow-purple-500/10">
@@ -736,38 +751,36 @@
                             <select id="trans-lang-b" class="bg-slate-800 text-white p-1.5 rounded outline-none border border-slate-700"><option value="zh-TW">翻譯為中文</option><option value="en">翻譯為英文</option><option value="ja">翻譯為日文</option><option value="ko">翻譯為韓文</option></select>
                         </div>
 
-                        <div class="flex items-end gap-2 w-full relative z-50 p-2">
-                            <button onclick="togglePlusMenu()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-300 hover:text-white shrink-0 transition-transform flex items-center justify-center active:scale-90 h-[40px] w-[40px]">
-                                <i class="ph-bold ph-plus text-xl transition-transform" id="plus-icon"></i>
-                            </button>
-                            
-                            <!-- 訊息輸入框 -->
-                            <div id="input-wrapper" class="flex-1 flex items-end bg-slate-950 rounded-2xl px-3 py-1.5 border border-slate-700 focus-within:border-blue-500 transition-colors">
-                                <textarea id="user-input" rows="1" placeholder="輸入訊息..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none resize-none py-1.5 scrollbar-none text-base min-h-[38px] max-h-[120px]" onkeydown="handleEnter(event)" oninput="autoResizeInput(this)"></textarea>
+                        <div class="flex flex-col w-full relative z-50 p-2 gap-2">
+                            <div class="flex items-end gap-2 w-full">
+                                <div id="input-wrapper" class="flex-1 flex items-end bg-slate-950 rounded-2xl px-3 py-1.5 border border-slate-700 focus-within:border-blue-500 transition-colors">
+                                    <textarea id="user-input" rows="1" placeholder="輸入訊息..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none resize-none py-1.5 scrollbar-none text-base min-h-[38px] max-h-[120px] w-full" onkeydown="handleEnter(event)" oninput="autoResizeInput(this)"></textarea>
+                                </div>
+                                
+                                <button onclick="handleSendMessage()" id="send-btn" class="p-2 mb-1 rounded-full bg-blue-600 text-white hover:bg-blue-500 shrink-0 transition-all shadow hidden items-center justify-center active:scale-90 h-[40px] w-[40px]">
+                                    <i id="send-icon" class="ph-bold ph-paper-plane-right text-xl ml-0.5"></i>
+                                </button>
                             </div>
-                            
-                            <!-- 搜尋切換按鈕 -->
-                            <button id="search-toggle-btn" onclick="toggleSearch()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="開關連網搜尋">
-                                <i id="search-icon" class="ph-bold ph-globe text-xl"></i>
-                            </button>
 
-                            <!-- 記憶上下文開關 -->
-                            <button id="context-toggle-btn" onclick="toggleContext()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="記憶上下文：關閉 (獨立問答)">
-                                <i id="context-icon" class="ph-bold ph-brain text-xl"></i>
-                            </button>
+                            <div class="flex items-center gap-3 w-full pl-1">
+                                <button onclick="togglePlusMenu()" class="p-2 rounded-full bg-slate-800 text-slate-300 hover:text-white shrink-0 transition-transform flex items-center justify-center active:scale-90 h-[36px] w-[36px]">
+                                    <i class="ph-bold ph-plus text-lg transition-transform" id="plus-icon"></i>
+                                </button>
+                                
+                                <button id="search-toggle-btn" onclick="toggleSearch()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[36px] w-[36px]" title="開關連網搜尋">
+                                    <i id="search-icon" class="ph-bold ph-globe text-lg"></i>
+                                </button>
 
-                            <!-- 連續語音切換按鈕 -->
-                            <button id="continuous-btn" onclick="toggleContinuous()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="連續語音">
-                                <i id="continuous-icon" class="ph-bold ph-microphone text-xl"></i>
-                            </button>
-                            
-                            <!-- 傳送訊息按鈕 -->
-                            <button onclick="handleSendMessage()" id="send-btn" class="p-2 mb-1 rounded-full bg-blue-600 text-white hover:bg-blue-500 shrink-0 transition-all shadow hidden items-center justify-center active:scale-90 h-[40px] w-[40px]">
-                                <i id="send-icon" class="ph-bold ph-paper-plane-right text-xl ml-0.5"></i>
-                            </button>
+                                <button id="context-toggle-btn" onclick="toggleContext()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[36px] w-[36px]" title="記憶上下文：關閉 (獨立問答)">
+                                    <i id="context-icon" class="ph-bold ph-brain text-lg"></i>
+                                </button>
+
+                                <button id="continuous-btn" onclick="toggleContinuous()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[36px] w-[36px]" title="連續語音">
+                                    <i id="continuous-icon" class="ph-bold ph-microphone text-lg"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
                 
                 <!-- ================= 桌面版側邊資訊欄 (天氣、任務、筆記預覽) ================= -->
                 <div class="hidden lg:flex w-80 bg-slate-900 flex-col p-6 space-y-6 border-l border-slate-800 overflow-y-auto shrink-0">
@@ -1550,86 +1563,93 @@ return html;
 
         window.toggleMobileMenu = function() {
             const menu = document.getElementById('mobile-menu');
-            if(menu) menu.classList.toggle('hidden');
+            const overlay = document.getElementById('mobile-menu-overlay');
+            if(menu) {
+                menu.classList.toggle('hidden');
+                menu.classList.toggle('flex');
+            }
+            if(overlay) overlay.classList.toggle('hidden');
         };
+
+        // 點擊其他地方收回 Plus 選單
+        document.addEventListener('click', function(e) {
+            const plusMenu = document.getElementById('plus-menu');
+            const plusBtn = document.getElementById('plus-icon')?.parentElement;
+            if (plusMenu && !plusMenu.classList.contains('hidden')) {
+                if (!plusMenu.contains(e.target) && (!plusBtn || !plusBtn.contains(e.target))) {
+                    togglePlusMenu();
+                }
+            }
+        });
 
         // --- 新增：Gemini 風格對話與側邊欄管理 ---
         window.toggleSidebarSection = function(sectionId, iconId) {
             const section = document.getElementById(sectionId);
             const icon = document.getElementById(iconId);
             if (section.classList.contains('hidden')) {
-                section.classList.remove('hidden');
-                icon.classList.remove('-rotate-90');
-            } else {
-                section.classList.add('hidden');
-                icon.classList.add('-rotate-90');
-            }
-        };
-
+...
         window.createNewChat = function() {
             appState.currentSessionId = Date.now().toString();
             localStorage.setItem('nova_current_session', appState.currentSessionId);
-            
             // 💡 修復 1：建立新對話時，強制清除任何遺留的「待處理分析任務」與「暫存檔案」
             appState.pendingAnalyzeContextId = null;
             appState.pendingAnalyzeType = '';
             appState.chatFile = null;
             
+            const titleEl = document.getElementById('mobile-chat-title');
+            if(titleEl) titleEl.innerText = '新對話';
+
             renderMessages();
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
             switchTab('dashboard');
         };
-
         window.loadChatSession = function(sessionId) {
             appState.currentSessionId = String(sessionId);
             localStorage.setItem('nova_current_session', appState.currentSessionId);
-            
             // 💡 修復 2：載入舊對話時，同樣強制清除遺留的任務
             appState.pendingAnalyzeContextId = null;
             appState.pendingAnalyzeType = '';
             appState.chatFile = null;
             
+            const titleEl = document.getElementById('mobile-chat-title');
+            if(titleEl) titleEl.innerText = appState.chatTitles[sessionId] || '對話紀錄';
+
             renderMessages();
             switchTab('dashboard');
             const menu = document.getElementById('mobile-menu');
             if(menu && !menu.classList.contains('hidden')) toggleMobileMenu();
         };
-
-        window.deleteChatSession = function(sessionId, e) {
-            e.stopPropagation();
-            showConfirmDialog({
-                title: '刪除對話',
-                message: '確定要刪除這整筆對話紀錄嗎？所有訊息將永久移除，此動作無法復原。',
-                okText: '刪除對話',
-                onConfirm: function() {
-                    const msgsToDelete = appState.messages.filter(m => String(m.sessionId) === String(sessionId) || (!m.sessionId && sessionId === 'legacy'));
-                    msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
-                    appState.messages = appState.messages.filter(m => String(m.sessionId) !== String(sessionId) && !(!m.sessionId && sessionId === 'legacy'));
-                    if (String(appState.currentSessionId) === String(sessionId) || (!appState.currentSessionId && sessionId === 'legacy')) {
-                        appState.currentSessionId = Date.now().toString();
-                        localStorage.setItem('nova_current_session', appState.currentSessionId);
-                    }
-                    renderMessages();
-                    if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
-                }
-            });
-        };
-
+...
         window.applyTheme = function(theme) {
+            const isMobile = window.innerWidth <= 768;
             if(theme === 'light') {
                 document.documentElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(1.05)';
+                let metaTheme = document.querySelector('meta[name="theme-color"]');
+                if(metaTheme) metaTheme.setAttribute('content', '#ffffff');
+                document.body.classList.add('light-mode');
+                if(isMobile) document.body.classList.add('mobile-light');
                 let style = document.getElementById('light-theme-fix');
                 if(!style) {
-                    style = document.createElement('style'); style.id = 'light-theme-fix';
+                    style = document.createElement('style');
+                    style.id = 'light-theme-fix';
                     style.innerHTML = `img, video, .keep-color, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }`;
                     document.head.appendChild(style);
                 }
             } else {
                 document.documentElement.style.filter = '';
+                let metaTheme = document.querySelector('meta[name="theme-color"]');
+                if(metaTheme) metaTheme.setAttribute('content', '#020617');
+                document.body.classList.remove('light-mode', 'mobile-light');
                 const style = document.getElementById('light-theme-fix');
                 if(style) style.remove();
             }
         };
+        window.addEventListener('resize', () => {
+            if(appState.theme === 'light') {
+                if(window.innerWidth <= 768) document.body.classList.add('mobile-light');
+                else document.body.classList.remove('mobile-light');
+            }
+        });
 
         window.initSettingsTabs = function() {
             const container = document.querySelector('#settings-modal .overflow-y-auto');
@@ -3490,22 +3510,38 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
                 }
 
                 let isPlayingMsg = appState.isTTSPlaying && appState.playingMsgId === String(msg.id);
+            
+            let actionButtonsHtml = `
+                <button onclick="playMessageAudio(${msg.id})" class="p-1.5 md:p-1.5 ${isPlayingMsg ?'text-blue-400':'text-slate-500'} hover:text-purple-400 transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="語音朗讀"><i class="ph-bold ${isPlayingMsg ?'ph-stop-circle animate-pulse':'ph-speaker-high'}"></i></button>
+                <button onclick="copyMessageText(${msg.id})" class="p-1.5 md:p-1.5 text-slate-500 hover:text-white transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="複製"><i class="ph-bold ph-copy"></i></button>
+                <button onclick="generatePPTFromMessage(${msg.id})" class="p-1.5 md:p-1.5 text-slate-500 hover:text-emerald-400 transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="PPT"><i class="ph-bold ph-presentation-chart"></i></button>
+                <button onclick="favoriteMessage(${msg.id})" class="p-1.5 md:p-1.5 text-slate-500 hover:text-yellow-400 transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="收藏"><i class="ph-bold ph-star"></i></button>
+                <button onclick="deleteMessage(${msg.id})" class="p-1.5 md:p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="刪除"><i class="ph-bold ph-trash"></i></button>
+            `;
 
-                return `<div class="group flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in relative mb-4">
-                    ${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'}"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}
-                    <div class="msg-group relative max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">
-                        ${!isUser ? `<span class="text-[10px] font-bold uppercase mb-2 block ${modelInfo?.color||'text-slate-400'} opacity-80 pr-24 leading-tight">${modelInfo?.name||'System'}</span>` : ''}
-                        ${mediaHTML} <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div> ${actionCardHtml} ${sourcesHTML}
-                        <p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p>
-                        <div class="msg-actions absolute top-1.5 right-1.5 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                            <button onclick="playMessageAudio(${msg.id})" class="p-1.5 ${isPlayingMsg ?'text-blue-400':'text-slate-500'} hover:text-purple-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="語音朗讀(點擊可停止)"><i class="ph-bold ${isPlayingMsg ?'ph-stop-circle animate-pulse':'ph-speaker-high'} text-xs"></i></button>
-                            <button onclick="copyMessageText(${msg.id})" class="p-1.5 text-slate-500 hover:text-white transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="複製文字"><i class="ph-bold ph-copy text-xs"></i></button>
-                            <button onclick="generatePPTFromMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-emerald-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="製作 PPT"><i class="ph-bold ph-presentation-chart text-xs"></i></button>
-                            <button onclick="favoriteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-yellow-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="收藏至筆記"><i class="ph-bold ph-star text-xs"></i></button>
-                            <button onclick="deleteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="刪除"><i class="ph-bold ph-trash text-xs"></i></button>
-                        </div>
-                    </div></div>`; 
-            }).join(''); 
+            return `<div class="group flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-2'} fade-in relative mb-4">
+            ${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'} ai-avatar-icon"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}
+            <div class="msg-group relative w-full md:max-w-[80%] rounded-2xl p-3 md:p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none user-bubble max-w-[95%]' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none ai-bubble'}">
+            ${!isUser ? `
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-2 pb-1 border-b border-slate-800/50 md:border-none gap-2">
+                    <span class="text-xs font-bold uppercase ${modelInfo?.color||'text-slate-400'} opacity-80 ai-name-label">${modelInfo?.name||'System'}</span>
+                    <div class="flex space-x-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 ai-actions-row">
+                        ${actionButtonsHtml}
+                    </div>
+                </div>
+            ` : ''}
+            ${mediaHTML}
+            <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div>
+            ${actionCardHtml}
+            ${sourcesHTML}
+            <p class="text-[10px] mt-2 text-right ${isUser ? 'text-slate-400' : 'text-slate-500'} opacity-60">${msg.time}</p>
+            ${isUser ? `
+                <div class="absolute -top-3 -right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
+                   <button onclick="deleteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-red-400 bg-slate-950/80 rounded-full text-xs shadow"><i class="ph-bold ph-trash"></i></button>
+                </div>
+            ` : ''}
+            </div></div>`;
+        }).join(''); 
             container.scrollTop = container.scrollHeight;
         }
 
