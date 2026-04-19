@@ -123,10 +123,14 @@
         }
         
         /* --- Mobile Light Mode Specific Overrides --- */
-        body.mobile-light .top-nav-bar,
-        body.mobile-light .bottom-input-area { background-color: #000000 !important; border-color: #1a1a1a !important; }
-        body.mobile-light .top-nav-bar * { color: #ffffff !important; }
+        body.mobile-light { background-color: #000000 !important; }
+        body.mobile-light::after { background-color: #000000 !important; }
+        body.mobile-light .top-nav-bar { background-color: #000000 !important; border-bottom: none !important; box-shadow: none !important; }
+        body.mobile-light .model-select-bar { background-color: #080808 !important; border-bottom: none !important; }
+        body.mobile-light .bottom-input-area { background-color: #000000 !important; border-top: none !important; }
+        body.mobile-light .top-nav-bar *, body.mobile-light .model-select-bar * { color: #ffffff !important; }
         body.mobile-light .bottom-input-area button, body.mobile-light .bottom-input-area i { color: #ffffff !important; }
+        body.mobile-light .action-btn-light { background-color: #1a1a1a !important; color: #ffffff !important; border: none !important; }
         body.mobile-light #chat-container { background-color: #000000 !important; }
         body.mobile-light .user-bubble { background-color: #1a1a1a !important; color: #ffffff !important; border: none !important; }
         body.mobile-light .user-bubble * { color: #ffffff !important; }
@@ -135,8 +139,13 @@
         body.mobile-light .ai-avatar-icon { display: none !important; }
         body.mobile-light #input-wrapper { border: none !important; background-color: #000000 !important; }
         body.mobile-light #input-wrapper textarea { color: #ffffff !important; }
-        body.mobile-light .ai-bubble .ai-actions-row button { background-color: #000000 !important; color: #ffffff !important; border: none !important; }
-        body.mobile-light .ai-bubble .ai-actions-row button i { color: #ffffff !important; }
+        body.mobile-light .ai-actions-row button, body.mobile-light .user-actions-row button { background-color: #000000 !important; color: #ffffff !important; border: none !important; }
+        body.mobile-light .ai-actions-row button i, body.mobile-light .user-actions-row button i { color: #ffffff !important; }
+        
+        /* 三槓選單白晝模式顏色調整 (選中為淺灰底+深灰字) */
+        body.mobile-light #mobile-menu { background-color: #000000 !important; }
+        body.mobile-light #mobile-menu button { color: #ffffff !important; background-color: transparent !important; }
+        body.mobile-light #mobile-menu button.bg-slate-800 { background-color: #0f0f0f !important; color: #cccccc !important; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30 h-full">
@@ -631,7 +640,7 @@
             <div id="view-dashboard" class="flex flex-col lg:flex-row h-full w-full relative min-h-0">
                 <div class="flex-1 flex flex-col h-full min-w-0 relative">
                     <!-- 頂部狀態列與模型選擇下拉單 -->
-                    <div class="p-3 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center shrink-0 overflow-x-auto no-scrollbar relative z-10">
+                    <div class="p-3 border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm flex justify-between items-center shrink-0 overflow-x-auto no-scrollbar relative z-10 model-select-bar">
                          <div class="flex items-center space-x-2 mr-4 shrink-0">
                             <span id="web-search-badge" class="hidden md:flex items-center space-x-1 text-[10px] bg-blue-900/30 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full"><i class="ph-bold ph-globe"></i><span>連網搜尋</span></span>
                             
@@ -756,31 +765,29 @@
                                 <div id="input-wrapper" class="flex-1 flex items-end bg-slate-950 rounded-2xl px-3 py-1.5 border border-slate-700 focus-within:border-blue-500 transition-colors">
                                     <textarea id="user-input" rows="1" placeholder="輸入訊息..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none resize-none py-1.5 scrollbar-none text-base min-h-[38px] max-h-[120px] w-full" onkeydown="handleEnter(event)" oninput="autoResizeInput(this)"></textarea>
                                 </div>
-                                
-                                <button onclick="handleSendMessage()" id="send-btn" class="p-2 mb-1 rounded-full bg-blue-600 text-white hover:bg-blue-500 shrink-0 transition-all shadow hidden items-center justify-center active:scale-90 h-[40px] w-[40px]">
-                                    <i id="send-icon" class="ph-bold ph-paper-plane-right text-xl ml-0.5"></i>
+                                <button onclick="handleSendMessage()" id="send-btn" class="p-2 mb-1 rounded-full bg-blue-600 text-white hover:bg-blue-500 shrink-0 transition-all shadow hidden items-center justify-center active:scale-90 h-[44px] w-[44px]">
+                                    <i id="send-icon" class="ph-bold ph-paper-plane-right text-2xl ml-0.5"></i>
                                 </button>
                             </div>
-
-                            <div class="flex items-center gap-3 w-full pl-1">
-                                <button onclick="togglePlusMenu()" class="p-2 rounded-full bg-slate-800 text-slate-300 hover:text-white shrink-0 transition-transform flex items-center justify-center active:scale-90 h-[36px] w-[36px]">
-                                    <i class="ph-bold ph-plus text-lg transition-transform" id="plus-icon"></i>
+                            
+                            <div class="flex items-center justify-between w-full mt-1">
+                                <button onclick="togglePlusMenu()" class="p-2.5 rounded-full bg-slate-800 text-slate-300 hover:text-white shrink-0 transition-transform flex items-center justify-center active:scale-90 h-[44px] w-[44px] action-btn-light">
+                                    <i class="ph-bold ph-plus text-2xl transition-transform" id="plus-icon"></i>
                                 </button>
                                 
-                                <button id="search-toggle-btn" onclick="toggleSearch()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[36px] w-[36px]" title="開關連網搜尋">
-                                    <i id="search-icon" class="ph-bold ph-globe text-lg"></i>
-                                </button>
-
-                                <button id="context-toggle-btn" onclick="toggleContext()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[36px] w-[36px]" title="記憶上下文：關閉 (獨立問答)">
-                                    <i id="context-icon" class="ph-bold ph-brain text-lg"></i>
-                                </button>
-
-                                <button id="continuous-btn" onclick="toggleContinuous()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[36px] w-[36px]" title="連續語音">
-                                    <i id="continuous-icon" class="ph-bold ph-microphone text-lg"></i>
-                                </button>
+                                <div class="flex items-center gap-3">
+                                    <button id="search-toggle-btn" onclick="toggleSearch()" class="p-2.5 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[44px] w-[44px] action-btn-light" title="開關連網搜尋">
+                                        <i id="search-icon" class="ph-bold ph-globe text-2xl"></i>
+                                    </button>
+                                    <button id="context-toggle-btn" onclick="toggleContext()" class="p-2.5 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[44px] w-[44px] action-btn-light" title="記憶上下文">
+                                        <i id="context-icon" class="ph-bold ph-brain text-2xl"></i>
+                                    </button>
+                                    <button id="continuous-btn" onclick="toggleContinuous()" class="p-2.5 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[44px] w-[44px] action-btn-light" title="連續語音">
+                                        <i id="continuous-icon" class="ph-bold ph-microphone text-2xl"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
-                    </div>
                 
                 <!-- ================= 桌面版側邊資訊欄 (天氣、任務、筆記預覽) ================= -->
                 <div class="hidden lg:flex w-80 bg-slate-900 flex-col p-6 space-y-6 border-l border-slate-800 overflow-y-auto shrink-0">
@@ -3535,37 +3542,39 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
                     </div>`;
                 }
 
-                let isPlayingMsg = appState.isTTSPlaying && appState.playingMsgId === String(msg.id);
+                // --- 同步更新手機版頂部對話標題 ---
+            const currentTitle = appState.chatTitles[appState.currentSessionId] || '新對話';
+            const mobileTitleEl = document.getElementById('mobile-chat-title');
+            if (mobileTitleEl) mobileTitleEl.innerText = currentTitle;
+
+            let isPlayingMsg = appState.isTTSPlaying && appState.playingMsgId === String(msg.id);
             
+            // 統一改為懸浮樣式，拔除 md: 限制，讓手機版也能保持黑底白字的圓形按鈕
             let actionButtonsHtml = `
-                <button onclick="playMessageAudio(${msg.id})" class="p-1.5 md:p-1.5 ${isPlayingMsg ?'text-blue-400':'text-slate-500'} hover:text-purple-400 transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="語音朗讀"><i class="ph-bold ${isPlayingMsg ?'ph-stop-circle animate-pulse':'ph-speaker-high'}"></i></button>
-                <button onclick="copyMessageText(${msg.id})" class="p-1.5 md:p-1.5 text-slate-500 hover:text-white transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="複製"><i class="ph-bold ph-copy"></i></button>
-                <button onclick="generatePPTFromMessage(${msg.id})" class="p-1.5 md:p-1.5 text-slate-500 hover:text-emerald-400 transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="PPT"><i class="ph-bold ph-presentation-chart"></i></button>
-                <button onclick="favoriteMessage(${msg.id})" class="p-1.5 md:p-1.5 text-slate-500 hover:text-yellow-400 transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="收藏"><i class="ph-bold ph-star"></i></button>
-                <button onclick="deleteMessage(${msg.id})" class="p-1.5 md:p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-transparent md:bg-slate-950/80 rounded-full md:backdrop-blur-sm md:shadow text-lg md:text-xs" title="刪除"><i class="ph-bold ph-trash"></i></button>
+                <button onclick="playMessageAudio(${msg.id})" class="p-1.5 text-slate-500 hover:text-purple-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow text-xs" title="語音朗讀"><i class="ph-bold ${isPlayingMsg ?'ph-stop-circle animate-pulse':'ph-speaker-high'}"></i></button>
+                <button onclick="copyMessageText(${msg.id})" class="p-1.5 text-slate-500 hover:text-white transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow text-xs" title="複製"><i class="ph-bold ph-copy"></i></button>
+                <button onclick="favoriteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-yellow-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow text-xs" title="收藏"><i class="ph-bold ph-star"></i></button>
+                <button onclick="deleteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow text-xs" title="刪除"><i class="ph-bold ph-trash"></i></button>
             `;
 
             return `<div class="group flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-2'} fade-in relative mb-4">
             ${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'} ai-avatar-icon"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}
-            <div class="msg-group relative w-full md:max-w-[80%] rounded-2xl p-3 md:p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none user-bubble max-w-[95%]' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none ai-bubble'}">
-            ${!isUser ? `
-                <div class="flex flex-col md:flex-row md:items-center justify-between mb-2 pb-1 border-b border-slate-800/50 md:border-none gap-2">
-                    <span class="text-xs font-bold uppercase ${modelInfo?.color||'text-slate-400'} opacity-80 ai-name-label">${modelInfo?.name||'System'}</span>
-                    <div class="flex space-x-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10 ai-actions-row">
-                        ${actionButtonsHtml}
-                    </div>
-                </div>
-            ` : ''}
+            
+            <div class="msg-group relative ${isUser ? 'max-w-[95%] md:max-w-[80%]' : 'w-full md:max-w-[80%]'} rounded-2xl p-3 md:p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none user-bubble' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none ai-bubble'}">
+            
+            ${!isUser ? `<span class="text-xs font-bold uppercase mb-2 block ${modelInfo?.color||'text-slate-400'} opacity-80 ai-name-label pr-16">${modelInfo?.name||'System'}</span>` : ''}
+            
             ${mediaHTML}
             <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div>
             ${actionCardHtml}
             ${sourcesHTML}
             <p class="text-[10px] mt-2 text-right ${isUser ? 'text-slate-400' : 'text-slate-500'} opacity-60">${msg.time}</p>
-            ${isUser ? `
-                <div class="absolute -top-3 -right-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity z-10">
-                   <button onclick="deleteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-red-400 bg-slate-950/80 rounded-full text-xs shadow"><i class="ph-bold ph-trash"></i></button>
-                </div>
-            ` : ''}
+            
+            <div class="msg-actions absolute ${isUser ? '-top-3 -left-2 flex-row-reverse' : '-top-3 -right-2'} flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 ${isUser ? 'user-actions-row' : 'ai-actions-row'}">
+                ${actionButtonsHtml}
+                ${!isUser ? `<button onclick="generatePPTFromMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-emerald-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow text-xs" title="PPT"><i class="ph-bold ph-presentation-chart"></i></button>` : ''}
+            </div>
+            
             </div></div>`;
         }).join(''); 
             container.scrollTop = container.scrollHeight;
