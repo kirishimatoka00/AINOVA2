@@ -1586,8 +1586,10 @@ return html;
         window.toggleSidebarSection = function(sectionId, iconId) {
             const section = document.getElementById(sectionId);
             const icon = document.getElementById(iconId);
-            if (section.classList.contains('hidden')) {
-...
+            if (section) section.classList.toggle('hidden');
+            if (icon) icon.classList.toggle('rotate-180');
+        };
+
         window.createNewChat = function() {
             appState.currentSessionId = Date.now().toString();
             localStorage.setItem('nova_current_session', appState.currentSessionId);
@@ -1603,6 +1605,7 @@ return html;
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
             switchTab('dashboard');
         };
+
         window.loadChatSession = function(sessionId) {
             appState.currentSessionId = String(sessionId);
             localStorage.setItem('nova_current_session', appState.currentSessionId);
@@ -1619,7 +1622,30 @@ return html;
             const menu = document.getElementById('mobile-menu');
             if(menu && !menu.classList.contains('hidden')) toggleMobileMenu();
         };
-...
+
+        window.deleteChatSession = function(sessionId, e) {
+            if (e) e.stopPropagation();
+            if(confirm('確定要刪除整個對話紀錄嗎？')) {
+                appState.messages = appState.messages.filter(m => String(m.sessionId) !== String(sessionId));
+                if(appState.chatTitles && appState.chatTitles[sessionId]) {
+                    delete appState.chatTitles[sessionId];
+                    localStorage.setItem('nova_chat_titles', JSON.stringify(appState.chatTitles));
+                }
+                if (appState.pinnedSessions) {
+                    appState.pinnedSessions = appState.pinnedSessions.filter(id => id !== sessionId);
+                    localStorage.setItem('nova_pinned_sessions', JSON.stringify(appState.pinnedSessions));
+                }
+                
+                const msgsToDelete = appState.messages.filter(m => String(m.sessionId) === String(sessionId));
+                msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
+
+                if(String(appState.currentSessionId) === String(sessionId)) {
+                    createNewChat();
+                } else {
+                    if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+                }
+            }
+        };
         window.applyTheme = function(theme) {
             const isMobile = window.innerWidth <= 768;
             if(theme === 'light') {
