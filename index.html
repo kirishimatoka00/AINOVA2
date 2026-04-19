@@ -168,6 +168,29 @@
         body.mobile-light #mobile-menu { background-color: #000000 !important; }
         body.mobile-light #mobile-menu button { color: #ffffff !important; background-color: transparent !important; }
         body.mobile-light #mobile-menu button.bg-slate-800 { background-color: #2d2d2d !important; color: #cccccc !important; }
+
+        /* 解決問題 2：強制對話框內圖片縮小，防止爆框 */
+        .msg-content img {
+            max-width: 100% !important;
+            height: auto !important;
+            display: block;
+            margin: 0.5rem 0;
+            border-radius: 0.5rem;
+        }
+
+        /* 確保對話容器與主要區域不出現左右捲軸 */
+        #chat-container, 
+        main, 
+        .msg-group {
+            overflow-x: hidden !important;
+            word-break: break-word;
+        }
+        
+        /* 針對白晝模式下的圖片反轉優化 (確保圖片顏色正確不被二次反轉) */
+        body.mobile-light .msg-content img {
+            filter: invert(1) hue-rotate(180deg) !important;
+        }
+
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30 h-full">
@@ -3481,16 +3504,21 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
         function renderMessages() { 
             const container = document.getElementById('chat-container'); if(!container) return;
             
-            // --- 解決問題：同步更新手機版頂部對話標題 ---
-            if (appState.chatTitles && appState.currentSessionId) {
-                const currentTitle = appState.chatTitles[appState.currentSessionId] || '新對話';
-                const mobileTitleEl = document.getElementById('mobile-chat-title');
-                if (mobileTitleEl) {
-                    mobileTitleEl.innerText = currentTitle;
+            // --- 強化標題更新邏輯：統一轉換為字串，並處理舊版紀錄 ---
+            const sid = String(appState.currentSessionId);
+            const mobileTitleEl = document.getElementById('mobile-chat-title');
+            
+            if (mobileTitleEl) {
+                let displayTitle = '新對話';
+                if (appState.chatTitles && appState.chatTitles[sid]) {
+                    displayTitle = appState.chatTitles[sid];
+                } else if (sid === 'legacy') {
+                    displayTitle = '對話紀錄';
                 }
+                mobileTitleEl.innerText = displayTitle;
             }
 
-            const sessionMsgs = appState.messages.filter(m => String(m.sessionId) === String(appState.currentSessionId) || (!m.sessionId && (!appState.currentSessionId || appState.currentSessionId === 'legacy')));
+            const sessionMsgs = appState.messages.filter(m => String(m.sessionId) === sid || (!m.sessionId && (sid === '' || sid === 'legacy')));
             
             if (sessionMsgs.length === 0) {
                 container.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-slate-500 opacity-50 space-y-4 pt-20"><i class="ph-thin ph-chats-circle text-6xl"></i><p>今天想聊些什麼呢？</p></div>`;
