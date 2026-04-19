@@ -7,8 +7,10 @@
     <title>NOVA 120 SSP</title>
     <link rel="manifest" href="manifest.json?v=2">
     <meta name="theme-color" content="#020617">
-    <meta name="color-scheme" content="dark"> <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="color-scheme" content="dark">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#ffffff">
     <link rel="apple-touch-icon" href="icon.png">
 
     
@@ -119,6 +121,43 @@
         .note-html-content ol { list-style-type: decimal; margin-left: 1.5rem; }
         .note-html-content iframe { border-radius: 0.5rem; max-width: 100%; }
         [contenteditable]:empty:before { content: attr(placeholder); color: #64748b; pointer-events: none; display: block; }
+
+        /* ===== 手機白晝主題 ===== */
+        @media (max-width: 767px) {
+            /* 頂部 header 白色 */
+            #mobile-header { background: #ffffff !important; border-bottom: 1px solid #e2e8f0 !important; }
+            #mobile-header * { color: #1e293b !important; }
+            #mobile-header .text-white { color: #1e293b !important; }
+            #mobile-header .text-blue-400 { color: #2563eb !important; }
+            #mobile-header .text-slate-400 { color: #64748b !important; }
+            #mobile-header .bg-slate-800\/50 { background: #f1f5f9 !important; border-color: #cbd5e1 !important; }
+
+            /* 訊息氣泡：使用者淺灰，AI透明+邊框 */
+            .bubble-user { background: #f1f5f9 !important; color: #1e293b !important; border: none !important; }
+            .bubble-ai   { background: transparent !important; color: #1e293b !important; border: 1px solid #e2e8f0 !important; }
+            .bubble-user .msg-content, .bubble-ai .msg-content { color: #1e293b !important; }
+            .bubble-user .msg-content a, .bubble-ai .msg-content a { color: #2563eb !important; }
+            .bubble-user p.text-slate-500, .bubble-ai p.text-slate-500 { color: #94a3b8 !important; }
+
+            /* 底部輸入欄白色 */
+            #chat-input-bar { background: #ffffff !important; border-top: 1px solid #e2e8f0 !important; }
+            #input-wrapper { background: #f8fafc !important; border-color: #cbd5e1 !important; }
+            #input-wrapper textarea { color: #1e293b !important; }
+            #input-wrapper textarea::placeholder { color: #94a3b8 !important; }
+            #chat-input-bar button:not(#send-btn) { background: #f1f5f9 !important; color: #475569 !important; }
+            #chat-input-bar button:not(#send-btn) i { color: #475569 !important; }
+
+            /* plus-menu 白色 */
+            #plus-menu { background: #ffffff !important; border-color: #e2e8f0 !important; box-shadow: 0 -8px 20px rgba(0,0,0,0.08) !important; }
+            #plus-menu button, #plus-menu label { background: #f8fafc !important; border-color: #e2e8f0 !important; }
+            #plus-menu span { color: #475569 !important; }
+
+            /* AI 動作按鈕列 */
+            .msg-inline-actions button { background: rgba(241,245,249,0.92) !important; color: #64748b !important; }
+            .msg-inline-actions button:hover { color: #1e293b !important; }
+
+            /* 全局背景保持深色（對話區） */
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30 h-full">
@@ -183,57 +222,60 @@
         <!-- ================= 主要內容顯示區 ================= -->
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
-            <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
-                <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 120 SSP</span></div>
-                <div class="flex items-center space-x-3 ml-auto pl-2">
-                    <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
-                        <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
-                    </div>
-                    <button onclick="openSettings()"><i class="ph ph-gear text-slate-400 text-xl"></i></button>
-                    <button onclick="toggleMobileMenu()"><i class="ph ph-list text-white text-2xl"></i></button>
+            <!-- ===== 手機版頂部導覽列 ===== -->
+            <div id="mobile-header" class="md:hidden flex items-center px-3 py-2 bg-white border-b border-slate-200 z-30 shrink-0 gap-2" style="min-height:52px;">
+                <!-- 左：三槓 + 對話標題 -->
+                <button onclick="toggleMobileMenu()" class="p-2 rounded-xl shrink-0 active:bg-slate-100 transition-colors">
+                    <i class="ph ph-list text-slate-700 text-2xl"></i>
+                </button>
+                <span id="mobile-session-title" class="text-sm font-semibold text-slate-700 truncate flex-1 min-w-0">NOVA</span>
+                <!-- 右：天氣 -->
+                <div class="flex items-center gap-1 bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 cursor-pointer active:scale-95 transition-transform shrink-0" onclick="cycleManualLocation()">
+                    <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-500 text-base"></i>
+                    <span id="mobile-weather-temp" class="text-xs font-bold text-slate-700 whitespace-nowrap">更新</span>
                 </div>
             </div>
 
-            <!-- 手機版全螢幕彈出選單 -->
-            <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-md flex-col">
-                <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
-                    <div class="flex items-center space-x-3">
-                        <div class="w-8 h-8 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center"><i class="ph-bold ph-infinity text-white"></i></div>
-                        <span class="text-lg font-bold text-white">NOVA 120</span>
+            <!-- ===== 手機版側拉選單 (4/5 寬 Drawer，由左滑入) ===== -->
+            <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-50 flex">
+                <!-- 4/5 Drawer 主體（左側，由左滑入） -->
+                <div id="mobile-drawer" class="w-4/5 max-w-xs bg-slate-900 flex flex-col h-full shadow-2xl -translate-x-full transition-transform duration-300 ease-out">
+                    <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
+                        <div class="flex items-center space-x-3">
+                            <div class="w-8 h-8 bg-gradient-to-tr from-blue-500 to-emerald-500 rounded-lg flex items-center justify-center"><i class="ph-bold ph-infinity text-white"></i></div>
+                            <span class="text-lg font-bold text-white">NOVA</span>
+                        </div>
+                        <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-white p-1"><i class="ph-bold ph-x text-2xl"></i></button>
                     </div>
-                    <button onclick="toggleMobileMenu()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-2xl"></i></button>
-                </div>
-                
-                <div class="p-4 shrink-0">
-                    <button onclick="createNewChat(); toggleMobileMenu();" class="flex items-center justify-center space-x-2 w-full p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 shadow-sm">
-                        <i class="ph-bold ph-plus text-lg"></i>
-                        <span class="font-medium text-sm">新增對話</span>
-                    </button>
-                </div>
-
-                <div class="flex-1 overflow-y-auto p-4 space-y-6">
-                    <div>
-                        <h3 class="text-xs font-bold text-slate-500 tracking-wider mb-2">最近的對話</h3>
-                        <div id="mobile-chat-history-list" class="space-y-1 text-sm text-slate-300">
-                            </div>
+                    <div class="p-4 shrink-0">
+                        <button onclick="createNewChat(); toggleMobileMenu();" class="flex items-center justify-center space-x-2 w-full p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors border border-slate-700 shadow-sm">
+                            <i class="ph-bold ph-plus text-lg"></i>
+                            <span class="font-medium text-sm">新增對話</span>
+                        </button>
                     </div>
-
-                    <div>
-                        <h3 class="text-xs font-bold text-slate-500 tracking-wider mb-2">工具與紀錄</h3>
-                        <nav class="space-y-1">
-                            <button onclick="switchTab('dashboard'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg bg-slate-800 text-blue-400 transition-all text-sm"><i class="ph-fill ph-chats-circle text-lg"></i><span>助理對話</span></button>
-                            <button onclick="switchTab('schedule'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
-                            <button onclick="switchTab('notes'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
-                            <button onclick="switchTab('audio'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
-                        </nav>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-6">
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-500 tracking-wider mb-2">最近的對話</h3>
+                            <div id="mobile-chat-history-list" class="space-y-1 text-sm text-slate-300"></div>
+                        </div>
+                        <div>
+                            <h3 class="text-xs font-bold text-slate-500 tracking-wider mb-2">工具與紀錄</h3>
+                            <nav class="space-y-1">
+                                <button onclick="switchTab('dashboard'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg bg-slate-800 text-blue-400 transition-all text-sm"><i class="ph-fill ph-chats-circle text-lg"></i><span>助理對話</span></button>
+                                <button onclick="switchTab('schedule'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
+                                <button onclick="switchTab('notes'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
+                                <button onclick="switchTab('audio'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
+                            </nav>
+                        </div>
+                    </div>
+                    <div class="p-4 border-t border-slate-800 shrink-0">
+                        <button onclick="openSettings(); toggleMobileMenu();" class="flex items-center space-x-3 text-sm text-slate-400 hover:text-white w-full p-2 rounded-lg hover:bg-slate-800 transition-colors">
+                            <i class="ph-bold ph-gear text-lg"></i><span>設定 & 備份</span>
+                        </button>
                     </div>
                 </div>
-                
-                <div class="p-4 border-t border-slate-800 shrink-0">
-                    <button onclick="openSettings(); toggleMobileMenu();" class="flex items-center space-x-3 text-sm text-slate-400 hover:text-white w-full p-2 rounded-lg hover:bg-slate-800 transition-colors">
-                        <i class="ph-bold ph-gear text-lg"></i><span>設定 & 備份</span>
-                    </button>
-                </div>
+                <!-- 右側 1/5 透明遮罩（點擊關閉） -->
+                <div class="flex-1 bg-black/40 backdrop-blur-sm" onclick="toggleMobileMenu()"></div>
             </div>
 
             <!-- ================= 設定彈窗 (Settings Modal) ================= -->
@@ -695,39 +737,36 @@
                     <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700 relative"></div>
                     
                     <!-- Line 風格底部輸入區塊 -->
-                    <div class="bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col relative w-full">
+                    <div id="chat-input-bar" class="bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col relative w-full">
                          
                         <div id="chat-file-preview-container" class="hidden relative flex-wrap gap-2 bg-slate-900 p-2 m-2 rounded-lg self-start">
                             </div>
                         <input type="file" id="audio-analyze-input" accept="*/*" class="hidden" onchange="handleAudioAnalyzeSelect(event)">
                         
                         <!-- 連網搜尋提示 -->
-                        <div id="search-hint" class="text-[10px] text-blue-400 text-center hidden mt-1 absolute -top-5 w-full">🌐 已開啟連網搜尋 (支援各模型)</div>
+                        <div id="search-hint" class="text-[10px] text-blue-400 text-center hidden mt-1 px-2">🌐 已開啟連網搜尋 (支援各模型)</div>
                         
                         <!-- 附加功能展開選單 (+) -->
-                        <div id="plus-menu" class="hidden absolute bottom-full left-0 mb-1 w-full bg-slate-900 border-t border-slate-800 p-4 grid grid-cols-5 gap-2 z-40 rounded-t-2xl shadow-[0_-10px_20px_rgba(0,0,0,0.5)] transition-all">
-                            
+                        <div id="plus-menu" class="hidden absolute bottom-full left-0 mb-1 w-full bg-slate-900 border-t border-slate-800 p-4 grid grid-cols-5 gap-2 z-40 rounded-t-2xl shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
                             <button onclick="openAgentModal()" class="flex flex-col items-center justify-center gap-2 p-2 rounded-xl bg-slate-800 border border-purple-500/50 hover:bg-slate-700 text-purple-400 transition-colors active:scale-95 shadow-lg shadow-purple-500/10">
                                 <i class="ph-bold ph-brain text-xl"></i><span class="text-[10px] font-bold">多AI研究</span>
                             </button>
-
                             <button onclick="openDualAIModal()" class="flex flex-col items-center justify-center gap-2 p-2 rounded-xl bg-slate-800 border border-emerald-500/50 hover:bg-slate-700 text-emerald-400 transition-colors active:scale-95 shadow-lg shadow-emerald-500/10">
                                 <i class="ph-bold ph-users-three text-xl"></i><span class="text-[10px] font-bold">雙AI對話</span>
                             </button>
-
                             <label for="chat-file-input" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 cursor-pointer text-slate-300 transition-colors active:scale-95">
                                 <i class="ph-bold ph-paperclip text-2xl text-blue-400"></i><span class="text-[10px] font-bold">多檔上傳</span>
                             </label>
                             <input type="file" id="chat-file-input" accept="*/*" class="hidden" multiple onchange="handleChatFileSelect(event)">
-                            
                             <button id="live-btn" onclick="toggleLiveMode()" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 transition-colors active:scale-95">
                                 <i id="live-icon" class="ph-bold ph-camera text-2xl"></i><span class="text-[10px] font-bold">LIVE影像</span>
                             </button>
-                            
                             <button id="translate-btn" onclick="toggleTranslateMode()" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 transition-colors active:scale-95">
                                 <i id="translate-icon" class="ph-bold ph-translate text-2xl"></i><span id="translate-btn-text" class="text-[10px] font-bold">即時口譯</span>
                             </button>
                         </div>
+                        <!-- plus-menu 背景遮罩（點擊外部自動收合）-->
+                        <div id="plus-menu-overlay" class="hidden fixed inset-0 z-30" onclick="closePlusMenu()"></div>
 
 <div id="translate-settings" class="hidden w-full bg-slate-900 border-t border-slate-800 p-2 justify-center items-center gap-2 z-40 text-xs">
                             <select id="trans-input-mode" onchange="handleTransModeChange()" class="bg-slate-800 text-purple-400 font-bold p-1.5 rounded outline-none border border-slate-700"><option value="voice">純語音</option><option value="text">純打字</option></select>
@@ -736,33 +775,34 @@
                             <select id="trans-lang-b" class="bg-slate-800 text-white p-1.5 rounded outline-none border border-slate-700"><option value="zh-TW">翻譯為中文</option><option value="en">翻譯為英文</option><option value="ja">翻譯為日文</option><option value="ko">翻譯為韓文</option></select>
                         </div>
 
-                        <div class="flex items-end gap-2 w-full relative z-50 p-2">
-                            <button onclick="togglePlusMenu()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-300 hover:text-white shrink-0 transition-transform flex items-center justify-center active:scale-90 h-[40px] w-[40px]">
+                        <!-- Row 1: 訊息輸入框（全寬） -->
+                        <div class="px-2 pt-2">
+                            <div id="input-wrapper" class="flex items-end bg-slate-950 rounded-2xl px-3 py-1.5 border border-slate-700 focus-within:border-blue-500 transition-colors w-full">
+                                <textarea id="user-input" rows="1" placeholder="輸入訊息..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none resize-none py-1.5 scrollbar-none text-base min-h-[38px] max-h-[120px] w-full" onkeydown="handleEnter(event)" oninput="autoResizeInput(this)"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: 功能按鈕列 -->
+                        <div class="flex items-center gap-1.5 px-2 pt-1.5 pb-1">
+                            <!-- + 按鈕 -->
+                            <button onclick="togglePlusMenu()" class="p-2 rounded-full bg-slate-800 text-slate-300 hover:text-white shrink-0 transition-transform flex items-center justify-center active:scale-90 h-[40px] w-[40px]">
                                 <i class="ph-bold ph-plus text-xl transition-transform" id="plus-icon"></i>
                             </button>
-                            
-                            <!-- 訊息輸入框 -->
-                            <div id="input-wrapper" class="flex-1 flex items-end bg-slate-950 rounded-2xl px-3 py-1.5 border border-slate-700 focus-within:border-blue-500 transition-colors">
-                                <textarea id="user-input" rows="1" placeholder="輸入訊息..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none resize-none py-1.5 scrollbar-none text-base min-h-[38px] max-h-[120px]" onkeydown="handleEnter(event)" oninput="autoResizeInput(this)"></textarea>
-                            </div>
-                            
-                            <!-- 搜尋切換按鈕 -->
-                            <button id="search-toggle-btn" onclick="toggleSearch()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="開關連網搜尋">
+                            <!-- 搜尋 -->
+                            <button id="search-toggle-btn" onclick="toggleSearch()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="開關連網搜尋">
                                 <i id="search-icon" class="ph-bold ph-globe text-xl"></i>
                             </button>
-
-                            <!-- 記憶上下文開關 -->
-                            <button id="context-toggle-btn" onclick="toggleContext()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="記憶上下文：關閉 (獨立問答)">
+                            <!-- 記憶上下文 -->
+                            <button id="context-toggle-btn" onclick="toggleContext()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="記憶上下文">
                                 <i id="context-icon" class="ph-bold ph-brain text-xl"></i>
                             </button>
-
-                            <!-- 連續語音切換按鈕 -->
-                            <button id="continuous-btn" onclick="toggleContinuous()" class="p-2 mb-1 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="連續語音">
+                            <!-- 語音 -->
+                            <button id="continuous-btn" onclick="toggleContinuous()" class="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-red-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[40px] w-[40px]" title="連續語音">
                                 <i id="continuous-icon" class="ph-bold ph-microphone text-xl"></i>
                             </button>
-                            
-                            <!-- 傳送訊息按鈕 -->
-                            <button onclick="handleSendMessage()" id="send-btn" class="p-2 mb-1 rounded-full bg-blue-600 text-white hover:bg-blue-500 shrink-0 transition-all shadow hidden items-center justify-center active:scale-90 h-[40px] w-[40px]">
+                            <div class="flex-1"></div>
+                            <!-- 傳送 -->
+                            <button onclick="handleSendMessage()" id="send-btn" class="p-2 rounded-full bg-blue-600 text-white hover:bg-blue-500 shrink-0 transition-all shadow hidden items-center justify-center active:scale-90 h-[40px] w-[40px]">
                                 <i id="send-icon" class="ph-bold ph-paper-plane-right text-xl ml-0.5"></i>
                             </button>
                         </div>
@@ -1550,7 +1590,21 @@ return html;
 
         window.toggleMobileMenu = function() {
             const menu = document.getElementById('mobile-menu');
-            if(menu) menu.classList.toggle('hidden');
+            const drawer = document.getElementById('mobile-drawer');
+            if (!menu) return;
+            const isHidden = menu.classList.contains('hidden');
+            if (isHidden) {
+                menu.classList.remove('hidden');
+                menu.classList.add('flex');
+                // Force reflow so transition fires
+                if (drawer) { drawer.getBoundingClientRect(); drawer.style.transform = 'translateX(0)'; }
+            } else {
+                if (drawer) drawer.style.transform = 'translateX(-100%)';
+                setTimeout(() => {
+                    menu.classList.add('hidden');
+                    menu.classList.remove('flex');
+                }, 300);
+            }
         };
 
         // --- 新增：Gemini 風格對話與側邊欄管理 ---
@@ -1569,14 +1623,12 @@ return html;
         window.createNewChat = function() {
             appState.currentSessionId = Date.now().toString();
             localStorage.setItem('nova_current_session', appState.currentSessionId);
-            
-            // 💡 修復 1：建立新對話時，強制清除任何遺留的「待處理分析任務」與「暫存檔案」
             appState.pendingAnalyzeContextId = null;
             appState.pendingAnalyzeType = '';
             appState.chatFile = null;
-            
             renderMessages();
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+            if (typeof updateMobileSessionTitle === 'function') updateMobileSessionTitle();
             switchTab('dashboard');
         };
 
@@ -1590,6 +1642,7 @@ return html;
             appState.chatFile = null;
             
             renderMessages();
+            if (typeof updateMobileSessionTitle === 'function') updateMobileSessionTitle();
             switchTab('dashboard');
             const menu = document.getElementById('mobile-menu');
             if(menu && !menu.classList.contains('hidden')) toggleMobileMenu();
@@ -1720,8 +1773,7 @@ return html;
 
         // --- 雙 AI 協作介面 (Dual AI UI) ---
         window.openDualAIModal = function() {
-            document.getElementById('plus-menu').classList.add('hidden');
-            document.getElementById('plus-icon').classList.remove('rotate-45');
+            closePlusMenu();
             document.getElementById('dual-ai-modal').classList.remove('hidden');
         };
         
@@ -2443,7 +2495,7 @@ handleSendMessage(); }
                 appState.chatFiles.push({ category, name: file.name, mime: file.type || 'application/octet-stream', data: data });
             }
             renderChatFilePreview();
-            document.getElementById('plus-menu').classList.add('hidden'); document.getElementById('plus-icon').classList.remove('rotate-45');
+            closePlusMenu();
         };
         window.handleAudioAnalyzeSelect = function(e) {
             const file = e.target.files[0];
@@ -3400,6 +3452,7 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
             renderWeather(); 
             if(typeof renderChatHistoryList === 'function') renderChatHistoryList(); 
             if(typeof applyTheme === 'function') applyTheme(appState.theme);
+            if(typeof updateMobileSessionTitle === 'function') updateMobileSessionTitle();
         }
         
         // --- UI 渲染功能 (訊息) ---
@@ -3491,22 +3544,31 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
 
                 let isPlayingMsg = appState.isTTSPlaying && appState.playingMsgId === String(msg.id);
 
-                return `<div class="group flex ${isUser ? 'justify-end' : 'justify-start items-start space-x-3'} fade-in relative mb-4">
-                    ${!isUser ? `<div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-1 ${modelInfo?.bg||'bg-slate-700'}"><i class="ph-fill ${modelInfo?.icon||'ph-robot'} text-white text-sm"></i></div>` : ''}
-                    <div class="msg-group relative max-w-[90%] md:max-w-[80%] rounded-2xl p-4 shadow-sm ${isUser ? 'bg-slate-800 text-white rounded-br-none' : 'bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">
-                        ${!isUser ? `<span class="text-[10px] font-bold uppercase mb-2 block ${modelInfo?.color||'text-slate-400'} opacity-80 pr-24 leading-tight">${modelInfo?.name||'System'}</span>` : ''}
-                        ${mediaHTML} <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div> ${actionCardHtml} ${sourcesHTML}
-                        <p class="text-[10px] mt-2 text-right text-slate-500 opacity-60">${msg.time}</p>
+                return `<div class="group flex ${isUser ? 'justify-end' : 'justify-start'} fade-in relative mb-3 px-1">
+                    <div class="msg-group relative ${isUser ? 'max-w-[85%]' : 'w-[96%] max-w-[96%]'} rounded-2xl ${isUser ? 'px-4 py-3 bubble-user bg-slate-800 text-white rounded-br-none' : 'px-4 pt-2 pb-3 bubble-ai bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none'}">
+                        ${!isUser ? `
+                        <div class="msg-inline-actions flex items-center justify-between mb-1.5 -mx-1">
+                            <span class="text-[10px] font-bold uppercase px-1 ${modelInfo?.color||'text-slate-400'} opacity-90 leading-tight">${modelInfo?.name||'System'}</span>
+                            <div class="flex items-center gap-0.5">
+                                <button onclick="playMessageAudio(${msg.id})" class="p-1.5 ${isPlayingMsg?'text-blue-400':'text-slate-500'} hover:text-purple-400 transition-colors rounded-lg active:scale-90" title="語音朗讀"><i class="ph-bold ${isPlayingMsg?'ph-stop-circle animate-pulse':'ph-speaker-high'} text-sm"></i></button>
+                                <button onclick="copyMessageText(${msg.id})" class="p-1.5 text-slate-500 hover:text-white transition-colors rounded-lg active:scale-90" title="複製文字"><i class="ph-bold ph-copy text-sm"></i></button>
+                                <button onclick="generatePPTFromMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-emerald-400 transition-colors rounded-lg active:scale-90" title="製作PPT"><i class="ph-bold ph-presentation-chart text-sm"></i></button>
+                                <button onclick="favoriteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-yellow-400 transition-colors rounded-lg active:scale-90" title="加入筆記"><i class="ph-bold ph-star text-sm"></i></button>
+                                <button onclick="deleteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-red-400 transition-colors rounded-lg active:scale-90" title="刪除"><i class="ph-bold ph-trash text-sm"></i></button>
+                            </div>
+                        </div>` : ''}
+                        ${mediaHTML}
+                        <div class="msg-content text-sm leading-relaxed">${formatMessage(msg.text)}</div> ${actionCardHtml} ${sourcesHTML}
+                        ${isUser ? `
                         <div class="msg-actions absolute top-1.5 right-1.5 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                            <button onclick="playMessageAudio(${msg.id})" class="p-1.5 ${isPlayingMsg ?'text-blue-400':'text-slate-500'} hover:text-purple-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="語音朗讀(點擊可停止)"><i class="ph-bold ${isPlayingMsg ?'ph-stop-circle animate-pulse':'ph-speaker-high'} text-xs"></i></button>
-                            <button onclick="copyMessageText(${msg.id})" class="p-1.5 text-slate-500 hover:text-white transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="複製文字"><i class="ph-bold ph-copy text-xs"></i></button>
-                            <button onclick="generatePPTFromMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-emerald-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="製作 PPT"><i class="ph-bold ph-presentation-chart text-xs"></i></button>
-                            <button onclick="favoriteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-yellow-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="收藏至筆記"><i class="ph-bold ph-star text-xs"></i></button>
+                            <button onclick="copyMessageText(${msg.id})" class="p-1.5 text-slate-500 hover:text-white transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="複製"><i class="ph-bold ph-copy text-xs"></i></button>
                             <button onclick="deleteMessage(${msg.id})" class="p-1.5 text-slate-500 hover:text-red-400 transition-colors bg-slate-950/80 rounded-full backdrop-blur-sm shadow" title="刪除"><i class="ph-bold ph-trash text-xs"></i></button>
-                        </div>
+                        </div>` : ''}
+                        <p class="text-[10px] mt-1.5 text-right text-slate-500 opacity-60">${msg.time}</p>
                     </div></div>`; 
             }).join(''); 
             container.scrollTop = container.scrollHeight;
+            if (typeof updateMobileSessionTitle === 'function') updateMobileSessionTitle();
         }
 
         window.togglePinSession = function(sid, e) {
@@ -3535,6 +3597,7 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
                 localStorage.setItem('nova_chat_titles', JSON.stringify(appState.chatTitles));
                 if(typeof triggerLiveSync === 'function') triggerLiveSync();
                 if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
+                if (typeof updateMobileSessionTitle === 'function') updateMobileSessionTitle();
             }
         };
 
@@ -3821,16 +3884,35 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
             }
         }
 
+        function closePlusMenu() {
+            const menu = document.getElementById('plus-menu');
+            const icon = document.getElementById('plus-icon');
+            const overlay = document.getElementById('plus-menu-overlay');
+            if (menu) { menu.classList.add('hidden'); }
+            if (icon) { icon.classList.remove('rotate-45'); }
+            if (overlay) { overlay.classList.add('hidden'); }
+        }
+
         function togglePlusMenu() {
             const menu = document.getElementById('plus-menu');
             const icon = document.getElementById('plus-icon');
+            const overlay = document.getElementById('plus-menu-overlay');
             if (menu.classList.contains('hidden')) {
                 menu.classList.remove('hidden');
                 icon.classList.add('rotate-45');
+                if (overlay) overlay.classList.remove('hidden');
             } else {
-                menu.classList.add('hidden');
-                icon.classList.remove('rotate-45');
+                closePlusMenu();
             }
+        }
+
+        // 更新手機版頂部標題
+        function updateMobileSessionTitle() {
+            const el = document.getElementById('mobile-session-title');
+            if (!el) return;
+            const sid = appState.currentSessionId;
+            const title = (appState.chatTitles && sid && appState.chatTitles[sid]) ? appState.chatTitles[sid] : 'NOVA';
+            el.textContent = title;
         }
 
         // --- 攝影機與 LIVE 視覺功能 ---
@@ -3933,8 +4015,7 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
                     
                     if (!appState.isContinuous) toggleContinuous();
                     
-                    document.getElementById('plus-menu').classList.add('hidden');
-                    document.getElementById('plus-icon').classList.remove('rotate-45');
+                    closePlusMenu();
                 } catch (e) {
                     alert("無法存取相機或權限被拒絕：" + e.message);
                     appState.isLiveMode = false;
@@ -4018,8 +4099,7 @@ document.getElementById('translate-settings').classList.add('hidden');
                 if (inputMode === 'voice') {
                     setTimeout(() => { startTranslateBAutoRecord(); }, 1500);
                 }
-                document.getElementById('plus-menu').classList.add('hidden');
-                document.getElementById('plus-icon').classList.remove('rotate-45');
+                closePlusMenu();
             }
         }
 
@@ -4925,8 +5005,7 @@ async function checkScheduleIntent(text) {
         };
 
         window.openAgentModal = function() {
-            document.getElementById('plus-menu').classList.add('hidden'); 
-            document.getElementById('plus-icon').classList.remove('rotate-45');
+            closePlusMenu();
             
             // 修復：動態組合所有主模型與細部子模型的清單，讓你精細到能選特定版本
             let geminiHTML = ''; let grokHTML = '';
