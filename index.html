@@ -553,19 +553,35 @@
             </div>
 
             <!-- ================= 圖片預覽放大彈窗 (Image Preview Modal) ================= -->
-            <div id="img-preview-modal" class="hidden fixed inset-0 z-[300] bg-black/90 backdrop-blur-md flex items-center justify-center p-4" onclick="closeImgPreview()">
-                <div class="relative max-w-full max-h-full flex flex-col items-center gap-3" onclick="event.stopPropagation()">
-                    <img id="img-preview-img" src="" class="max-w-[90vw] max-h-[80vh] rounded-xl shadow-2xl object-contain" alt="預覽圖片">
-                    <div class="flex gap-3">
-                        <a id="img-preview-download" href="" download="image.png" class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-lg">
-                            <i class="ph-bold ph-download-simple"></i> 下載圖片
-                        </a>
-                        <button onclick="closeImgPreview()" class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors">
-                            <i class="ph-bold ph-x"></i> 關閉
-                        </button>
-                    </div>
+            <div id="img-preview-modal" class="hidden fixed inset-0 z-[300] bg-black/92 backdrop-blur-md flex flex-col items-center justify-center select-none" style="touch-action:none;">
+                <!-- 圖片可縮放容器 -->
+                <div id="img-preview-viewport" class="flex-1 w-full overflow-hidden flex items-center justify-center relative" style="touch-action:none;">
+                    <img id="img-preview-img" src="" draggable="false"
+                        class="rounded-xl shadow-2xl object-contain pointer-events-none"
+                        style="max-width:92vw;max-height:78vh;transform-origin:center center;transform:scale(1) translate(0px,0px);transition:none;"
+                        alt="預覽圖片">
                 </div>
-                <button onclick="closeImgPreview()" class="absolute top-4 right-4 text-white/60 hover:text-white bg-slate-800/80 p-2 rounded-full"><i class="ph-bold ph-x text-xl"></i></button>
+                <!-- 底部工具列 -->
+                <div class="w-full flex items-center justify-center gap-3 py-4 px-4 shrink-0" onclick="event.stopPropagation()">
+                    <a id="img-preview-download" href="" download="image.png"
+                        class="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-lg">
+                        <i class="ph-bold ph-download-simple"></i> 下載
+                    </a>
+                    <button id="img-preview-copy" onclick="copyImgToClipboard()"
+                        class="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 active:bg-slate-800 text-white px-5 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-lg">
+                        <i class="ph-bold ph-copy"></i> 複製
+                    </button>
+                    <button onclick="closeImgPreview()"
+                        class="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-300 px-5 py-2.5 rounded-xl text-sm font-bold transition-colors">
+                        <i class="ph-bold ph-x"></i> 關閉
+                    </button>
+                </div>
+                <!-- 縮放提示 -->
+                <div id="img-zoom-hint" class="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 text-white/70 text-xs px-3 py-1.5 rounded-full pointer-events-none transition-opacity duration-500">
+                    雙指縮放 · 雙擊重設
+                </div>
+                <!-- 關閉按鈕 -->
+                <button onclick="closeImgPreview()" class="absolute top-4 right-4 text-white/60 hover:text-white bg-slate-800/80 p-2 rounded-full z-10"><i class="ph-bold ph-x text-xl"></i></button>
             </div>
 
             <!-- ================= 待辦事項時間選擇彈窗 ================= -->
@@ -2148,20 +2164,162 @@ msg.files : (msg.file ? [msg.file] : []);
             };
         };
 
-        // ===== 圖片預覽放大 =====
-        window.openImgPreview = function(src, filename) {
-            const modal = document.getElementById('img-preview-modal');
-            const img = document.getElementById('img-preview-img');
-            const dl = document.getElementById('img-preview-download');
-            img.src = src;
-            dl.href = src;
-            dl.download = filename || 'image.png';
-            modal.classList.remove('hidden'); modal.classList.add('flex');
-        };
-        window.closeImgPreview = function() {
-            const modal = document.getElementById('img-preview-modal');
-            modal.classList.add('hidden'); modal.classList.remove('flex');
-        };
+        // ===== 圖片預覽放大（含手勢縮放、拖曳、雙擊重設、複製）=====
+        (function() {
+            let _scale = 1, _tx = 0, _ty = 0;
+            let _pinchStart = null, _scaleStart = 1;
+            let _dragStart = null, _txStart = 0, _tyStart = 0;
+            let _lastTap = 0;
+            let _currentSrc = '';
+
+            function applyTransform(img, animated) {
+                img.style.transition = animated ? 'transform 0.25s ease' : 'none';
+                img.style.transform = `scale(${_scale}) translate(${_tx}px,${_ty}px)`;
+            }
+
+            function clampTranslate(img) {
+                // 限制平移不超出圖片可視範圍
+                const maxTx = Math.max(0, (img.naturalWidth * _scale - window.innerWidth) / (2 * _scale));
+                const maxTy = Math.max(0, (img.naturalHeight * _scale - window.innerHeight * 0.78) / (2 * _scale));
+                _tx = Math.max(-maxTx, Math.min(maxTx, _tx));
+                _ty = Math.max(-maxTy, Math.min(maxTy, _ty));
+            }
+
+            function dist(t) { const dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.hypot(dx, dy); }
+            function midpoint(t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
+
+            window.openImgPreview = function(src, filename) {
+                const modal = document.getElementById('img-preview-modal');
+                const img = document.getElementById('img-preview-img');
+                const dl = document.getElementById('img-preview-download');
+                _currentSrc = src;
+                img.src = src;
+                dl.href = src;
+                dl.download = filename || 'image.png';
+                _scale = 1; _tx = 0; _ty = 0;
+                img.style.transition = 'none';
+                img.style.transform = 'scale(1) translate(0px,0px)';
+                modal.classList.remove('hidden'); modal.classList.add('flex');
+
+                // 顯示提示 3 秒後淡出
+                const hint = document.getElementById('img-zoom-hint');
+                if (hint) { hint.style.opacity = '1'; clearTimeout(hint._t); hint._t = setTimeout(() => { hint.style.opacity = '0'; }, 2800); }
+
+                // 清除舊事件
+                const vp = document.getElementById('img-preview-viewport');
+                vp.replaceWith(vp.cloneNode(true)); // 清除所有事件監聽
+                const vpNew = document.getElementById('img-preview-viewport');
+                const imgNew = document.getElementById('img-preview-img');
+
+                // ——— Touch 事件（手勢縮放 + 拖曳 + 雙擊重設）———
+                vpNew.addEventListener('touchstart', function(e) {
+                    if (e.touches.length === 2) {
+                        // 雙指縮放開始
+                        _pinchStart = dist(e.touches);
+                        _scaleStart = _scale;
+                        _dragStart = null;
+                        e.preventDefault();
+                    } else if (e.touches.length === 1) {
+                        // 單指拖曳 or 雙擊重設
+                        const now = Date.now();
+                        if (now - _lastTap < 280) {
+                            // 雙擊重設
+                            _scale = 1; _tx = 0; _ty = 0;
+                            applyTransform(imgNew, true);
+                            _lastTap = 0;
+                            return;
+                        }
+                        _lastTap = now;
+                        _dragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                        _txStart = _tx; _tyStart = _ty;
+                    }
+                }, { passive: false });
+
+                vpNew.addEventListener('touchmove', function(e) {
+                    if (e.touches.length === 2 && _pinchStart !== null) {
+                        e.preventDefault();
+                        const newDist = dist(e.touches);
+                        const rawScale = _scaleStart * (newDist / _pinchStart);
+                        _scale = Math.max(1, Math.min(6, rawScale));
+                        clampTranslate(imgNew);
+                        applyTransform(imgNew, false);
+                    } else if (e.touches.length === 1 && _dragStart && _scale > 1) {
+                        e.preventDefault();
+                        _tx = _txStart + (e.touches[0].clientX - _dragStart.x) / _scale;
+                        _ty = _tyStart + (e.touches[0].clientY - _dragStart.y) / _scale;
+                        clampTranslate(imgNew);
+                        applyTransform(imgNew, false);
+                    }
+                }, { passive: false });
+
+                vpNew.addEventListener('touchend', function(e) {
+                    if (e.touches.length < 2) _pinchStart = null;
+                    if (_scale < 1.05) { _scale = 1; _tx = 0; _ty = 0; applyTransform(imgNew, true); }
+                });
+
+                // ——— Mouse 滾輪縮放（桌機）———
+                vpNew.addEventListener('wheel', function(e) {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? 0.85 : 1.18;
+                    _scale = Math.max(1, Math.min(6, _scale * delta));
+                    if (_scale <= 1) { _tx = 0; _ty = 0; }
+                    clampTranslate(imgNew);
+                    applyTransform(imgNew, false);
+                }, { passive: false });
+
+                // ——— Mouse 拖曳（桌機）———
+                let _mouseDown = false;
+                vpNew.addEventListener('mousedown', function(e) {
+                    if (_scale <= 1) return;
+                    _mouseDown = true;
+                    _dragStart = { x: e.clientX, y: e.clientY };
+                    _txStart = _tx; _tyStart = _ty;
+                    vpNew.style.cursor = 'grabbing';
+                });
+                window.addEventListener('mousemove', function(e) {
+                    if (!_mouseDown) return;
+                    _tx = _txStart + (e.clientX - _dragStart.x) / _scale;
+                    _ty = _tyStart + (e.clientY - _dragStart.y) / _scale;
+                    clampTranslate(imgNew);
+                    applyTransform(imgNew, false);
+                });
+                window.addEventListener('mouseup', function() {
+                    _mouseDown = false;
+                    if (vpNew) vpNew.style.cursor = '';
+                });
+
+                // 點背景關閉
+                modal.onclick = function(e) { if (e.target === modal) closeImgPreview(); };
+            };
+
+            window.closeImgPreview = function() {
+                const modal = document.getElementById('img-preview-modal');
+                modal.classList.add('hidden'); modal.classList.remove('flex');
+                const img = document.getElementById('img-preview-img');
+                _scale = 1; _tx = 0; _ty = 0;
+                if (img) { img.style.transform = 'scale(1) translate(0px,0px)'; img.src = ''; }
+            };
+
+            window.copyImgToClipboard = async function() {
+                try {
+                    const src = _currentSrc;
+                    let blob;
+                    if (src.startsWith('data:')) {
+                        const arr = src.split(','), mime = arr[0].match(/:(.*?);/)[1], bstr = atob(arr[1]);
+                        const ab = new Uint8Array(bstr.length);
+                        for (let i = 0; i < bstr.length; i++) ab[i] = bstr.charCodeAt(i);
+                        blob = new Blob([ab], { type: mime });
+                    } else {
+                        const res = await fetch(src);
+                        blob = await res.blob();
+                    }
+                    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+                    if (typeof showToast === 'function') showToast('✅ 圖片已複製到剪貼簿');
+                } catch (err) {
+                    if (typeof showToast === 'function') showToast('⚠️ 瀏覽器不支援複製圖片，請長按手動複製');
+                }
+            };
+        })();
 
         window.deleteMessage = function(id) {
             showConfirmDialog({
