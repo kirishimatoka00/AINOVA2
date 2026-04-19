@@ -1259,11 +1259,7 @@ async function encodeMp3(audioBuffer) {
                     if (localPinned.some(p => !cloudData.pinnedSessions.includes(p))) needsReupload = true;
                 }
 
-                if (cloudData.currentSessionId) {
-                    appState.currentSessionId = cloudData.currentSessionId;
-                    localStorage.setItem('nova_current_session', appState.currentSessionId);
-                }
-
+                
                 // 設定值同步（以雲端為準，本地沒設定的才覆寫）
                 if (cloudData.keys) {
                     appState.keys = Object.assign({}, cloudData.keys, appState.keys || {});
@@ -1311,7 +1307,17 @@ async function encodeMp3(audioBuffer) {
                     triggerLiveSync();
                 }
 
-                if(typeof renderAll === 'function') renderAll();
+                                if(typeof renderTodos === 'function') renderTodos();
+                if(typeof renderNotes === 'function') renderNotes();
+                if(typeof renderAudioRecords === 'function') renderAudioRecords();
+                if(typeof renderChatHistoryList === 'function') renderChatHistoryList();
+                // 只有當雲端有本裝置當前對話的新訊息時，才重繪訊息區
+                const cloudCurrentMsgs = (cloudData.messages || []).filter(m => String(m.sessionId) === String(appState.currentSessionId));
+                const localCurrentMsgs = appState.messages.filter(m => String(m.sessionId) === String(appState.currentSessionId));
+                if (cloudCurrentMsgs.length !== localCurrentMsgs.length) {
+                    if(typeof renderMessages === 'function') renderMessages();
+                }
+
 
             } catch(e) { console.error('[Sync Down Error]', e); }
         }
