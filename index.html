@@ -125,9 +125,31 @@
         /* --- Mobile Light Mode Specific Overrides --- */
         body.mobile-light { background-color: #000000 !important; }
         body.mobile-light::after { background-color: #000000 !important; }
-        body.mobile-light .top-nav-bar { background-color: #000000 !important; border-bottom: none !important; box-shadow: none !important; }
+        
+        /* 消除頂部灰線：移除 border 並確保背景純黑 */
+        body.mobile-light .top-nav-bar { 
+            background-color: #000000 !important; 
+            border-bottom: none !important; 
+            box-shadow: none !important;
+            padding-top: env(safe-area-inset-top) !important;
+        }
+        
         body.mobile-light .model-select-bar { background-color: #080808 !important; border-bottom: none !important; }
-        body.mobile-light .bottom-input-area { background-color: #000000 !important; border-top: none !important; }
+        
+        /* 修正底部介面：確保為純黑 (反轉後為純白) 並消除頂部邊框 */
+        body.mobile-light .bottom-input-area { 
+            background-color: #000000 !important; 
+            border-top: none !important; 
+        }
+
+        /* 解決問題 1：隱藏按鈕列可能出現的水平滑移條 */
+        .bottom-input-area .flex-row-buttons {
+            overflow-x: auto;
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .bottom-input-area .flex-row-buttons::-webkit-scrollbar { display: none; }
+
         body.mobile-light .top-nav-bar *, body.mobile-light .model-select-bar * { color: #ffffff !important; }
         body.mobile-light .bottom-input-area button, body.mobile-light .bottom-input-area i { color: #ffffff !important; }
         body.mobile-light .action-btn-light { background-color: #1a1a1a !important; color: #ffffff !important; border: none !important; }
@@ -142,10 +164,10 @@
         body.mobile-light .ai-actions-row button, body.mobile-light .user-actions-row button { background-color: #000000 !important; color: #ffffff !important; border: none !important; }
         body.mobile-light .ai-actions-row button i, body.mobile-light .user-actions-row button i { color: #ffffff !important; }
         
-        /* 三槓選單白晝模式顏色調整 (選中為淺灰底+深灰字) */
+        /* 解決問題 3：三槓選單選中底色加深 (在反轉模式下，#2d2d2d 會比 #1a1a1a 更深一些) */
         body.mobile-light #mobile-menu { background-color: #000000 !important; }
         body.mobile-light #mobile-menu button { color: #ffffff !important; background-color: transparent !important; }
-        body.mobile-light #mobile-menu button.bg-slate-800 { background-color: #0f0f0f !important; color: #cccccc !important; }
+        body.mobile-light #mobile-menu button.bg-slate-800 { background-color: #2d2d2d !important; color: #cccccc !important; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30 h-full">
@@ -775,7 +797,7 @@
                                     <i class="ph-bold ph-plus text-2xl transition-transform" id="plus-icon"></i>
                                 </button>
                                 
-                                <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-3 flex-row-buttons">
                                     <button id="search-toggle-btn" onclick="toggleSearch()" class="p-2.5 rounded-full bg-slate-800 text-slate-400 hover:text-blue-400 shrink-0 transition-all flex items-center justify-center active:scale-90 h-[44px] w-[44px] action-btn-light" title="開關連網搜尋">
                                         <i id="search-icon" class="ph-bold ph-globe text-2xl"></i>
                                     </button>
@@ -3459,6 +3481,15 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
         function renderMessages() { 
             const container = document.getElementById('chat-container'); if(!container) return;
             
+            // --- 解決問題：同步更新手機版頂部對話標題 ---
+            if (appState.chatTitles && appState.currentSessionId) {
+                const currentTitle = appState.chatTitles[appState.currentSessionId] || '新對話';
+                const mobileTitleEl = document.getElementById('mobile-chat-title');
+                if (mobileTitleEl) {
+                    mobileTitleEl.innerText = currentTitle;
+                }
+            }
+
             const sessionMsgs = appState.messages.filter(m => String(m.sessionId) === String(appState.currentSessionId) || (!m.sessionId && (!appState.currentSessionId || appState.currentSessionId === 'legacy')));
             
             if (sessionMsgs.length === 0) {
