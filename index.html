@@ -743,7 +743,7 @@
                             
                             <!-- 訊息輸入框 -->
                             <div id="input-wrapper" class="flex-1 flex items-end bg-slate-950 rounded-2xl px-3 py-1.5 border border-slate-700 focus-within:border-blue-500 transition-colors">
-                                <textarea id="user-input" rows="1" placeholder="輸入訊息..." class="flex-1 bg-transparent border-none focus:ring-0 text-white outline-none resize-none py-1.5 scrollbar-none text-base min-h-[38px] max-h-[120px]" onkeydown="handleEnter(event)" oninput="autoResizeInput(this)"></textarea>
+                                <textarea id="user-input" ... oninput="autoResizeInput(this)"></textarea>
                             </div>
                             
                             <!-- 搜尋切換按鈕 -->
@@ -1616,20 +1616,43 @@ return html;
         };
 
         window.applyTheme = function(theme) {
-            if(theme === 'light') {
-                document.documentElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(1.05)';
-                let style = document.getElementById('light-theme-fix');
-                if(!style) {
-                    style = document.createElement('style'); style.id = 'light-theme-fix';
-                    style.innerHTML = `img, video, .keep-color, [style*="background-image"] { filter: invert(1) hue-rotate(180deg) !important; }`;
-                    document.head.appendChild(style);
+    const themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    const statusBarMeta  = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+    if(theme === 'light') {
+        document.documentElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(1.05)';
+        // ✅ 1. 狀態列 & 頂部 APP bar → 白色
+        if(themeColorMeta) themeColorMeta.setAttribute('content', '#ffffff');
+        if(statusBarMeta)  statusBarMeta.setAttribute('content', 'default');
+        let style = document.getElementById('light-theme-fix');
+        if(!style) {
+            style = document.createElement('style'); style.id = 'light-theme-fix';
+            style.innerHTML = `
+                img, video, .keep-color, [style*="background-image"] {
+                    filter: invert(1) hue-rotate(180deg) !important;
                 }
-            } else {
-                document.documentElement.style.filter = '';
-                const style = document.getElementById('light-theme-fix');
-                if(style) style.remove();
-            }
-        };
+                /* ✅ 2. 聊天氣泡：取消 hue-rotate，讓灰色回到中性，不偏藍 */
+                #chat-container .rounded-2xl {
+                    filter: hue-rotate(180deg);
+                }
+                /* ✅ 3+4. 底部輸入欄按鈕 → 與底端 bar 同色（純中性灰） */
+                #search-toggle-btn,
+                #context-toggle-btn,
+                #continuous-btn,
+                button[onclick="togglePlusMenu()"] {
+                    background-color: #1a1a1a !important;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    } else {
+        document.documentElement.style.filter = '';
+        // ✅ 恢復深色狀態列
+        if(themeColorMeta) themeColorMeta.setAttribute('content', '#020617');
+        if(statusBarMeta)  statusBarMeta.setAttribute('content', 'black-translucent');
+        const style = document.getElementById('light-theme-fix');
+        if(style) style.remove();
+    }
+};
 
         window.initSettingsTabs = function() {
             const container = document.querySelector('#settings-modal .overflow-y-auto');
@@ -2376,10 +2399,28 @@ msg.files : (msg.file ? [msg.file] : []);
         };
 
         window.autoResizeInput = function(el) {
-            el.style.height = 'auto';
-            el.style.height = (el.scrollHeight < 120 ? el.scrollHeight : 120) + 'px';
-            if(el.value === '') el.style.height = 'auto';
-        };
+    el.style.height = 'auto';
+    el.style.height = (el.scrollHeight < 120 ? el.scrollHeight : 120) + 'px';
+    if(el.value === '') el.style.height = 'auto';
+
+    // ✅ 5. 有文字時顯示傳送鍵，隱藏語音鍵；清空時恢復語音鍵
+    const hasText  = el.value.trim().length > 0;
+    const voiceBtn = document.getElementById('continuous-btn');
+    const sendBtn  = document.getElementById('send-btn');
+    if(voiceBtn && sendBtn) {
+        if(hasText) {
+            voiceBtn.classList.add('hidden');
+            voiceBtn.classList.remove('flex');
+            sendBtn.classList.remove('hidden');
+            sendBtn.classList.add('flex');
+        } else {
+            voiceBtn.classList.remove('hidden');
+            voiceBtn.classList.add('flex');
+            sendBtn.classList.add('hidden');
+            sendBtn.classList.remove('flex');
+        }
+    }
+};
 
         window.handleEnter = function(e) {
             if(e.key === 'Enter' && !e.shiftKey) { e.preventDefault();
