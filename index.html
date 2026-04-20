@@ -1209,8 +1209,8 @@ async function encodeMp3(audioBuffer) {
                     });
                     if(res.ok) {
                         lastLiveSyncTime = fullBackupData.timestamp;
-                        // 上傳成功後立刻拉取一次雲端，確保雙向即時同步
-                        setTimeout(fetchSyncFromDrive, 300);
+                        // 上傳成功後，延長等待讓雲端寫入穩定，再拉取一次
+                        setTimeout(fetchSyncFromDrive, 2000);
                     }
                 } catch(e) { console.error("Live Sync Up Error:", e); }
                 isLiveSyncing = false;
@@ -1234,8 +1234,15 @@ async function encodeMp3(audioBuffer) {
                 // 合併結果若與雲端不同（本地有更多資料），則反推上傳
                 // ═══════════════════════════════════════════════════════
                 const mergeArrays = (localItems, cloudItems) => {
-                    if (!Array.isArray(cloudItems) || cloudItems.length === 0) return { merged: localItems, changed: false };
-                    if (!Array.isArray(localItems) || localItems.length === 0) return { merged: cloudItems, changed: true };
+                  
+if (!Array.isArray(cloudItems) || cloudItems.length === 0) {
+    const filtered = (localItems || []).filter(i => !deleted[String(i.id)]);
+    return { merged: filtered, changed: filtered.length !== (localItems||[]).length, needsUpload: false };
+}
+if (!Array.isArray(localItems) || localItems.length === 0) {
+    const filtered = cloudItems.filter(i => !deleted[String(i.id)]);
+    return { merged: filtered, changed: true, needsUpload: false };
+}
 
                     // 合併本地與雲端的 deletedIds（取聯集），讓任何一端的刪除都生效
 const deleted = Object.assign({}, appState.deletedIds || {}, (cloudData.deletedIds || {}));
