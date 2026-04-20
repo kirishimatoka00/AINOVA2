@@ -1261,7 +1261,9 @@ localItems.forEach(item => { if (!deleted[String(item.id)]) map.set(String(item.
                         }
                     });
                     // 本地有多出來的項目（雲端沒有）→ 標記需要反推上傳
-                    const localHasExtra = localItems.some(li => !cloudItems.find(ci => String(ci.id) === String(li.id)));
+                    const localHasExtra = localItems.some(li => 
+    !deleted[String(li.id)] && !cloudItems.find(ci => String(ci.id) === String(li.id))
+);
                     const merged = Array.from(map.values()).sort((a, b) => (a.id - b.id));
                     return { merged, changed: cloudHasNew || localHasExtra, needsUpload: localHasExtra };
                 };
