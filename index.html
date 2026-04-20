@@ -107,6 +107,13 @@
             bottom: 30px; font-size: 14px; opacity: 0; transition: opacity 0.3s, bottom 0.3s; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3);
         }
         #toast.show { visibility: visible; opacity: 1; bottom: 120px; }
+/* ✅ 修正黑夜/白晝模式 textarea 原生灰底問題 */
+        #user-input {
+            background-color: transparent !important;
+            background: transparent !important;
+            -webkit-appearance: none !important;
+            appearance: none !important;
+        }
         
         audio { outline: none; border-radius: 8px; }
         audio::-webkit-media-controls-panel { background-color: #1e293b; color: #fff; }
