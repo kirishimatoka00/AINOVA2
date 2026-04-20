@@ -183,7 +183,7 @@
         <!-- ================= 主要內容顯示區 ================= -->
         <main class="flex-1 flex flex-col relative bg-slate-950 overflow-hidden min-h-0">
             <!-- 手機版頂部導航列 -->
-            <div class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
+            <div id="mobile-topbar" class="md:hidden flex items-center justify-between p-3 bg-slate-900 border-b border-slate-800 z-30 shrink-0">
                 <div class="flex items-center space-x-2 shrink-0"><i class="ph-bold ph-infinity text-blue-500 text-xl"></i><span class="font-bold text-white">Nova 120 SSP</span></div>
                 <div class="flex items-center space-x-3 ml-auto pl-2">
                     <div class="flex items-center space-x-1 bg-slate-800/50 px-2 py-1 rounded-lg border border-slate-700/50 cursor-pointer active:scale-95 transition-transform" onclick="cycleManualLocation()">
@@ -695,7 +695,7 @@
                     <div id="chat-container" class="flex-1 overflow-y-auto p-4 space-y-6 scrollbar-thin scrollbar-thumb-slate-700 relative"></div>
                     
                     <!-- Line 風格底部輸入區塊 -->
-                    <div class="bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col relative w-full">
+                    <div id="input-bar" class="bg-slate-900 border-t border-slate-800 shrink-0 z-20 pb-[calc(0.5rem+env(safe-area-inset-bottom))] flex flex-col relative w-full">
                          
                         <div id="chat-file-preview-container" class="hidden relative flex-wrap gap-2 bg-slate-900 p-2 m-2 rounded-lg self-start">
                             </div>
@@ -1620,30 +1620,59 @@ return html;
     const statusBarMeta  = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
     if(theme === 'light') {
         document.documentElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(1.05)';
-        // ✅ 1. 狀態列 & 頂部 APP bar → 白色
-        if(themeColorMeta) themeColorMeta.setAttribute('content', '#ffffff');
-        if(statusBarMeta)  statusBarMeta.setAttribute('content', 'default');
-        let style = document.getElementById('light-theme-fix');
-        if(!style) {
-            style = document.createElement('style'); style.id = 'light-theme-fix';
-            style.innerHTML = `
-                img, video, .keep-color, [style*="background-image"] {
-                    filter: invert(1) hue-rotate(180deg) !important;
-                }
-                /* ✅ 2. 聊天氣泡：取消 hue-rotate，讓灰色回到中性，不偏藍 */
-                #chat-container .rounded-2xl {
-                    filter: hue-rotate(180deg);
-                }
-                /* ✅ 3+4. 底部輸入欄按鈕 → 與底端 bar 同色（純中性灰） */
-                #search-toggle-btn,
-                #context-toggle-btn,
-                #continuous-btn,
-                button[onclick="togglePlusMenu()"] {
-                    background-color: #1a1a1a !important;
-                }
-            `;
-            document.head.appendChild(style);
+let style = document.getElementById('light-theme-fix');
+if(!style) {
+    style = document.createElement('style'); style.id = 'light-theme-fix';
+    style.innerHTML = `
+        /* 圖片/影片反轉回正常色 */
+        img, video, .keep-color, [style*="background-image"] {
+            filter: invert(1) hue-rotate(180deg) !important;
         }
+
+        /* ✅ Fix 1: 消除打字框內的灰色塊
+           原因：Android 瀏覽器給 textarea 加了原生灰底，
+           純中性灰 #808080 通過 filter 後仍是 #808080 → 顯示為灰塊。
+           將 textarea 和 input-wrapper 統一設為同一純灰，灰塊消失。 */
+        #input-wrapper {
+            background-color: #1a1a1a !important;
+            border-color: #2a2a2a !important;
+        }
+        #user-input {
+            background-color: #1a1a1a !important;
+            -webkit-appearance: none !important;
+        }
+
+        /* ✅ Fix 2: 整個底部輸入欄 → 與手機底端 bar 同色（近白） */
+        #input-bar {
+            background-color: #050505 !important;
+            border-color: #0f0f0f !important;
+        }
+        /* 輸入欄按鈕 → 淺灰（可見但不突兀） */
+        #search-toggle-btn,
+        #context-toggle-btn,
+        #continuous-btn,
+        button[onclick="togglePlusMenu()"] {
+            background-color: #1a1a1a !important;
+        }
+
+        /* ✅ Fix 3: AI 對話框 → 中性淡灰（去除藍/奶油色偏移） */
+        .msg-group.bg-slate-900 {
+            background-color: #252525 !important;
+            border-color: #333333 !important;
+        }
+        /* 用戶對話框 → 略深一點的灰 */
+        .msg-group.bg-slate-800 {
+            background-color: #383838 !important;
+        }
+
+        /* ✅ Fix 4: APP 頂部 bar → 與手機狀態列同色（近白） */
+        #mobile-topbar {
+            background-color: #050505 !important;
+            border-color: #0f0f0f !important;
+        }
+    `;
+    document.head.appendChild(style);
+}
     } else {
         document.documentElement.style.filter = '';
         // ✅ 恢復深色狀態列
