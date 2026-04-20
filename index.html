@@ -1234,43 +1234,40 @@ async function encodeMp3(audioBuffer) {
                 // 合併結果若與雲端不同（本地有更多資料），則反推上傳
                 // ═══════════════════════════════════════════════════════
                 const mergeArrays = (localItems, cloudItems) => {
-                  
-if (!Array.isArray(cloudItems) || cloudItems.length === 0) {
-    const filtered = (localItems || []).filter(i => !deleted[String(i.id)]);
-    return { merged: filtered, changed: filtered.length !== (localItems||[]).length, needsUpload: false };
-}
-if (!Array.isArray(localItems) || localItems.length === 0) {
-    const filtered = cloudItems.filter(i => !deleted[String(i.id)]);
-    return { merged: filtered, changed: true, needsUpload: false };
-}
+                    // ⚠️ deleted 必須最先宣告，下方所有分支都依賴它
+                    const deleted = Object.assign({}, appState.deletedIds || {}, (cloudData.deletedIds || {}));
 
-                    // 合併本地與雲端的 deletedIds（取聯集），讓任何一端的刪除都生效
-const deleted = Object.assign({}, appState.deletedIds || {}, (cloudData.deletedIds || {}));
-const map = new Map();
-// 先放本地（已刪除的不放入）
-localItems.forEach(item => { if (!deleted[String(item.id)]) map.set(String(item.id), item); });
+                    if (!Array.isArray(cloudItems) || cloudItems.length === 0) {
+                        const filtered = (localItems || []).filter(i => !deleted[String(i.id)]);
+                        return { merged: filtered, changed: filtered.length !== (localItems||[]).length, needsUpload: false };
+                    }
+                    if (!Array.isArray(localItems) || localItems.length === 0) {
+                        const filtered = cloudItems.filter(i => !deleted[String(i.id)]);
+                        return { merged: filtered, changed: true, needsUpload: false };
+                    }
+
+                    const map = new Map();
+                    // 先放本地（已刪除的不放入）
+                    localItems.forEach(item => { if (!deleted[String(item.id)]) map.set(String(item.id), item); });
                     let cloudHasNew = false;
                     // 再用雲端合併
                     cloudItems.forEach(cloudItem => {
                         const key = String(cloudItem.id);
-                        // 已被本地刪除的 → 永遠跳過，不允許雲端把它救回來
                         if (deleted[key]) return;
                         if (!map.has(key)) {
-                            // 雲端有、本地沒有（且未被刪除）→ 加入
                             map.set(key, cloudItem);
                             cloudHasNew = true;
                         } else {
-                            // 兩端都有 → 比較時間，取較新的
                             const localItem = map.get(key);
                             const localTs = localItem.updatedAt || localItem.timestamp || localItem.id || 0;
                             const cloudTs = cloudItem.updatedAt || cloudItem.timestamp || cloudItem.id || 0;
                             if (cloudTs > localTs) { map.set(key, cloudItem); cloudHasNew = true; }
                         }
                     });
-                    // 本地有多出來的項目（雲端沒有）→ 標記需要反推上傳
-                    const localHasExtra = localItems.some(li => 
-    !deleted[String(li.id)] && !cloudItems.find(ci => String(ci.id) === String(li.id))
-);
+                    // 本地有、雲端沒有、且不在刪除名單 → 才算需要反推上傳
+                    const localHasExtra = localItems.some(li =>
+                        !deleted[String(li.id)] && !cloudItems.find(ci => String(ci.id) === String(li.id))
+                    );
                     const merged = Array.from(map.values()).sort((a, b) => (a.id - b.id));
                     return { merged, changed: cloudHasNew || localHasExtra, needsUpload: localHasExtra };
                 };
@@ -1384,7 +1381,7 @@ localItems.forEach(item => { if (!deleted[String(item.id)]) map.set(String(item.
 
             } catch(e) { console.error('[Sync Down Error]', e); }
         }
-        setInterval(fetchSyncFromDrive, 60000); // 每 60 秒保底檢查一次（主要靠事件觸發)
+        setInterval(fetchSyncFromDrive, 10000); // 每 10 秒檢查一次
 
         // --- 核心應用狀態 ---
         const appState = {
