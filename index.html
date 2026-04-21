@@ -1290,7 +1290,9 @@ async function encodeMp3(audioBuffer) {
                 db.transaction(storeName, 'readwrite').objectStore(storeName).put(item);
             });
             removedIds.forEach(id => {
-                db.transaction(storeName, 'readwrite').objectStore(storeName).delete(Number(id) || id);
+                const numId = Number(id);
+                const keyToDelete = (!isNaN(numId) && numId > 0) ? numId : id;
+                db.transaction(storeName, 'readwrite').objectStore(storeName).delete(keyToDelete);
             });
         } catch(e) {}
     }
@@ -6282,7 +6284,7 @@ if (appState.pendingAnalyzeContextId) {
         window.onload = async () => {
             try {
                 await initDB();
-                appState.messages = (await loadStoreFromDB('messages')).sort((a,b)=>a.id-b.id);
+                appState.messages = (await loadStoreFromDB('messages')).filter(m => !appState.deletedIds[String(m.id)]).sort((a,b)=>a.id-b.id);
                 appState.notes = (await loadStoreFromDB('notes')).sort((a,b)=>b.id-a.id);
                 appState.todos = (await loadStoreFromDB('todos')).sort((a,b)=>b.id-a.id);
                 appState.audioRecords = (await loadStoreFromDB('audioRecords')).sort((a,b)=>b.id-a.id);
