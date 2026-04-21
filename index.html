@@ -1218,7 +1218,7 @@ async function encodeMp3(audioBuffer) {
         }
 
         async function fetchSyncFromDrive() {
-            if (!appState.driveUrl || isLiveSyncing) return;
+            if (!appState.driveUrl) return;
             try {
                 const res = await fetch(appState.driveUrl + "?action=sync_down&filename=NOVA120livebackup");
                 if (!res.ok) return;
@@ -1265,8 +1265,11 @@ async function encodeMp3(audioBuffer) {
                         }
                     });
                     // 本地有、雲端沒有、且不在刪除名單 → 才算需要反推上傳
+                    const cloudDeleted = cloudData.deletedIds || {};
                     const localHasExtra = localItems.some(li =>
-                        !deleted[String(li.id)] && !cloudItems.find(ci => String(ci.id) === String(li.id))
+                        !deleted[String(li.id)] &&
+                        !cloudDeleted[String(li.id)] &&
+                        !cloudItems.find(ci => String(ci.id) === String(li.id))
                     );
                     const merged = Array.from(map.values()).sort((a, b) => (a.id - b.id));
                     return { merged, changed: cloudHasNew || localHasExtra, needsUpload: localHasExtra };
