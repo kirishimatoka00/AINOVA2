@@ -1737,6 +1737,10 @@ return html;
             const activeBtn = document.getElementById(tabId.replace('tab-', 'stab-'));
             activeBtn.classList.add('bg-blue-600', 'text-white');
             activeBtn.classList.remove('text-slate-400');
+            // 切換到語音分頁時重新填充人聲選單
+            if (tabId === 'tab-voice' && typeof populateVoices === 'function') {
+                populateVoices();
+            }
         };
 
         // --- 雙 AI 協作介面 (Dual AI UI) ---
