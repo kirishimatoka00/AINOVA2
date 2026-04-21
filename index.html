@@ -345,6 +345,16 @@
                                     </label>
                                 </div>
                             </div>
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="block text-xs text-yellow-400 font-bold flex items-center gap-1"><i class="ph-fill ph-crown"></i> 設為 Master 端</label>
+                                        <p class="text-[10px] text-slate-500 mt-1">開啟後，此裝置為主控端，所有變動（含刪除）將強制同步至其他裝置。</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                        <input type="checkbox" id="key-is-master" class="sr-only peer">
+                                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
+                                    </label>
+                                </div>
                         </div>
                     </div>
                     <!-- 備份與還原按鈕 -->
@@ -1189,6 +1199,7 @@ async function encodeMp3(audioBuffer) {
                 isLiveSyncing = true;
                 const fullBackupData = {
                     timestamp: Date.now(),
+                    isMaster: appState.isMaster || false,
                     deletedIds: appState.deletedIds || {},
                     keys: appState.keys, doc: appState.docMonitorUrl, drive: appState.driveUrl, 
                     tgToken: appState.tgToken, tgChatId: appState.tgChatId, voiceTimeout: appState.voiceTimeout, 
@@ -1225,161 +1236,115 @@ async function encodeMp3(audioBuffer) {
                 const cloudData = await res.json();
                 if (!cloudData) return;
 
-                // ═══════════════════════════════════════════════════════
-                // 雙向合併引擎：以 id 為唯一鍵，兩端各取所長，不互相覆蓋
-                // 規則：
-                //   1. 本地有、雲端沒有 → 保留本地（不刪除）
-                //   2. 雲端有、本地沒有 → 加入本地
-                //   3. 兩端都有同一 id  → 取 updatedAt/timestamp 較新的那筆
-                // 合併結果若與雲端不同（本地有更多資料），則反推上傳
-                // ═══════════════════════════════════════════════════════
-                const mergeArrays = (localItems, cloudItems) => {
-                    // ⚠️ deleted 必須最先宣告，下方所有分支都依賴它
-                    const deleted = Object.assign({}, appState.deletedIds || {}, (cloudData.deletedIds || {}));
+                // ═══════════════════════════════════════════
+                // Master 模式：雲端若有 Master 端資料，直接覆蓋本地
+                // 非 Master 模式：本地若是 Master，直接忽略雲端資料
+                // ═══════════════════════════════════════════
 
-                    if (!Array.isArray(cloudItems) || cloudItems.length === 0) {
-                        const filtered = (localItems || []).filter(i => !deleted[String(i.id)]);
-                        return { merged: filtered, changed: filtered.length !== (localItems||[]).length, needsUpload: false };
-                    }
-                    if (!Array.isArray(localItems) || localItems.length === 0) {
-                        const filtered = cloudItems.filter(i => !deleted[String(i.id)]);
-                        return { merged: filtered, changed: true, needsUpload: false };
+                // 本機是 Master → 不接受雲端覆蓋，只負責上傳
+                if (appState.isMaster) return;
+
+                // 雲端有 Master 資料 → 直接以雲端為準，完整覆蓋本地
+                if (cloudData.isMaster) {
+                    // 合併 deletedIds（取聯集，永不遺失刪除紀錄）
+                    const mergedDeleted = Object.assign({}, appState.deletedIds || {}, cloudData.deletedIds || {});
+                    appState.deletedIds = mergedDeleted;
+                    localStorage.setItem('nova_deleted_ids', JSON.stringify(mergedDeleted));
+
+                    // 以雲端 messages 為準，過濾掉 deletedIds 裡的項目
+                    const newMessages = (cloudData.messages || []).filter(m => !mergedDeleted[String(m.id)]);
+                    const prevMsgIds = new Set(appState.messages.map(m => String(m.id)));
+                    const newMsgIds = new Set(newMessages.map(m => String(m.id)));
+
+                    // 更新 IndexedDB：刪除本地多出的，寫入雲端有的
+                    if (db) {
+                        try {
+                            // 本地有但雲端沒有（且不是本地新增的）→ 刪除
+                            [...prevMsgIds].filter(id => !newMsgIds.has(id)).forEach(id => {
+                                const numId = Number(id);
+                                db.transaction('messages', 'readwrite').objectStore('messages').delete((!isNaN(numId) && numId > 0) ? numId : id);
+                            });
+                            // 寫入雲端的資料
+                            newMessages.forEach(item => {
+                                db.transaction('messages', 'readwrite').objectStore('messages').put(item);
+                            });
+                        } catch(e) {}
                     }
 
+                    const hasChange = prevMsgIds.size !== newMsgIds.size ||
+                        [...newMsgIds].some(id => !prevMsgIds.has(id)) ||
+                        [...prevMsgIds].some(id => !newMsgIds.has(id));
+
+                    appState.messages = newMessages.sort((a, b) => a.id - b.id);
+                    if (hasChange && typeof renderMessages === 'function') renderMessages();
+
+                    // notes / todos / audioRecords 同樣以雲端為準
+                    ['notes', 'todos', 'audioRecords'].forEach(store => {
+                        const cloudItems = (cloudData[store] || []).filter(i => !mergedDeleted[String(i.id)]);
+                        appState[store] = cloudItems;
+                        if (db) {
+                            try {
+                                db.transaction(store, 'readwrite').objectStore(store).clear();
+                                cloudItems.forEach(item => db.transaction(store, 'readwrite').objectStore(store).put(item));
+                            } catch(e) {}
+                        }
+                    });
+
+                    // 其他設定同步
+                    if (cloudData.chatTitles) { appState.chatTitles = cloudData.chatTitles; localStorage.setItem('nova_chat_titles', JSON.stringify(cloudData.chatTitles)); }
+                    if (cloudData.pinnedSessions) { appState.pinnedSessions = cloudData.pinnedSessions; localStorage.setItem('nova_pinned_sessions', JSON.stringify(cloudData.pinnedSessions)); }
+
+                    if(typeof renderTodos === 'function') renderTodos();
+                    if(typeof renderNotes === 'function') renderNotes();
+                    if(typeof renderAudioRecords === 'function') renderAudioRecords();
+                    if(typeof renderChatHistoryList === 'function') renderChatHistoryList();
+                    return;
+                }
+
+                // 雲端沒有 Master 標記 → 使用原本的雙向合併（保底）
+                const mergedDeleted = Object.assign({}, appState.deletedIds || {}, cloudData.deletedIds || {});
+                appState.deletedIds = mergedDeleted;
+                localStorage.setItem('nova_deleted_ids', JSON.stringify(mergedDeleted));
+
+                const applySimpleMerge = (storeName, cloudItems) => {
+                    const deleted = mergedDeleted;
+                    const localItems = appState[storeName] || [];
+                    const prevIds = new Set(localItems.map(i => String(i.id)));
                     const map = new Map();
-                    // 先放本地（已刪除的不放入）
                     localItems.forEach(item => { if (!deleted[String(item.id)]) map.set(String(item.id), item); });
-                    let cloudHasNew = false;
-                    // 再用雲端合併
-                    cloudItems.forEach(cloudItem => {
-                        const key = String(cloudItem.id);
+                    (cloudItems || []).forEach(ci => {
+                        const key = String(ci.id);
                         if (deleted[key]) return;
-                        if (!map.has(key)) {
-                            map.set(key, cloudItem);
-                            cloudHasNew = true;
-                        } else {
-                            const localItem = map.get(key);
-                            const localTs = localItem.updatedAt || localItem.timestamp || localItem.id || 0;
-                            const cloudTs = cloudItem.updatedAt || cloudItem.timestamp || cloudItem.id || 0;
-                            if (cloudTs > localTs) { map.set(key, cloudItem); cloudHasNew = true; }
+                        if (!map.has(key)) { map.set(key, ci); }
+                        else {
+                            const li = map.get(key);
+                            const lt = li.updatedAt || li.timestamp || li.id || 0;
+                            const ct = ci.updatedAt || ci.timestamp || ci.id || 0;
+                            if (ct > lt) map.set(key, ci);
                         }
                     });
-                    // 本地有、雲端沒有、且不在刪除名單 → 才算需要反推上傳
-                    const cloudDeleted = cloudData.deletedIds || {};
-                    const localHasExtra = localItems.some(li =>
-                        !deleted[String(li.id)] &&
-                        !cloudDeleted[String(li.id)] &&
-                        !cloudItems.find(ci => String(ci.id) === String(li.id))
-                    );
-                    const merged = Array.from(map.values()).sort((a, b) => (a.id - b.id));
-                    return { merged, changed: cloudHasNew || localHasExtra, needsUpload: localHasExtra };
-                };
-
-                let needsReupload = false;
-
-                const applyMerge = (storeName, cloudItems) => {
-    const prevIds = new Set((appState[storeName] || []).map(i => String(i.id)));
-    const result = mergeArrays(appState[storeName] || [], cloudItems);
-    appState[storeName] = result.merged;
-    const mergedIds = new Set(result.merged.map(i => String(i.id)));
-    // 找出被刪掉的項目（合併前有、合併後沒有）→ 從 IndexedDB 真正刪除
-    const removedIds = [...prevIds].filter(id => !mergedIds.has(id));
-    if (db) {
-        try {
-            result.merged.forEach(item => {
-                db.transaction(storeName, 'readwrite').objectStore(storeName).put(item);
-            });
-            removedIds.forEach(id => {
-                const numId = Number(id);
-                const keyToDelete = (!isNaN(numId) && numId > 0) ? numId : id;
-                db.transaction(storeName, 'readwrite').objectStore(storeName).delete(keyToDelete);
-            });
-        } catch(e) {}
-    }
-    if (result.needsUpload) needsReupload = true;
-    // 有刪除發生（removedIds 非空）或有新增，都要重繪
-    const hasChanges = result.changed || removedIds.length > 0;
-    if (hasChanges && storeName === 'messages') {
-        if(typeof renderMessages === 'function') renderMessages();
-    }
-};
-
-// 合併雙端的刪除墓碑（取聯集：任何一端刪過的都算刪掉）
-                if (cloudData.deletedIds) {
-                    appState.deletedIds = Object.assign({}, appState.deletedIds || {}, cloudData.deletedIds);
-                    localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
-                }
-                applyMerge('messages', cloudData.messages);
-                applyMerge('notes', cloudData.notes);
-                applyMerge('todos', cloudData.todos);
-                applyMerge('audioRecords', cloudData.audioRecords);
-
-                // chatTitles 合併（物件型態，以 key 為單位合併）
-                if (cloudData.chatTitles) {
-                    const merged = Object.assign({}, cloudData.chatTitles, appState.chatTitles || {});
-                    appState.chatTitles = merged;
-                    localStorage.setItem('nova_chat_titles', JSON.stringify(merged));
-                    if (Object.keys(appState.chatTitles).some(k => !cloudData.chatTitles[k])) needsReupload = true;
-                }
-
-                // pinnedSessions 合併（陣列，取聯集）
-                if (cloudData.pinnedSessions) {
-                    const localPinned = appState.pinnedSessions || [];
-                    const merged = [...new Set([...cloudData.pinnedSessions, ...localPinned])];
-                    appState.pinnedSessions = merged;
-                    localStorage.setItem('nova_pinned_sessions', JSON.stringify(merged));
-                    if (localPinned.some(p => !cloudData.pinnedSessions.includes(p))) needsReupload = true;
-                }
-
-                
-                // 設定值同步（以雲端為準，本地沒設定的才覆寫）
-                if (cloudData.keys) {
-                    appState.keys = Object.assign({}, cloudData.keys, appState.keys || {});
-                    Object.keys(appState.keys).forEach(k => {
-                        localStorage.setItem('nova_key_'+k, appState.keys[k]);
-                        const el = document.getElementById('key-' + k.replace(/_/g, '-'));
-                        if(el) el.value = appState.keys[k] || '';
-                    });
-                }
-
-                const syncProp = (cloudKey, appStateKey, localKey, elId, isCheck = false) => {
-                    if(cloudData[cloudKey] !== undefined) {
-                        appState[appStateKey] = cloudData[cloudKey];
-                        if(typeof cloudData[cloudKey] === 'object') {
-                            localStorage.setItem(localKey, JSON.stringify(cloudData[cloudKey]));
-                        } else {
-                            localStorage.setItem(localKey, cloudData[cloudKey]);
-                        }
-                        if(elId) {
-                            const el = document.getElementById(elId);
-                            if(el) { if(isCheck) el.checked = cloudData[cloudKey]; else el.value = cloudData[cloudKey]; }
-                        }
+                    const merged = Array.from(map.values()).sort((a, b) => a.id - b.id);
+                    const mergedIds = new Set(merged.map(i => String(i.id)));
+                    const removedIds = [...prevIds].filter(id => !mergedIds.has(id));
+                    if (db) {
+                        try {
+                            merged.forEach(item => db.transaction(storeName, 'readwrite').objectStore(storeName).put(item));
+                            removedIds.forEach(id => {
+                                const numId = Number(id);
+                                db.transaction(storeName, 'readwrite').objectStore(storeName).delete((!isNaN(numId) && numId > 0) ? numId : id);
+                            });
+                        } catch(e) {}
                     }
+                    const hasChange = merged.length !== localItems.length || removedIds.length > 0;
+                    appState[storeName] = merged;
+                    if (hasChange && storeName === 'messages' && typeof renderMessages === 'function') renderMessages();
                 };
 
-                syncProp('doc', 'docMonitorUrl', 'nova_doc_url', 'key-doc-url');
-                syncProp('drive', 'driveUrl', 'nova_drive_url', 'key-drive-url');
-                syncProp('tgToken', 'tgToken', 'nova_tg_token', 'key-tg-token');
-                syncProp('tgChatId', 'tgChatId', 'nova_tg_chatid', 'key-tg-chatid');
-                syncProp('voiceTimeout', 'voiceTimeout', 'nova_voice_timeout', 'key-voice-timeout');
-                syncProp('translateBTimeout', 'translateBTimeout', 'nova_trans_b_timeout', 'key-translate-b-timeout');
-                syncProp('vadMultiplier', 'vadMultiplier', 'nova_vad_multiplier', 'key-vad-multiplier');
-                syncProp('replyLength', 'replyLength', 'nova_reply_length', 'key-reply-length');
-                syncProp('ttsRate', 'ttsRate', 'nova_tts_rate', 'key-tts-rate');
-                syncProp('ttsVoice', 'ttsVoice', 'nova_tts_voice', 'key-tts-voice');
-                syncProp('hideLiveCapture', 'hideLiveCapture', 'nova_hide_live_capture', 'key-hide-live-capture', true);
-                syncProp('autoTTS', 'autoTTS', 'nova_auto_tts', 'key-auto-tts', true);
-                syncProp('noteFolders', 'noteFolders', 'nova_folders', null);
-
-                lastLiveSyncTime = cloudData.timestamp || Date.now();
-
-                // 本地有雲端缺少的資料 → 反推上傳，讓雲端也補齊
-                if (needsReupload) {
-                    console.log('[Sync] 本地有雲端未收錄的資料，反推上傳以同步雲端...');
-                    triggerLiveSync();
-                }
-
-                                if(typeof renderTodos === 'function') renderTodos();
+                applySimpleMerge('messages', cloudData.messages);
+                applySimpleMerge('notes', cloudData.notes);
+                applySimpleMerge('todos', cloudData.todos);
+                applySimpleMerge('audioRecords', cloudData.audioRecords);
+                if(typeof renderTodos === 'function') renderTodos();
                 if(typeof renderNotes === 'function') renderNotes();
                 if(typeof renderAudioRecords === 'function') renderAudioRecords();
                 if(typeof renderChatHistoryList === 'function') renderChatHistoryList();
@@ -1391,6 +1356,7 @@ async function encodeMp3(audioBuffer) {
         // --- 核心應用狀態 ---
         const appState = {
             currentModel: 'gemini', grokModel: 'grok-multi', geminiModel: 'gemini-multi',
+            isMaster: localStorage.getItem('nova_is_master') === 'true',
             deletedIds: JSON.parse(localStorage.getItem('nova_deleted_ids') || '{}'),
             chatFiles: [], currentDeviceId: null,
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '', 
@@ -1729,8 +1695,9 @@ return html;
         };
 
         window.openSettings = function() { 
-            if(typeof initSettingsTabs === 'function') initSettingsTabs();
-            document.getElementById('settings-modal').classList.remove('hidden'); 
+            document.getElementById('settings-modal').classList.remove('hidden');
+            const isMasterEl = document.getElementById('key-is-master');
+            if (isMasterEl) isMasterEl.checked = appState.isMaster; 
         };
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
 
@@ -1869,6 +1836,8 @@ s('key-aws-sk', 'aws_sk'); s('key-aws-region', 'aws_region'); s('key-gmaps', 'gm
                 if(typeof applyUiColor === 'function') applyUiColor(appState.uiColor);
             }
 
+            const isMasterEl = document.getElementById('key-is-master');
+            if (isMasterEl) { appState.isMaster = isMasterEl.checked; localStorage.setItem('nova_is_master', appState.isMaster); }
             closeSettings(); showToast("✅ 設定已儲存"); updateModelUI();
             if(typeof triggerLiveSync === 'function') triggerLiveSync();
         };
