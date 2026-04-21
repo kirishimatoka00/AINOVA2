@@ -304,6 +304,16 @@
                                         <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-yellow-500"></div>
                                     </label>
                                 </div>
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <label class="block text-xs text-cyan-400 font-bold flex items-center gap-1"><i class="ph-fill ph-cloud-arrow-up"></i> 啟用 Live Sync 同步</label>
+                                        <p class="text-[10px] text-slate-500 mt-1">關閉後，程式將停止自動讀取及上傳至 Google Drive（錄音上傳功能不受影響）。</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                        <input type="checkbox" id="key-live-sync-enabled" class="sr-only peer" checked>
+                                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
@@ -1215,6 +1225,7 @@ async function encodeMp3(audioBuffer) {
         let isLiveSyncing = false;
 
         async function triggerLiveSync() {
+            if (!appState.liveSyncEnabled) return;
             if (!appState.driveUrl) return; 
             if(liveSyncTimeout) clearTimeout(liveSyncTimeout);
             liveSyncTimeout = setTimeout(async () => {
@@ -1252,6 +1263,7 @@ async function encodeMp3(audioBuffer) {
         }
 
         async function fetchSyncFromDrive() {
+            if (!appState.liveSyncEnabled) return;
             if (!appState.driveUrl) return;
             try {
                 const res = await fetch(appState.driveUrl + "?action=sync_down&filename=NOVA120livebackup");
@@ -1380,6 +1392,7 @@ async function encodeMp3(audioBuffer) {
         const appState = {
             currentModel: 'gemini', grokModel: 'grok-multi', geminiModel: 'gemini-multi',
             isMaster: localStorage.getItem('nova_is_master') === 'true',
+            liveSyncEnabled: localStorage.getItem('nova_live_sync_enabled') !== 'false',
             deletedIds: JSON.parse(localStorage.getItem('nova_deleted_ids') || '{}'),
             chatFiles: [], currentDeviceId: null,
             docMonitorUrl: localStorage.getItem('nova_doc_url') || '', 
@@ -1720,7 +1733,9 @@ return html;
         window.openSettings = function() { 
             document.getElementById('settings-modal').classList.remove('hidden');
             const isMasterEl = document.getElementById('key-is-master');
-            if (isMasterEl) isMasterEl.checked = appState.isMaster; 
+            if (isMasterEl) isMasterEl.checked = appState.isMaster;
+            const liveSyncEl = document.getElementById('key-live-sync-enabled');
+            if (liveSyncEl) liveSyncEl.checked = appState.liveSyncEnabled;
         };
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
 
@@ -1880,6 +1895,8 @@ s('key-aws-sk', 'aws_sk'); s('key-aws-region', 'aws_region'); s('key-gmaps', 'gm
 
             const isMasterEl = document.getElementById('key-is-master');
             if (isMasterEl) { appState.isMaster = isMasterEl.checked; localStorage.setItem('nova_is_master', appState.isMaster); }
+            const liveSyncEl = document.getElementById('key-live-sync-enabled');
+            if (liveSyncEl) { appState.liveSyncEnabled = liveSyncEl.checked; localStorage.setItem('nova_live_sync_enabled', appState.liveSyncEnabled); }
             closeSettings(); showToast("✅ 設定已儲存"); updateModelUI();
             if(typeof triggerLiveSync === 'function') triggerLiveSync();
         };
@@ -4757,7 +4774,7 @@ try {
                 if(!confirm(`即將對「${r.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
-                appState.chatFile = { category: 'media', data: r.audioData, mime: r.mimeType || 'audio/webm', name: r.filename || 'audio.mp3' };
+                appState.chatFiles = [{ category: 'media', data: r.audioData, mime: r.mimeType || 'audio/webm', name: r.filename || 'audio.mp3' }];
                 renderChatFilePreview(); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
@@ -4780,7 +4797,7 @@ try {
                 if(!confirm(`即將對「${n.title}」進行深度分析。\n\n系統已偵測到您的本地檔案，將直接進行自動化分析！`)) {
                     appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
                 }
-                appState.chatFile = { category: 'media', data: n.audioData, mime: n.mimeType || 'audio/webm', name: n.filename || 'audio.mp3' };
+                appState.chatFiles = [{ category: 'media', data: n.audioData, mime: n.mimeType || 'audio/webm', name: n.filename || 'audio.mp3' }];
                 renderChatFilePreview(); switchTab('dashboard');
                 document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
             } else {
