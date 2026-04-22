@@ -190,6 +190,7 @@
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
                     </div>
                     <button onclick="openSettings()"><i class="ph ph-gear text-slate-400 text-xl"></i></button>
+                    <button onclick="(function(){var t=appState.theme==='dark'?'light':'dark';appState.theme=t;localStorage.setItem('nova_theme',t);applyTheme(t);showToast(t==='dark'?'🌙 黑夜模式':'☀️ 白晝模式');})()" title="切換日/夜模式"><i id="theme-toggle-icon" class="ph ph-moon text-slate-400 text-xl"></i></button>
                     <button onclick="toggleMobileMenu()"><i class="ph ph-list text-white text-2xl"></i></button>
                 </div>
             </div>
@@ -248,6 +249,7 @@
                         <button onclick="switchSettingsTab('tab-main')" id="stab-main" class="flex-1 py-1.5 text-xs font-bold rounded-lg bg-blue-600 text-white transition-all">🔑 主要</button>
                         <button onclick="switchSettingsTab('tab-voice')" id="stab-voice" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all">🎙️ 語音</button>
                         <button onclick="switchSettingsTab('tab-tg')" id="stab-tg" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
+                        <button onclick="switchSettingsTab('tab-ui')" id="stab-ui" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all">🎨 外觀</button>
                     </div>
 
                     <div class="overflow-y-auto flex-1 pr-2 scrollbar-thin">
@@ -387,6 +389,39 @@
                                     <input type="text" id="key-tg-chatid" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-sky-500 outline-none" placeholder="您的專屬對話 ID">
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- 分頁四：外觀/主題 -->
+                        <div id="tab-ui" class="space-y-4 hidden">
+                            <!-- 快速切換按鈕 -->
+                            <div class="flex gap-3">
+                                <button onclick="applyTheme('dark'); document.getElementById('key-theme-mode').value='dark'; showToast('🌙 已切換為黑夜模式');" class="flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-slate-700 bg-slate-900 hover:border-blue-500 transition-colors active:scale-95">
+                                    <span class="text-3xl">🌙</span>
+                                    <span class="text-xs font-bold text-slate-300">黑夜模式</span>
+                                    <span class="text-[10px] text-slate-500">Dark Mode</span>
+                                </button>
+                                <button onclick="applyTheme('light'); document.getElementById('key-theme-mode').value='light'; showToast('☀️ 已切換為白晝模式');" class="flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-slate-700 bg-slate-900 hover:border-yellow-400 transition-colors active:scale-95">
+                                    <span class="text-3xl">☀️</span>
+                                    <span class="text-xs font-bold text-slate-300">白晝模式</span>
+                                    <span class="text-[10px] text-slate-500">Light Mode</span>
+                                </button>
+                            </div>
+                            <!-- 隱藏的 select（供 saveKeys 讀取） -->
+                            <select id="key-theme-mode" class="hidden">
+                                <option value="dark">黑夜</option>
+                                <option value="light">白晝</option>
+                            </select>
+                            <!-- 主色調選擇 -->
+                            <div>
+                                <label class="block text-xs text-slate-300 mb-2 font-bold"><i class="ph-fill ph-palette"></i> 介面主色調</label>
+                                <select id="key-ui-color" onchange="if(typeof applyUiColor==='function') applyUiColor(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-blue-500 outline-none">
+                                    <option value="blue">🔵 科技藍 (預設)</option>
+                                    <option value="emerald">🟢 翡翠綠</option>
+                                    <option value="purple">🟣 魅影紫</option>
+                                    <option value="rose">🔴 玫瑰紅</option>
+                                </select>
+                            </div>
+                            <p class="text-[10px] text-slate-500 text-center">點擊上方切換後請按「儲存」以永久套用設定</p>
                         </div>
 
                     </div>
@@ -883,6 +918,10 @@
                     <header class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-white">錄音紀錄</h2>
                         <div class="flex space-x-2">
+                            <label for="audio-upload-from-tab" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded-lg flex items-center space-x-1 transition-colors text-sm cursor-pointer" title="上傳本機音檔進行AI分析">
+                                <i class="ph-bold ph-upload-simple"></i><span class="hidden sm:inline">上傳音檔分析</span>
+                            </label>
+                            <input type="file" id="audio-upload-from-tab" accept="audio/*,video/*" class="hidden" onchange="handleAudioAnalyzeSelect(event)">
                             <button onclick="startAudioRecordOnly()" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-lg flex items-center space-x-1 transition-colors text-sm"><i class="ph-bold ph-microphone"></i><span class="hidden sm:inline">錄音</span></button>
                             <button onclick="startMeetingRecording('record')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg flex items-center space-x-1 transition-colors text-sm" title="雙軌錄製麥克風與會議聲音"><i class="ph-bold ph-headset"></i><span class="hidden sm:inline">雙軌會議錄音</span></button>
                         </div>
@@ -1496,7 +1535,7 @@ async function encodeMp3(audioBuffer) {
             manualLocs: [{name: "台北", lat: 25.0330, lon: 121.5654}, {name: "台中", lat: 24.1477, lon: 120.6736}, {name: "高雄", lat: 22.6273, lon: 120.3014}],
             pendingReminder: null, reminderStage: 0, countryCode: 'TW', lastLat: null, lastLon: null,
             recordingContext: 'default', currentAudioTranscript: '', editNoteImagesBase64: [], 
-            pendingAnalyzePrompt: "", pendingAnalyzeContextId: null, pendingAnalyzeType: "",
+            pendingAnalyzePrompt: "", pendingAnalyzeContextId: null, pendingAnalyzeType: "", pendingAnalyzeDuration: 0,
             recordingStartTime: 0,
             activeMediaTracks: [], recordingAudioCtx: null,
             voiceTimeout: parseInt(localStorage.getItem('nova_voice_timeout')) || 5,
@@ -1716,6 +1755,8 @@ return html;
         };
 
         window.applyTheme = function(theme) {
+            appState.theme = theme;
+            localStorage.setItem('nova_theme', theme);
             if(theme === 'light') {
                 document.documentElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(1.05)';
                 let style = document.getElementById('light-theme-fix');
@@ -1729,6 +1770,9 @@ return html;
                 const style = document.getElementById('light-theme-fix');
                 if(style) style.remove();
             }
+            // 更新手機版快速切換圖示
+            const icon = document.getElementById('theme-toggle-icon');
+            if (icon) { icon.className = theme === 'dark' ? 'ph ph-moon text-slate-400 text-xl' : 'ph ph-sun text-yellow-400 text-xl'; }
         };
 
         window.initSettingsTabs = function() {
@@ -1822,11 +1866,11 @@ return html;
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
 
         window.switchSettingsTab = function(tabId) {
-            ['tab-main', 'tab-voice', 'tab-tg'].forEach(id => {
+            ['tab-main', 'tab-voice', 'tab-tg', 'tab-ui'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(tabId).classList.remove('hidden');
-            ['stab-main', 'stab-voice', 'stab-tg'].forEach(id => {
+            ['stab-main', 'stab-voice', 'stab-tg', 'stab-ui'].forEach(id => {
                 const btn = document.getElementById(id);
                 btn.classList.remove('bg-blue-600', 'text-white');
                 btn.classList.add('text-slate-400');
@@ -1837,6 +1881,13 @@ return html;
             // 切換到語音分頁時重新填充人聲選單
             if (tabId === 'tab-voice' && typeof populateVoices === 'function') {
                 populateVoices();
+            }
+            // 切換到外觀分頁時同步目前主題值
+            if (tabId === 'tab-ui') {
+                const themeSel = document.getElementById('key-theme-mode');
+                if (themeSel) themeSel.value = appState.theme || 'dark';
+                const colorSel = document.getElementById('key-ui-color');
+                if (colorSel) colorSel.value = appState.uiColor || 'blue';
             }
         };
 
@@ -2460,20 +2511,86 @@ msg.files : (msg.file ? [msg.file] : []);
             });
         };
 
+        // ── 超長文 PPT 輔助：分段提取重點後再合併生成 ──────────────────────
+        window._pptChunkSummarize = async function(fullText) {
+            const CHUNK_SIZE = 5000;
+            const MAX_DIRECT = 12000;
+            if (fullText.length <= MAX_DIRECT) return fullText;
+
+            const chunks = [];
+            for (let i = 0; i < fullText.length; i += CHUNK_SIZE) {
+                chunks.push(fullText.slice(i, i + CHUNK_SIZE));
+            }
+
+            // 在對話區插入可即時更新的進度訊息
+            const progressId = Date.now();
+            const scrollToBottom = () => {
+                const c = document.getElementById('chat-container');
+                if (c) c.scrollTop = c.scrollHeight;
+            };
+            const progressEntry = {
+                id: progressId,
+                sessionId: appState.currentSessionId,
+                text: `📊 **PPT 長文分析啟動**｜共 ${chunks.length} 段，正在處理第 1 段…`,
+                sender: 'system', time: getTime(), sources: [], files: []
+            };
+            appState.messages.push(progressEntry);
+            renderMessages();
+            scrollToBottom();
+
+            const updateProgress = (done, total, note = '') => {
+                const m = appState.messages.find(x => x.id === progressId);
+                const bar = '█'.repeat(done) + '░'.repeat(total - done);
+                if (m) {
+                    m.text = `📊 **PPT 長文分析中** [${bar}] ${done}/${total} 段${note}`;
+                    renderMessages();
+                    scrollToBottom();
+                }
+            };
+
+            const summaries = [];
+            for (let idx = 0; idx < chunks.length; idx++) {
+                updateProgress(idx, chunks.length, `｜⏳ 分析第 ${idx + 1} 段…`);
+                try {
+                    const chunkPrompt = `以下是一篇長文的第 ${idx + 1}/${chunks.length} 段內容，請提取這段的所有重要概念、數據、論點，以條列式輸出（中文），不要遺漏任何重點：\n\n${chunks[idx]}`;
+                    const res = await fetchAIResponse(chunkPrompt, appState.currentModel, { isAnalysis: true });
+                    const txt = typeof res === 'string' ? res : (res.text || '');
+                    if (txt) summaries.push(`【第${idx + 1}段重點】\n${txt}`);
+                } catch(e) {
+                    console.warn(`PPT chunk ${idx + 1} 失敗:`, e);
+                }
+            }
+
+            // 完成：更新進度訊息顯示結果
+            const m = appState.messages.find(x => x.id === progressId);
+            if (m) {
+                m.text = `✅ **PPT 長文分析完成**｜${chunks.length} 段全部處理完畢（成功 ${summaries.length} 段），正在交由 AI 生成投影片…`;
+                renderMessages();
+                scrollToBottom();
+            }
+
+            if (summaries.length === 0) return fullText.slice(0, MAX_DIRECT);
+            return `（以下為全文各段重點摘要，請據此製作完整 PPT，確保每段內容都有對應投影片）\n\n` + summaries.join('\n\n');
+        };
+
         window.generatePPTFromMessage = function(id) {
             const msg = appState.messages.find(m => String(m.id) === String(id));
             if (!msg || !msg.text) return;
+            const isLong = msg.text.length > 12000;
             showConfirmDialog({
                 title: '製作投影片',
-                message: '確定要將此訊息內容傳送給 AI 製作 PPT 投影片嗎？',
+                message: isLong
+                    ? `此訊息較長（${msg.text.length.toLocaleString()} 字元），系統將自動分段摘要後製作完整 PPT，確定繼續？`
+                    : '確定要將此訊息內容傳送給 AI 製作 PPT 投影片嗎？',
                 okText: '確定製作',
                 okClass: 'bg-emerald-600 hover:bg-emerald-500',
                 icon: 'ph-presentation-chart',
                 iconBg: 'bg-emerald-500/20',
                 iconColor: 'text-emerald-400',
-                onConfirm: function() {
+                onConfirm: async function() {
                     switchTab('dashboard');
-                    document.getElementById('user-input').value = `幫我把這些內容做成簡報 (PPT)：\n\n${msg.text.substring(0, 3000)}`;
+                    const content = await window._pptChunkSummarize(msg.text);
+                    document.getElementById('user-input').value = `幫我把這些內容做成簡報 (PPT)，請務必覆蓋所有段落與章節，不要遺漏任何重點：\n\n${content}`;
                     handleSendMessage();
                     showToast("✅ 已發送製作 PPT 指令");
                 }
@@ -2483,18 +2600,22 @@ msg.files : (msg.file ? [msg.file] : []);
         window.generatePPTFromNote = function(id) {
             const n = appState.notes.find(x => String(x.id) === String(id));
             if (!n) return;
+            let contentText = n.isHtml ? n.content.replace(/<[^>]+>/g, '\n').replace(/&nbsp;/g, ' ') : n.content;
+            const isLong = contentText.length > 12000;
             showConfirmDialog({
                 title: '製作投影片',
-                message: `確定要將筆記「${n.title || '(未命名)'}」製作成 PPT 投影片嗎？`,
+                message: isLong
+                    ? `筆記「${n.title || '(未命名)'}」內容較長（${contentText.length.toLocaleString()} 字元），系統將自動分段摘要後製作完整 PPT，確定繼續？`
+                    : `確定要將筆記「${n.title || '(未命名)'}」製作成 PPT 投影片嗎？`,
                 okText: '確定製作',
                 okClass: 'bg-emerald-600 hover:bg-emerald-500',
                 icon: 'ph-presentation-chart',
                 iconBg: 'bg-emerald-500/20',
                 iconColor: 'text-emerald-400',
-                onConfirm: function() {
+                onConfirm: async function() {
                     switchTab('dashboard');
-                    let contentText = n.isHtml ? n.content.replace(/<[^>]+>/g, '\n').replace(/&nbsp;/g, ' ') : n.content;
-                    document.getElementById('user-input').value = `幫我把這篇筆記做成簡報 (PPT)：\n\n【${n.title}】\n${contentText.substring(0, 3000)}`;
+                    const content = await window._pptChunkSummarize(contentText);
+                    document.getElementById('user-input').value = `幫我把這篇筆記做成簡報 (PPT)，請務必覆蓋所有段落與章節，不要遺漏任何重點：\n\n【${n.title}】\n${content}`;
                     handleSendMessage();
                     showToast("✅ 已發送製作 PPT 指令");
                 }
@@ -2571,17 +2692,124 @@ handleSendMessage(); }
             renderChatFilePreview();
             document.getElementById('plus-menu').classList.add('hidden'); document.getElementById('plus-icon').classList.remove('rotate-45');
         };
-        window.handleAudioAnalyzeSelect = function(e) {
+        window.handleAudioAnalyzeSelect = async function(e) {
             const file = e.target.files[0];
-            if(!file) return;
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                appState.chatFiles = [{ category: 'media', name: file.name, mime: file.type, data: evt.target.result }];
-                renderChatFilePreview(); switchTab('dashboard');
-                document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
-            };
-            reader.readAsDataURL(file);
+            if (!file) return;
+            e.target.value = ''; // 重置讓同一檔案可再次選取
+            const title = file.name || '上傳音檔';
+            const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
+
+            // 顯示模式選擇對話框
+            const choice = await showAudioAnalyzeModal(title, fileSizeMB);
+            if (!choice) return; // 使用者取消
+
+            const audioBlob = new Blob([await file.arrayBuffer()], { type: file.type || 'audio/webm' });
+
+            if (choice === 'direct') {
+                await directAnalyzeAudio(audioBlob, file.type || 'audio/webm', title);
+            } else {
+                // 分段逐字稿引擎
+                await runChunkedTranscription(audioBlob, file.type || 'audio/webm', 'uploadOnly', null, title);
+            }
         };
+
+        // 音檔分析模式選擇彈窗（回傳 'direct' | 'chunked' | null）
+        function showAudioAnalyzeModal(title, sizeMB) {
+            return new Promise((resolve) => {
+                // 建立彈窗
+                const overlay = document.createElement('div');
+                overlay.id = 'audio-mode-overlay';
+                overlay.className = 'fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4';
+                overlay.innerHTML = `
+                    <div class="bg-slate-900 border border-teal-500/50 rounded-2xl p-6 w-full max-w-sm shadow-[0_0_40px_rgba(20,184,166,0.2)] flex flex-col gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-teal-500/20 rounded-xl flex items-center justify-center shrink-0">
+                                <i class="ph-bold ph-file-audio text-teal-400 text-xl"></i>
+                            </div>
+                            <div class="overflow-hidden">
+                                <h3 class="font-bold text-white text-base truncate" title="${title}">${title}</h3>
+                                <p class="text-[11px] text-slate-400">${sizeMB} MB — 請選擇分析模式</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <!-- 直接分析 -->
+                            <button id="amBtn-direct" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 hover:border-teal-500 transition-colors text-left active:scale-95">
+                                <i class="ph-bold ph-lightning text-yellow-400 text-xl mt-0.5 shrink-0"></i>
+                                <div>
+                                    <p class="text-sm font-bold text-white">直接 AI 分析</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">整段音檔直接送 Gemini，速度快。<br>適合 <span class="text-teal-400 font-bold">短音檔（建議 &lt; 20MB）</span>，一次取得摘要與分析。</p>
+                                </div>
+                            </button>
+                            <!-- 分段逐字稿 -->
+                            <button id="amBtn-chunked" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 hover:border-purple-500 transition-colors text-left active:scale-95">
+                                <i class="ph-bold ph-queue text-purple-400 text-xl mt-0.5 shrink-0"></i>
+                                <div>
+                                    <p class="text-sm font-bold text-white">分段逐字稿（完整轉錄）</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">自動每 5 分鐘切段，逐段轉錄後合成完整逐字稿再摘要。<br>適合 <span class="text-purple-400 font-bold">長錄音（會議、訪談等）</span>，確保不遺漏任何內容。</p>
+                                </div>
+                            </button>
+                        </div>
+                        <button id="amBtn-cancel" class="text-slate-500 hover:text-slate-300 text-sm text-center transition-colors">取消</button>
+                    </div>`;
+                document.body.appendChild(overlay);
+
+                const cleanup = (val) => {
+                    overlay.remove();
+                    resolve(val);
+                };
+                document.getElementById('amBtn-direct').onclick = () => cleanup('direct');
+                document.getElementById('amBtn-chunked').onclick = () => cleanup('chunked');
+                document.getElementById('amBtn-cancel').onclick = () => cleanup(null);
+                overlay.addEventListener('click', (ev) => { if (ev.target === overlay) cleanup(null); });
+            });
+        }
+
+        // 直接分析模式：整段音檔送 Gemini 做摘要 & 分析
+        async function directAnalyzeAudio(audioBlob, mimeType, itemTitle) {
+            const key = appState.keys.gemini;
+            if (!key) { addMessage('⚠️ 請先設定 Gemini API Key！', 'system'); return; }
+            switchTab('dashboard');
+
+            const fileSizeMB = (audioBlob.size / 1024 / 1024).toFixed(1);
+            addMessage(`🎙️ **直接 AI 分析啟動**｜音檔「${itemTitle}」(${fileSizeMB} MB) 正在上傳至 Gemini…`, 'system');
+
+            try {
+                // 轉為 base64
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                const uint8 = new Uint8Array(arrayBuffer);
+                let binary = '';
+                for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+                const base64Data = btoa(binary);
+
+                const safeMime = mimeType.startsWith('audio/') ? mimeType : 'audio/webm';
+                const prompt = `你是一位專業的音訊分析師與逐字稿員。請針對以下音檔完成：
+1. 【完整逐字稿】：將所有說話內容完整轉錄（繁體中文），保留每一句話，不省略。
+2. 【重點摘要】：條列整理出最重要的主題、討論點與結論。
+3. 【待辦事項/行動項目】（如有）：列出音檔中提及的具體行動或決議。
+
+請依序輸出以上三個區塊，若音檔為純聲音（音樂/環境音）請說明音檔內容性質。`;
+
+                const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+                const payload = {
+                    contents: [{ role: 'user', parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: safeMime, data: base64Data } }
+                    ]}],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: 16384 }
+                };
+
+                const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+
+                const resultText = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('') || '(無回傳內容)';
+                addMessage(`📝 **AI 直接分析完成**｜${itemTitle}\n\n${resultText}`, 'ai', 'gemini');
+                addMessage(`✅ 分析完成！以上為「${itemTitle}」的 AI 直接分析結果。`, 'system');
+
+            } catch(e) {
+                addMessage(`⚠️ 直接分析失敗（${e.message}）。\n\n若音檔較大，建議改用「分段逐字稿」模式以確保完整轉錄。`, 'system');
+            }
+        }
 
         window.toggleSearch = function() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); };
         window.toggleDeepDive = function() { 
@@ -3400,50 +3628,104 @@ return; }
         };
 
         // --- 新增：PPT 生成與下載函數 ---
-        window.downloadGeneratedPPT = function(base64Data) {
+        window.downloadGeneratedPPT = async function(base64Data) {
             try {
                 let jsonStr = decodeURIComponent(escape(atob(base64Data)));
                 let pptData = JSON.parse(jsonStr);
-                
+
+                // ── 圖片預載輔助（Picsum Photos，CORS 開放，無需 API Key）──
+                const fetchImgBase64 = async (query) => {
+                    if (!query) return null;
+                    const seed = encodeURIComponent((query + '').replace(/\s+/g, '-').substring(0, 60));
+                    try {
+                        const res = await Promise.race([
+                            fetch(`https://picsum.photos/seed/${seed}/800/450`),
+                            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
+                        ]);
+                        const blob = await res.blob();
+                        return await new Promise(resolve => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result);
+                            reader.readAsDataURL(blob);
+                        });
+                    } catch(e) { return null; }
+                };
+
                 let pptx = new PptxGenJS();
                 pptx.layout = 'LAYOUT_16x9';
-                
-                // 封面頁
+
+                // ── 封面頁（全幅背景圖 + 深色蒙層）──
+                const coverImg = await fetchImgBase64(pptData.title || 'business presentation');
                 let coverSlide = pptx.addSlide();
-                coverSlide.background = { color: "1E293B" }; // 深色背景
-                coverSlide.addText(pptData.title || "AI 生成簡報", { x: 1, y: 2, w: "80%", h: 1.5, fontSize: 44, bold: true, color: "FFFFFF", align: "center" });
-                if(pptData.subtitle) {
-                    coverSlide.addText(pptData.subtitle, { x: 1, y: 3.5, w: "80%", h: 1, fontSize: 24, color: "94A3B8", align: "center" });
+                coverSlide.background = { color: "0F172A" };
+                if (coverImg) {
+                    coverSlide.addImage({ data: coverImg, x: 0, y: 0, w: '100%', h: '100%', transparency: 65 });
+                }
+                // 底部藍色橫條裝飾
+                coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 6.8, w: '100%', h: 0.7, fill: { color: '1E3A5F', transparency: 20 } });
+                coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 6.78, w: '100%', h: 0.08, fill: { color: '3B82F6' } });
+                coverSlide.addText(pptData.title || "AI 生成簡報", {
+                    x: 0.8, y: 1.8, w: "85%", h: 2.0,
+                    fontSize: 44, bold: true, color: "FFFFFF", align: "center",
+                    shadow: { type: 'outer', color: '000000', blur: 12, offset: 3, angle: 270, opacity: 0.8 }
+                });
+                if (pptData.subtitle) {
+                    coverSlide.addText(pptData.subtitle, { x: 0.8, y: 4.0, w: "85%", h: 1.0, fontSize: 22, color: "93C5FD", align: "center" });
                 }
 
-                // 內容頁
+                // ── 內容頁 ──
                 if (pptData.slides && Array.isArray(pptData.slides)) {
-                    pptData.slides.forEach(slideData => {
+                    for (const slideData of pptData.slides) {
+                        const imgQuery = slideData.imageQuery || slideData.title || 'business';
+                        const imgData = await fetchImgBase64(imgQuery);
                         let slide = pptx.addSlide();
-                        slide.background = { color: "F8FAFC" }; // 淺色背景
-                        
-                        // 標題
-                        if (slideData.title) {
-                            slide.addText(slideData.title, { x: 0.5, y: 0.5, w: "90%", h: 1, fontSize: 32, bold: true, color: "0F172A" });
-                            slide.addShape(pptx.ShapeType.line, { x: 0.5, y: 1.4, w: "90%", h: 0, line: { color: "3B82F6", width: 2 } });
-                        }
-                        
-                        // 內文
-                        if (slideData.content) {
-                            let yPos = 1.6;
-                            if (Array.isArray(slideData.content)) {
-                                let bulletData = slideData.content.map(text => ({ text: text, options: { bullet: true, color: "334155", fontSize: 20, breakLine: true } }));
-                                slide.addText(bulletData, { x: 0.5, y: yPos, w: "90%", h: 3.5, align: "left", valign: "top", lineSpacing: 32 });
-                            } else {
-                                slide.addText(slideData.content, { x: 0.5, y: yPos, w: "90%", h: 3.5, fontSize: 20, color: "334155", align: "left", valign: "top" });
+
+                        if (imgData) {
+                            // 圖文並茂版：左圖（40%）右文（55%）
+                            slide.background = { color: "F8FAFC" };
+
+                            // 左側藍色背景區塊
+                            slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 4.45, h: '100%', fill: { color: 'EFF6FF' } });
+                            // 左側圖片
+                            slide.addImage({ data: imgData, x: 0.18, y: 1.35, w: 4.08, h: 5.55 });
+                            // 藍色左邊條
+                            slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.08, h: '100%', fill: { color: '3B82F6' } });
+
+                            // 標題橫跨全寬（上方）
+                            if (slideData.title) {
+                                slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 1.2, fill: { color: '1E293B' } });
+                                slide.addText(slideData.title, { x: 0.3, y: 0.15, w: "95%", h: 0.9, fontSize: 26, bold: true, color: "FFFFFF" });
+                            }
+
+                            // 右側文字
+                            if (slideData.content) {
+                                const items = Array.isArray(slideData.content) ? slideData.content : [slideData.content];
+                                const bulletData = items.map(t => ({
+                                    text: t,
+                                    options: { bullet: { type: 'bullet', characterCode: '25B6', color: '3B82F6' }, color: "1E293B", fontSize: 17, breakLine: true, paraSpaceBefore: 10 }
+                                }));
+                                slide.addText(bulletData, { x: 4.65, y: 1.35, w: 5.15, h: 5.6, align: "left", valign: "top", lineSpacing: 26 });
+                            }
+                        } else {
+                            // 純文字版（圖片載入失敗退路）
+                            slide.background = { color: "F8FAFC" };
+                            if (slideData.title) {
+                                slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 1.2, fill: { color: '1E293B' } });
+                                slide.addShape(pptx.ShapeType.rect, { x: 0, y: 1.18, w: '100%', h: 0.06, fill: { color: '3B82F6' } });
+                                slide.addText(slideData.title, { x: 0.5, y: 0.15, w: "90%", h: 0.9, fontSize: 30, bold: true, color: "FFFFFF" });
+                            }
+                            if (slideData.content) {
+                                const items = Array.isArray(slideData.content) ? slideData.content : [slideData.content];
+                                const bulletData = items.map(t => ({ text: t, options: { bullet: true, color: "334155", fontSize: 20, breakLine: true } }));
+                                slide.addText(bulletData, { x: 0.5, y: 1.45, w: "90%", h: 5.6, align: "left", valign: "top", lineSpacing: 32 });
                             }
                         }
-                    });
+                    }
                 }
-                
+
                 let filename = (pptData.title || "NOVA_Presentation") + ".pptx";
-                pptx.writeFile({ fileName: filename });
-                showToast("✅ PPT 下載中...");
+                await pptx.writeFile({ fileName: filename });
+                showToast("✅ 圖文簡報下載中...");
             } catch (e) {
                 console.error("PPT Generation Error:", e);
                 alert("❌ PPT 產生失敗: " + e.message);
@@ -4769,11 +5051,11 @@ try {
             let newRecord = null;
 
             if (appState.recordingContext === 'note') {
-                newNote = { id: recordId, title: `語音筆記 ${timeStr}`, content: capturedTranscript ? `[即時辨識草稿]\n${capturedTranscript}` : '[無語音內容]', date: displayDate, type: 'audio', driveUrl: "", transcript: capturedTranscript, mimeType: actualMimeType, filename: filename, images: [], image: null, folder: appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder };
+                newNote = { id: recordId, title: `語音筆記 ${timeStr}`, content: capturedTranscript ? `[即時辨識草稿]\n${capturedTranscript}` : '[無語音內容]', date: displayDate, type: 'audio', driveUrl: "", transcript: capturedTranscript, mimeType: actualMimeType, filename: filename, images: [], image: null, folder: appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder, duration: Math.round(recordDuration / 1000) };
                 appState.notes.unshift(newNote); saveToDB('notes', newNote);
                 addMessage(`📝 語音筆記已安全儲存至本地「筆記/文件」分頁。`, 'system'); renderNotes();
             } else {
-                newRecord = { id: recordId, title: `錄音紀錄 ${timeStr}`, date: displayDate, filename: filename, driveUrl: "", transcript: capturedTranscript, mimeType: actualMimeType };
+                newRecord = { id: recordId, title: `錄音紀錄 ${timeStr}`, date: displayDate, filename: filename, driveUrl: "", transcript: capturedTranscript, mimeType: actualMimeType, duration: Math.round(recordDuration / 1000) };
                 appState.audioRecords.unshift(newRecord); saveToDB('audioRecords', newRecord);
                 addMessage(`📼 錄音已安全儲存至本地「錄音紀錄」分頁。`, 'system'); renderAudioRecords();
             }
@@ -4877,28 +5159,155 @@ try {
         }
 
         // --- 深度分析功能 (AI 針對音檔或筆記進行分析) ---
+
+        // ══════════════════════════════════════════════════════════════
+        // 【核心輔助】將 AudioBuffer 的指定時間範圍切出並編碼成 MP3 base64
+        // startSec, endSec：秒數；回傳 "data:audio/mp3;base64,..." 字串
+        // ══════════════════════════════════════════════════════════════
+        async function sliceAudioToBase64(audioBuffer, startSec, endSec) {
+            const sr = audioBuffer.sampleRate;
+            const ch = audioBuffer.numberOfChannels;
+            const startFrame = Math.floor(startSec * sr);
+            const endFrame = Math.min(Math.ceil(endSec * sr), audioBuffer.length);
+            const frameCount = endFrame - startFrame;
+            if (frameCount <= 0) return null;
+
+            // 建立只含這段的 AudioBuffer
+            const sliced = new AudioContext().createBuffer(ch, frameCount, sr);
+            for (let c = 0; c < ch; c++) {
+                sliced.copyToChannel(audioBuffer.getChannelData(c).subarray(startFrame, endFrame), c);
+            }
+            const mp3Blob = await encodeMp3(sliced);
+            return await new Promise((res, rej) => {
+                const fr = new FileReader();
+                fr.onloadend = () => res(fr.result);
+                fr.onerror = rej;
+                fr.readAsDataURL(mp3Blob);
+            });
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // 【核心主流程】分段逐字稿引擎
+        //   - 每段 CHUNK_SECS 秒（預設 5 分鐘），逐段送 Gemini 只要逐字稿
+        //   - 全部逐字稿拼接完畢後，再送一次 AI 做摘要/會議紀錄
+        //   - 完全不依賴 %%CONTINUE%% 標記或 finishReason 兜底
+        // ══════════════════════════════════════════════════════════════
+        async function runChunkedTranscription(audioBlob, mimeType, itemType, itemId, itemTitle) {
+            const CHUNK_SECS = 300; // 每段 5 分鐘
+            const key = appState.keys.gemini;
+            if (!key) { addMessage('⚠️ 請先設定 Gemini API Key！', 'system'); return; }
+
+            switchTab('dashboard');
+
+            // 1. 解碼音檔
+            addMessage(`🎙️ **分段逐字稿引擎啟動**｜正在解碼音檔「${itemTitle}」…`, 'system');
+            let audioBuffer;
+            try {
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+                audioCtx.close();
+            } catch(e) {
+                addMessage(`⚠️ 音檔解碼失敗（${e.message}），請確認格式是否支援。`, 'system');
+                return;
+            }
+
+            const totalSecs = audioBuffer.duration;
+            const totalChunks = Math.ceil(totalSecs / CHUNK_SECS);
+            addMessage(`📊 音檔總長 **${Math.round(totalSecs/60)} 分 ${Math.round(totalSecs%60)} 秒**，將自動分為 **${totalChunks} 段**（每段最多 5 分鐘）逐段轉錄。`, 'system');
+
+            // 2. 逐段呼叫 Gemini 取得逐字稿
+            const transcriptParts = [];
+            for (let i = 0; i < totalChunks; i++) {
+                const startSec = i * CHUNK_SECS;
+                const endSec = Math.min(startSec + CHUNK_SECS, totalSecs);
+                const startLabel = `${Math.floor(startSec/60)}:${String(Math.floor(startSec%60)).padStart(2,'0')}`;
+                const endLabel   = `${Math.floor(endSec/60)}:${String(Math.floor(endSec%60)).padStart(2,'0')}`;
+
+                // 進度訊息（可即時更新）
+                const progressId = Date.now() + i;
+                appState.messages.push({ id: progressId, sessionId: appState.currentSessionId, text: `⏳ [${i+1}/${totalChunks}] 正在轉錄 ${startLabel} – ${endLabel}…`, sender: 'system', time: getTime(), sources: [], files: [] });
+                renderMessages();
+                const chatEl = document.getElementById('chat-container');
+                if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+
+                let base64Chunk;
+                try {
+                    base64Chunk = await sliceAudioToBase64(audioBuffer, startSec, endSec);
+                } catch(e) {
+                    addMessage(`⚠️ 第 ${i+1} 段音訊切割失敗：${e.message}`, 'system');
+                    transcriptParts.push(`[第 ${i+1} 段：切割失敗]`);
+                    continue;
+                }
+
+                const chunkPrompt = `你是專業逐字稿員。請將這段音訊（${startLabel} – ${endLabel}）完整逐字轉錄成繁體中文，保留所有說話者的每一句話，不要摘要、不要省略、不要添加任何評論，直接輸出逐字稿文字即可。`;
+
+                try {
+                    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+                    const payload = {
+                        contents: [{ role: 'user', parts: [
+                            { text: chunkPrompt },
+                            { inlineData: { mimeType: 'audio/mp3', data: base64Chunk.split(',')[1] } }
+                        ]}],
+                        generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+                    };
+                    const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error?.message || res.status);
+                    const partText = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('') || '';
+                    transcriptParts.push(`【${startLabel} – ${endLabel}】\n${partText}`);
+
+                    // 更新進度訊息為完成
+                    const pm = appState.messages.find(x => x.id === progressId);
+                    if (pm) { pm.text = `✅ [${i+1}/${totalChunks}] ${startLabel} – ${endLabel} 轉錄完成（${partText.length} 字）`; renderMessages(); }
+                } catch(e) {
+                    const pm = appState.messages.find(x => x.id === progressId);
+                    if (pm) { pm.text = `⚠️ [${i+1}/${totalChunks}] ${startLabel} – ${endLabel} 轉錄失敗：${e.message}`; renderMessages(); }
+                    transcriptParts.push(`[第 ${i+1} 段：API 錯誤 - ${e.message}]`);
+                }
+            }
+
+            // 3. 合併完整逐字稿
+            const fullTranscript = transcriptParts.join('\n\n');
+            addMessage(`📝 **完整逐字稿（共 ${totalChunks} 段合併，${fullTranscript.length} 字）**\n\n${fullTranscript}`, 'ai', 'gemini');
+
+            // 4. 根據完整逐字稿，送 AI 做摘要/會議紀錄
+            addMessage(`🔍 逐字稿完成，正在根據全文產生摘要與重點整理…`, 'system');
+            const summaryPrompt = itemType === 'audioRecord'
+                ? `以下是一段錄音的完整逐字稿，請根據此逐字稿整理出【重點摘要】與【結構化會議紀錄】（含主題、決議、待辦事項）。\n\n【嚴格約束】：僅根據逐字稿內容摘要，不可自行補充或腦補任何外部資訊。\n\n完整逐字稿如下：\n\n${fullTranscript}`
+                : `以下是一段語音筆記的完整逐字稿，請根據此逐字稿整理出條理分明的【重點摘要】。\n\n【嚴格約束】：僅根據逐字稿內容摘要，不可自行補充或腦補。\n\n完整逐字稿如下：\n\n${fullTranscript}`;
+
+            let summaryText = '';
+            try {
+                const summaryRes = await fetchAIResponse(summaryPrompt, 'gemini', { isAnalysis: true });
+                summaryText = typeof summaryRes === 'string' ? summaryRes : (summaryRes.text || '');
+                addMessage(summaryText, 'ai', 'gemini');
+            } catch(e) {
+                addMessage(`⚠️ 摘要產生失敗：${e.message}`, 'system');
+            }
+
+            // 5. 自動儲存逐字稿與摘要
+            const fullAnalysis = `【完整逐字稿】\n${fullTranscript}${summaryText ? '\n\n【AI 摘要與重點整理】\n' + summaryText : ''}`;
+            if (itemType === 'voiceNote') {
+                const n = appState.notes.find(x => String(x.id) === String(itemId));
+                if (n) { n.content += `\n\n====================\n[AI 分段完整轉錄與分析]\n${fullAnalysis}`; saveToDB('notes', n); renderNotes(); addMessage(`✅ 完整逐字稿與摘要已自動儲存至筆記「${n.title}」。`, 'system'); }
+            } else if (itemType === 'audioRecord') {
+                const rec = appState.audioRecords.find(x => String(x.id) === String(itemId));
+                if (rec) { rec.transcript = (rec.transcript ? rec.transcript + '\n\n' : '') + `[AI 分段完整轉錄]\n${fullTranscript}`; saveToDB('audioRecords', rec); renderAudioRecords(); addMessage(`✅ 完整逐字稿已自動儲存至錄音紀錄「${rec.title}」。`, 'system'); }
+            } else if (itemType === 'uploadOnly') {
+                addMessage(`✅ 分析完成！以上為上傳音檔「${itemTitle}」的完整逐字稿與摘要（未綁定紀錄，如需儲存請複製上方內容）。`, 'system');
+            }
+        }
+
         function summarizeAudioRecord(id) {
             const r = appState.audioRecords.find(x => String(x.id) === String(id)); if (!r) return;
             if (appState.currentModel !== 'gemini') { alert("音檔轉錄與分析強烈建議使用 Gemini 模型，系統已自動為您切換。"); setModel('gemini'); }
-            
-            appState.pendingAnalyzeContextId = id;
-            appState.pendingAnalyzeType = 'audioRecord';
-            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出重點摘要與結構化的會議紀錄。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。\n\n【輸出完整性要求】：無論錄音長度為何（即使超過 20 分鐘），請務必輸出「完整且不截斷」的逐字稿與摘要，絕不可在中途停止或以省略號代替。`;
-            
-            if(!confirm(`即將對「${r.title}」進行深度分析。\n\n系統將從本地端載入音訊資料進行自動分析！`)) {
-                appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
-            }
+            if (!confirm(`即將對「${r.title}」進行深度分析。\n\n系統將把音檔自動分段（每段 5 分鐘），逐段轉錄後合成完整逐字稿，再產生摘要與會議紀錄。`)) return;
 
-            // 從 IndexedDB audioBlobs 讀取，按需轉 base64，分析後立即釋放
             loadAudioBlob(r.id).then(async (audioBlob) => {
-                // 降級：舊版資料可能仍有 audioData 字串
                 if (!audioBlob && r.audioData) audioBlob = base64ToBlob(r.audioData);
                 if (audioBlob) {
-                    const reader = new FileReader();
-                    const base64 = await new Promise((res, rej) => { reader.onloadend = () => res(reader.result); reader.onerror = rej; reader.readAsDataURL(audioBlob); });
-                    appState.chatFiles = [{ category: 'media', data: base64, mime: r.mimeType || 'audio/webm', name: r.filename || 'audio.mp3' }];
-                    renderChatFilePreview(); switchTab('dashboard');
-                    document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
+                    await runChunkedTranscription(audioBlob, r.mimeType || 'audio/webm', 'audioRecord', id, r.title);
                 } else {
                     alert("找不到本地音訊資料，請手動選取音檔。");
                     document.getElementById('audio-analyze-input').click();
@@ -4909,24 +5318,12 @@ try {
         function summarizeVoiceNote(id) {
             const n = appState.notes.find(x => String(x.id) === String(id)); if (!n) return;
             if (appState.currentModel !== 'gemini') { alert("音檔轉錄與分析強烈建議使用 Gemini 模型，系統已自動為您切換。"); setModel('gemini'); }
-            
-            appState.pendingAnalyzeContextId = id;
-            appState.pendingAnalyzeType = 'voiceNote';
-            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出條理分明的重點摘要。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。\n\n【輸出完整性要求】：無論錄音長度為何（即使超過 20 分鐘），請務必輸出「完整且不截斷」的逐字稿與摘要，絕不可在中途停止或以省略號代替。`;
-            
-            if(!confirm(`即將對「${n.title}」進行深度分析。\n\n系統將從本地端載入音訊資料進行自動分析！`)) {
-                appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
-            }
+            if (!confirm(`即將對「${n.title}」進行深度分析。\n\n系統將把音檔自動分段（每段 5 分鐘），逐段轉錄後合成完整逐字稿，再產生摘要。`)) return;
 
-            // 從 IndexedDB audioBlobs 讀取，按需轉 base64，分析後立即釋放
             loadAudioBlob(n.id).then(async (audioBlob) => {
                 if (!audioBlob && n.audioData) audioBlob = base64ToBlob(n.audioData);
                 if (audioBlob) {
-                    const reader = new FileReader();
-                    const base64 = await new Promise((res, rej) => { reader.onloadend = () => res(reader.result); reader.onerror = rej; reader.readAsDataURL(audioBlob); });
-                    appState.chatFiles = [{ category: 'media', data: base64, mime: n.mimeType || 'audio/webm', name: n.filename || 'audio.mp3' }];
-                    renderChatFilePreview(); switchTab('dashboard');
-                    document.getElementById('user-input').value = appState.pendingAnalyzePrompt; handleSendMessage();
+                    await runChunkedTranscription(audioBlob, n.mimeType || 'audio/webm', 'voiceNote', id, n.title);
                 } else {
                     alert("找不到本地音訊資料，請手動選取音檔。");
                     document.getElementById('audio-analyze-input').click();
@@ -5685,7 +6082,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
 
             // --- 新增：攔截 PPT 簡報意圖，強制回傳 JSON 格式 ---
             if (text.includes("簡報") || text.includes("PPT") || text.includes("ppt") || text.includes("Ppt")) {
-                systemPromptAddon += `\n【💡 特殊技能觸發】：使用者希望製作 PPT 簡報。請你蒐集並整理完資訊後，嚴格在對話最後面使用以下 JSON 格式輸出(並用 \`\`\`json 和 \`\`\` 包著)，系統會自動攔截並轉換為真正的 .pptx 檔案給使用者下載：\n\`\`\`json\n{\n  "title": "簡報主標題",\n  "subtitle": "簡報副標題 (選填)",\n  "slides": [\n    { "title": "第一頁標題", "content": ["重點項目1", "重點項目2"] },\n    { "title": "第二頁標題", "content": ["段落或重點..."] }\n  ]\n}\n\`\`\`\n絕對要保證 JSON 格式正確！\n`;
+                systemPromptAddon += `\n【💡 特殊技能觸發】：使用者希望製作 PPT 簡報。\n【強制規定】：\n1. 必須閱讀使用者提供的「完整內容」，不得只取前段，每個章節/段落都必須有對應投影片。\n2. 嚴格在對話最後面使用以下 JSON 格式輸出(並用 \`\`\`json 和 \`\`\` 包著)，系統會自動攔截並轉換為真正的 .pptx 檔案給使用者下載：\n\`\`\`json\n{\n  "title": "簡報主標題",\n  "subtitle": "簡報副標題 (選填)",\n  "slides": [\n    { "title": "第一頁標題", "content": ["重點項目1", "重點項目2"], "imageQuery": "3-5 English keywords for stock photo (e.g. teamwork meeting office)" },\n    { "title": "第二頁標題", "content": ["段落或重點..."], "imageQuery": "relevant image keywords" }\n  ]\n}\n\`\`\`\n3. slides 陣列必須涵蓋所有章節，不得遺漏。\n4. 每一頁都必須填寫 imageQuery（3~5 個英文關鍵字），用於自動搜尋配圖。\n5. 絕對要保證 JSON 格式正確！\n6. 【嚴格禁止】：回覆中絕對不可提及任何 GPS 座標、緯度、經度或地理定位數值，此資訊與簡報製作無關，請忽略歷史訊息中任何位置相關的系統數據。\n`;
             }
                 
                 // --- 1. 變數初始化 (確保整個函式只宣告這一次，絕不重複) ---
@@ -5693,8 +6090,9 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 let promptToSent = text;
                 let modelToUse = appState.currentModel;
                 
-                // 🌟 寫入 GPS 座標記憶
-                if (appState.lastLat && appState.lastLon) {
+                // 🌟 寫入 GPS 座標記憶 (PPT 製作時跳過，避免 AI 誤解為需要定位資訊)
+                const _isPPTIntent = text.includes("簡報") || text.includes("PPT") || text.includes("ppt") || text.includes("Ppt");
+                if (appState.lastLat && appState.lastLon && !_isPPTIntent) {
                     injectedContext += `\n【系統真實數據】使用者目前的 GPS 座標為：緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。若使用者問及「我在哪」、「我的位置」或「座標」，請務必直接提供此精確數據給使用者。\n`;
                 }
 
@@ -6062,29 +6460,49 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
             } catch(e) {}
         }
 
+        // 💡 多段分析支援：若 fetchAIResponse 回傳 chunks（表示輸出超過單次上限被自動分段），
+        //    則依序顯示各段（前 N-1 段），最後一段（即 finalOutputText）作為正常 AI 訊息顯示
+        const analysisChunks = (!finalRes || typeof finalRes === 'string') ? null : finalRes.chunks;
+        if (analysisChunks && analysisChunks.length > 0) {
+            // analysisChunks = 前 N-1 段；最後一段由後續 addMessage(finalOutputText) 顯示
+            const totalParts = analysisChunks.length + 1;
+            analysisChunks.forEach((chunkText, idx) => {
+                const segLabel = `\n\n---\n*(第 ${idx + 1} 段，共 ${totalParts} 段)*`;
+                addMessage(chunkText + segLabel, 'ai', modelToUse, [], null);
+            });
+            // 最後一段加上完結標記
+            finalOutputText += `\n\n---\n*(第 ${totalParts} 段，共 ${totalParts} 段 — 已輸出完畢)*`;
+        }
+
         if(typeof finalRes === 'string') addMessage(finalOutputText, 'ai', modelToUse);
         else addMessage(finalOutputText, 'ai', modelToUse, finalRes.sources, finalRes.file);
         
         const aiMsgId = appState.messages[appState.messages.length - 1].id;
         speakText(textToSpeak, false, String(aiMsgId));
 if (appState.pendingAnalyzeContextId) {
+                    // 完整分析文字 = 所有段落合併（若有多段）
+                    const fullAnalysisText = analysisChunks
+                        ? analysisChunks.join('\n\n') + '\n\n' + (finalRes.text || finalRes)
+                        : (finalRes.text || finalRes);
+                    const totalPartsNote = analysisChunks ? ` [共 ${analysisChunks.length + 1} 段合併]` : '';
+
                     if (appState.pendingAnalyzeType === 'voiceNote') {
                         const n = appState.notes.find(x => String(x.id) === String(appState.pendingAnalyzeContextId));
-                        if (n) { n.content += `\n\n====================\n[AI 完整轉錄與分析 (${MODEL_CONFIG[modelToUse]?.name})]\n${finalRes.text||finalRes}`; saveToDB('notes', n); renderNotes(); addMessage(`✅ 分析完成！逐字稿與摘要已自動儲存至筆記「${n.title}」的內文中。`, 'system'); }
+                        if (n) { n.content += `\n\n====================\n[AI 完整轉錄與分析 (${MODEL_CONFIG[modelToUse]?.name})${totalPartsNote}]\n${fullAnalysisText}`; saveToDB('notes', n); renderNotes(); addMessage(`✅ 分析完成${totalPartsNote}！逐字稿與摘要已自動儲存至筆記「${n.title}」的內文中。`, 'system'); }
                     } else if (appState.pendingAnalyzeType === 'audioRecord') {
                         const r = appState.audioRecords.find(x => String(x.id) === String(appState.pendingAnalyzeContextId));
-                        if (r) { r.transcript = (r.transcript ? r.transcript + "\n\n" : "") + `[AI 完整轉錄與分析]\n${finalRes.text||finalRes}`; saveToDB('audioRecords', r); renderAudioRecords(); addMessage(`✅ 分析完成！逐字稿與摘要已自動儲存至錄音紀錄「${r.title}」。`, 'system'); }
+                        if (r) { r.transcript = (r.transcript ? r.transcript + "\n\n" : "") + `[AI 完整轉錄與分析${totalPartsNote}]\n${fullAnalysisText}`; saveToDB('audioRecords', r); renderAudioRecords(); addMessage(`✅ 分析完成${totalPartsNote}！逐字稿與摘要已自動儲存至錄音紀錄「${r.title}」。`, 'system'); }
                     } else if (appState.pendingAnalyzeType === 'textNote') {
                         const n = appState.notes.find(x => String(x.id) === String(appState.pendingAnalyzeContextId));
                         if (n) { 
-                            const analysisHtml = `\n\n<hr><div style="margin-top:1em; padding:1em; background:rgba(147,51,234,0.1); border-left:4px solid #9333ea; border-radius:0.5em;"><strong>🤖 AI 深度分析摘要 (${MODEL_CONFIG[modelToUse]?.name})</strong><br>${(finalRes.text||finalRes).replace(/\n/g, '<br>')}</div>`;
+                            const analysisHtml = `\n\n<hr><div style="margin-top:1em; padding:1em; background:rgba(147,51,234,0.1); border-left:4px solid #9333ea; border-radius:0.5em;"><strong>🤖 AI 深度分析摘要 (${MODEL_CONFIG[modelToUse]?.name})${totalPartsNote}</strong><br>${fullAnalysisText.replace(/\n/g, '<br>')}</div>`;
                             if(n.isHtml) n.content += analysisHtml;
-                            else n.content += `\n\n====================\n[🤖 AI 深度分析摘要 (${MODEL_CONFIG[modelToUse]?.name})]\n${finalRes.text||finalRes}`; 
+                            else n.content += `\n\n====================\n[🤖 AI 深度分析摘要 (${MODEL_CONFIG[modelToUse]?.name})${totalPartsNote}]\n${fullAnalysisText}`; 
                             saveToDB('notes', n); renderNotes(); 
-                            addMessage(`✅ 分析完成！重點摘要已自動附加至筆記「${n.title}」的底部。`, 'system'); 
+                            addMessage(`✅ 分析完成${totalPartsNote}！重點摘要已自動附加至筆記「${n.title}」的底部。`, 'system'); 
                         }
                     }
-                    appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ""; appState.pendingAnalyzePrompt = "";
+                    appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ""; appState.pendingAnalyzePrompt = ""; appState.pendingAnalyzeDuration = 0;
                 }
 
             } catch (error) {
@@ -6127,8 +6545,13 @@ if (appState.pendingAnalyzeContextId) {
                 const key = appState.keys[model]; if(!key) throw new Error(`未填寫 ${MODEL_CONFIG[model]?.name || model} API Key`);
                 
                 let chatHistory = [];
-                // 如果是雙 AI 協作模式 (有帶入自訂歷史)
-                if (options.customHistory) {
+                // 💡 音訊深度分析（isAnalysis）為自足型任務：只需要音檔本身，
+                //    完全不需要聊天歷史。若帶入歷史，舊訊息中殘留的「中等長度回覆」等限制
+                //    會被模型誤認為當前指令，導致輸出被截斷。
+                if (options.isAnalysis) {
+                    chatHistory = []; // 分析任務強制清空歷史，防止舊長度限制污染
+                } else if (options.customHistory) {
+                    // 如果是雙 AI 協作模式 (有帶入自訂歷史)
                     chatHistory = options.customHistory;
                 } else if (appState.enableLongMemory && appState.translateMode === 'off') {
                 // 長文記憶功能：獲取同一對話 (sessionId) 下的所有歷史紀錄，各自獨立不干擾
@@ -6139,6 +6562,18 @@ if (appState.pendingAnalyzeContextId) {
                 // 原有的短記憶也修正為同一對話內才觸發，避免互相干擾
                 chatHistory = appState.messages.filter(m => (m.sender === 'user' || m.sender === 'ai') && String(m.sessionId || 'legacy') === String(appState.currentSessionId || 'legacy')).slice(-4);
             }
+
+                // 🔧 修正：PPT 製作時，清除歷史訊息中殘留的 GPS 座標文字，
+                //         防止 AI 讀到舊的位置數據後將其混入簡報回覆
+                const _isPPTContext = userText.includes('簡報') || userText.includes('PPT') || userText.includes('ppt') || userText.includes('Ppt') || userText.includes('投影片');
+                if (_isPPTContext && chatHistory.length > 0) {
+                    chatHistory = chatHistory.map(m => {
+                        if (m.text && /GPS 座標|緯度 \d|經度 \d|lastLat|lastLon/.test(m.text)) {
+                            return { ...m, text: m.text.replace(/\n?【系統真實數據】使用者目前的 GPS 座標為：緯度 [\d.]+, 經度 [\d.]+。[^\n]*\n?/g, '') };
+                        }
+                        return m;
+                    });
+                }
 
                 let finalPrompt = userText;
                 if (!options.isAnalysis && !options.isCollab) {
@@ -6299,14 +6734,16 @@ if (appState.pendingAnalyzeContextId) {
 
                     if (!res.ok) throw new Error(`${data.error?.message || res.status}`);
 
-                    const candidate = data.candidates?.[0]; if (!candidate) return "⚠️ API 未回傳內容，請檢查設定。";
-                    
+                    let currentCandidate = data.candidates?.[0]; if (!currentCandidate) return "⚠️ API 未回傳內容，請檢查設定。";
+
                     let outputText = "";
                     let responseImageFile = null;
+                    // 💡 多段輸出：用於收集各段文字（isAnalysis 模式下若 MAX_TOKENS 則自動續寫）
+                    const outputChunks = [];
 
-                    if (candidate.content && candidate.content.parts) {
-                        outputText = candidate.content.parts.filter(p => p.text).map(p => p.text).join("");
-                        const imgPart = candidate.content.parts.find(p => p.inlineData);
+                    if (currentCandidate.content && currentCandidate.content.parts) {
+                        outputText = currentCandidate.content.parts.filter(p => p.text).map(p => p.text).join("");
+                        const imgPart = currentCandidate.content.parts.find(p => p.inlineData);
                         if (imgPart) {
                             responseImageFile = {
                                 category: 'image',
@@ -6315,6 +6752,120 @@ if (appState.pendingAnalyzeContextId) {
                             };
                         }
                     }
+
+                    // 🔄 自動多段續寫：四重偵測機制
+                    //    ① 標記協議：prompt 要求 AI 在末尾加 %%CONTINUE%% 或 %%DONE%%（最可靠）
+                    //    ② finishReason 兜底：MAX_TOKENS（字串或數字 2 均支援）
+                    //    ③ 時長估算：根據錄音秒數推算應有字數，若累積不足則繼續
+                    //    ④ 長度兜底：單段超過 28000 字元且結尾無標點
+                    if (options.isAnalysis && !responseImageFile) {
+                        const MAX_CONTINUATION_PARTS = 8; // 最多 8 次續寫，支援超長音檔
+
+                        const stripMarkers = (text) =>
+                            text.replace(/\s*%%CONTINUE%%\s*$/g, '').replace(/\s*%%DONE%%\s*$/g, '');
+
+                        // totalAccumulatedText：所有已產生段落合併（純文字，無標記），用於時長閾值判斷與送回 AI 接續
+                        let totalAccumulatedText = stripMarkers(outputText);
+                        let contCurrentCandidate = currentCandidate;
+                        let contAccumulated = outputText; // 最新一段原始輸出（含標記，用於判斷）
+
+                        const needsContinuation = (latestRaw, totalClean, cand) => {
+                            if (!latestRaw) return false;
+                            const trimmed = latestRaw.trimEnd();
+
+                            // ① 標記協議（最優先）
+                            if (trimmed.endsWith('%%CONTINUE%%')) return true;
+                            if (trimmed.endsWith('%%DONE%%')) return false;
+
+                            // ② 時長估算（積極偵測：比 finishReason 更早發現問題）
+                            //    用「已累積總字數」與「預期最低字數」比較，閾值 72%（比 fix7 的 55% 更積極）
+                            const durationSecs = appState.pendingAnalyzeDuration || 0;
+                            if (durationSecs > 60) {
+                                const expectedChars = Math.round(durationSecs / 60 * 170 * 1.3); // 170字/分 × 1.3倍（含摘要）
+                                const threshold = Math.round(expectedChars * 0.72);
+                                console.log(`[多段分析] 錄音 ${Math.round(durationSecs/60)} 分鐘，預期最低: ${threshold} 字，已累積: ${totalClean.length} 字`);
+                                if (totalClean.length < threshold) {
+                                    console.log('[多段分析] ✅ 時長不足，觸發續寫');
+                                    return true;
+                                }
+                            }
+
+                            // ③ finishReason 兜底
+                            const fr = cand?.finishReason;
+                            if (fr === 'MAX_TOKENS' || fr === 2) return true;
+
+                            // ④ 長度兜底：單段過長且結尾無標點
+                            if (stripMarkers(latestRaw).length > 28000 && !/[。！？.!?」』]\s*$/.test(trimmed)) return true;
+
+                            return false;
+                        };
+
+                        while (
+                            needsContinuation(contAccumulated, totalAccumulatedText, contCurrentCandidate) &&
+                            outputChunks.length < MAX_CONTINUATION_PARTS
+                        ) {
+                            // 將本段（已清除標記）存入 chunks，供後續顯示與儲存用
+                            outputChunks.push(stripMarkers(contAccumulated));
+                            const partNum = outputChunks.length + 1;
+
+                            if (typeof addMessage === 'function') {
+                                addMessage(`⏳ 逐字稿尚未完成，正在自動取得第 ${partNum} 段…（最多 ${MAX_CONTINUATION_PARTS} 段）`, 'system');
+                            }
+                            console.log(`[多段分析] 請求第 ${partNum} 段，已累積: ${totalAccumulatedText.length} 字, finishReason=${contCurrentCandidate?.finishReason}`);
+
+                            // 【關鍵】續寫 context：原始音檔請求 + 「僅最後一段」作為 model 回覆（避免 token 爆炸）
+                            // 最後一段已包含最新的斷點，AI 只需從此處接續即可
+                            const continuationContents = [
+                                ...contents,
+                                { role: 'model', parts: [{ text: stripMarkers(contAccumulated) }] },
+                                { role: 'user', parts: [{ text: `請繼續從上文結束處直接接續輸出剩餘的逐字稿與摘要內容，不需重複已輸出的部分，直接接著寫即可。同樣地，若這次回覆後仍有剩餘，請在最後加上 %%CONTINUE%%；若已完整結束請加上 %%DONE%%。` }] }
+                            ];
+                            const contPayload = {
+                                contents: continuationContents,
+                                generationConfig: { temperature: 0.7, maxOutputTokens: analysisMaxTokens }
+                            };
+
+                            try {
+                                const contHttpRes = await fetchWithTimeout(endpoint, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(contPayload)
+                                });
+                                if (!contHttpRes.ok) {
+                                    const errData = await contHttpRes.json().catch(() => ({}));
+                                    console.warn('[多段分析] 續寫 API 失敗:', contHttpRes.status, errData?.error?.message);
+                                    break;
+                                }
+                                const contData = await contHttpRes.json();
+                                contCurrentCandidate = contData.candidates?.[0];
+                                if (!contCurrentCandidate?.content?.parts) {
+                                    console.warn('[多段分析] 續寫回傳無 parts，停止');
+                                    break;
+                                }
+                                contAccumulated = contCurrentCandidate.content.parts.filter(p => p.text).map(p => p.text).join('');
+                                // 累積總文字（不含標記），用於下輪時長判斷
+                                totalAccumulatedText += '\n\n' + stripMarkers(contAccumulated);
+                                console.log(`[多段分析] 第 ${partNum} 段完成，本段: ${stripMarkers(contAccumulated).length} 字，總累積: ${totalAccumulatedText.length} 字`);
+                            } catch(contErr) {
+                                console.warn('[多段分析] 續寫請求例外:', contErr);
+                                break;
+                            }
+                        }
+
+                        // 合併結果：
+                        // - outputChunks 存「前 N-1 段」（已在 while 迴圈中 push）
+                        // - outputText 設為最後一段，由後續 addMessage 正常顯示
+                        // - 上層 analysisChunks.join('\n\n') + finalRes.text = 完整全文（不重複）
+                        if (outputChunks.length > 0) {
+                            outputText = stripMarkers(contAccumulated); // 最後一段給 addMessage 顯示（不再 push 進 outputChunks，避免重複）
+                        } else {
+                            outputText = stripMarkers(outputText); // 只有一段，清除標記即可
+                        }
+                    } else {
+                        // 非分析模式：不清標記
+                    }
+
+                    const candidate = currentCandidate; // 保持後續程式碼相容性
 
                     // 🔄 Gemini 圖片模型未回傳圖片時，嘗試以 Grok 作為備援
                     if (isGeminiImageModel && isImageIntent && !responseImageFile && appState.keys.grok) {
@@ -6347,7 +6898,7 @@ if (appState.pendingAnalyzeContextId) {
                     if (!outputText && !responseImageFile && sources.length > 0) outputText = "已為您搜尋到相關資訊，請參考來源連結。"; 
                     if (isAutoRouted && appState.translateMode === 'off' && !appState.isLiveMode && !options.isAnalysis) { outputText += `\n\n*(系統提示：已為您動態調配至 **${selectedModelName}** 執行此任務)*`; }
 
-                    return { text: outputText || (responseImageFile ? "✨ 圖片生成成功！已為您附在下方。" : "(無回傳文字)"), sources: sources, file: responseImageFile };
+                    return { text: outputText || (responseImageFile ? "✨ 圖片生成成功！已為您附在下方。" : "(無回傳文字)"), sources: sources, file: responseImageFile, chunks: outputChunks.length > 0 ? outputChunks : null };
                     
                 } 
                 else if (model === 'groq' || model === 'gpt') {
