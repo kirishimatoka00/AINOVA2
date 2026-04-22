@@ -4883,7 +4883,7 @@ try {
             
             appState.pendingAnalyzeContextId = id;
             appState.pendingAnalyzeType = 'audioRecord';
-            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出重點摘要與結構化的會議紀錄。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。`;
+            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出重點摘要與結構化的會議紀錄。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。\n\n【輸出完整性要求】：無論錄音長度為何（即使超過 20 分鐘），請務必輸出「完整且不截斷」的逐字稿與摘要，絕不可在中途停止或以省略號代替。`;
             
             if(!confirm(`即將對「${r.title}」進行深度分析。\n\n系統將從本地端載入音訊資料進行自動分析！`)) {
                 appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
@@ -4912,7 +4912,7 @@ try {
             
             appState.pendingAnalyzeContextId = id;
             appState.pendingAnalyzeType = 'voiceNote';
-            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出條理分明的重點摘要。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。`;
+            appState.pendingAnalyzePrompt = `請仔細聆聽這段錄音。首先，為我產生最詳盡完整的「逐字稿」；接著，根據這份逐字稿內容，為我整理出條理分明的重點摘要。\n\n【嚴格約束】：請「絕對忠於原音檔內容」，僅做客觀摘要，絕對不要自行腦補、不要添加任何個人的外部建議與猜測。若音檔內容過短或無意義，請直接回覆「音檔內容不足以產生有效摘要」。\n\n【輸出完整性要求】：無論錄音長度為何（即使超過 20 分鐘），請務必輸出「完整且不截斷」的逐字稿與摘要，絕不可在中途停止或以省略號代替。`;
             
             if(!confirm(`即將對「${n.title}」進行深度分析。\n\n系統將從本地端載入音訊資料進行自動分析！`)) {
                 appState.pendingAnalyzeContextId = null; appState.pendingAnalyzeType = ''; return;
@@ -6187,7 +6187,10 @@ if (appState.pendingAnalyzeContextId) {
                     if (!isImageIntent && selectedModelName === 'gemini-multi') {
                         isAutoRouted = true;
                         selectedModelName = 'gemini-3-flash-preview'; 
-                        if (finalPrompt.length > 500 || /(深入|詳細|分析|總結|論文|報告|程式碼|複雜|重點摘要|結構化)/.test(finalPrompt) || (options.file && options.file.category === 'media')) {
+                        // 💡 修正：音訊檔案是以 options.files（陣列）傳入而非 options.file（單一物件），原本判斷式永遠為 false
+                        //         同時加入 isAnalysis 旗標，確保深度分析時一律升級為 Pro 模型
+                        const hasMediaFile = (options.files && options.files.some(f => f.category === 'media')) || (options.file && options.file.category === 'media');
+                        if (finalPrompt.length > 500 || /(深入|詳細|分析|總結|論文|報告|程式碼|複雜|重點摘要|結構化)/.test(finalPrompt) || hasMediaFile || options.isAnalysis) {
                             selectedModelName = 'gemini-3.1-pro-preview'; 
                         }
                     }
@@ -6253,7 +6256,11 @@ if (appState.pendingAnalyzeContextId) {
                     if (currentRole) contents.push({ role: currentRole, parts: currentParts });
 
                     const isGeminiImageModel = selectedModelName.includes('image') && !selectedModelName.includes('imagen');
-                    const payload = { contents: contents, generationConfig: { temperature: 0.7, maxOutputTokens: 8192 } };
+                    // 💡 修正：深度分析模式（長錄音逐字稿＋摘要）可能超過 8192 tokens 而被截斷
+                    //         isAnalysis 為 true 時（錄音/語音筆記深度分析），改用 65536 tokens 上限以確保完整輸出
+                    const analysisMaxTokens = 65536;
+                    const normalMaxTokens = 8192;
+                    const payload = { contents: contents, generationConfig: { temperature: 0.7, maxOutputTokens: options.isAnalysis ? analysisMaxTokens : normalMaxTokens } };
                     // 🎨 Gemini 圖片生成模型需要明確啟用 IMAGE 輸出模式，且不可同時開啟 Google Search
                     if (isGeminiImageModel) {
                         payload.generationConfig.responseModalities = ["TEXT", "IMAGE"];
