@@ -190,6 +190,7 @@
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
                     </div>
                     <button onclick="openSettings()"><i class="ph ph-gear text-slate-400 text-xl"></i></button>
+                    <button onclick="(function(){var t=appState.theme==='dark'?'light':'dark';appState.theme=t;localStorage.setItem('nova_theme',t);applyTheme(t);showToast(t==='dark'?'🌙 黑夜模式':'☀️ 白晝模式');})()" title="切換日/夜模式"><i id="theme-toggle-icon" class="ph ph-moon text-slate-400 text-xl"></i></button>
                     <button onclick="toggleMobileMenu()"><i class="ph ph-list text-white text-2xl"></i></button>
                 </div>
             </div>
@@ -248,6 +249,7 @@
                         <button onclick="switchSettingsTab('tab-main')" id="stab-main" class="flex-1 py-1.5 text-xs font-bold rounded-lg bg-blue-600 text-white transition-all">🔑 主要</button>
                         <button onclick="switchSettingsTab('tab-voice')" id="stab-voice" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all">🎙️ 語音</button>
                         <button onclick="switchSettingsTab('tab-tg')" id="stab-tg" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all">✈️ Telegram</button>
+                        <button onclick="switchSettingsTab('tab-ui')" id="stab-ui" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all">🎨 外觀</button>
                     </div>
 
                     <div class="overflow-y-auto flex-1 pr-2 scrollbar-thin">
@@ -387,6 +389,39 @@
                                     <input type="text" id="key-tg-chatid" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-sky-500 outline-none" placeholder="您的專屬對話 ID">
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- 分頁四：外觀/主題 -->
+                        <div id="tab-ui" class="space-y-4 hidden">
+                            <!-- 快速切換按鈕 -->
+                            <div class="flex gap-3">
+                                <button onclick="applyTheme('dark'); document.getElementById('key-theme-mode').value='dark'; showToast('🌙 已切換為黑夜模式');" class="flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-slate-700 bg-slate-900 hover:border-blue-500 transition-colors active:scale-95">
+                                    <span class="text-3xl">🌙</span>
+                                    <span class="text-xs font-bold text-slate-300">黑夜模式</span>
+                                    <span class="text-[10px] text-slate-500">Dark Mode</span>
+                                </button>
+                                <button onclick="applyTheme('light'); document.getElementById('key-theme-mode').value='light'; showToast('☀️ 已切換為白晝模式');" class="flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-slate-700 bg-slate-900 hover:border-yellow-400 transition-colors active:scale-95">
+                                    <span class="text-3xl">☀️</span>
+                                    <span class="text-xs font-bold text-slate-300">白晝模式</span>
+                                    <span class="text-[10px] text-slate-500">Light Mode</span>
+                                </button>
+                            </div>
+                            <!-- 隱藏的 select（供 saveKeys 讀取） -->
+                            <select id="key-theme-mode" class="hidden">
+                                <option value="dark">黑夜</option>
+                                <option value="light">白晝</option>
+                            </select>
+                            <!-- 主色調選擇 -->
+                            <div>
+                                <label class="block text-xs text-slate-300 mb-2 font-bold"><i class="ph-fill ph-palette"></i> 介面主色調</label>
+                                <select id="key-ui-color" onchange="if(typeof applyUiColor==='function') applyUiColor(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-blue-500 outline-none">
+                                    <option value="blue">🔵 科技藍 (預設)</option>
+                                    <option value="emerald">🟢 翡翠綠</option>
+                                    <option value="purple">🟣 魅影紫</option>
+                                    <option value="rose">🔴 玫瑰紅</option>
+                                </select>
+                            </div>
+                            <p class="text-[10px] text-slate-500 text-center">點擊上方切換後請按「儲存」以永久套用設定</p>
                         </div>
 
                     </div>
@@ -883,6 +918,10 @@
                     <header class="flex justify-between items-center mb-6">
                         <h2 class="text-2xl font-bold text-white">錄音紀錄</h2>
                         <div class="flex space-x-2">
+                            <label for="audio-upload-from-tab" class="bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded-lg flex items-center space-x-1 transition-colors text-sm cursor-pointer" title="上傳本機音檔進行AI分析">
+                                <i class="ph-bold ph-upload-simple"></i><span class="hidden sm:inline">上傳音檔分析</span>
+                            </label>
+                            <input type="file" id="audio-upload-from-tab" accept="audio/*,video/*" class="hidden" onchange="handleAudioAnalyzeSelect(event)">
                             <button onclick="startAudioRecordOnly()" class="bg-purple-600 hover:bg-purple-500 text-white px-3 py-2 rounded-lg flex items-center space-x-1 transition-colors text-sm"><i class="ph-bold ph-microphone"></i><span class="hidden sm:inline">錄音</span></button>
                             <button onclick="startMeetingRecording('record')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg flex items-center space-x-1 transition-colors text-sm" title="雙軌錄製麥克風與會議聲音"><i class="ph-bold ph-headset"></i><span class="hidden sm:inline">雙軌會議錄音</span></button>
                         </div>
@@ -1716,6 +1755,8 @@ return html;
         };
 
         window.applyTheme = function(theme) {
+            appState.theme = theme;
+            localStorage.setItem('nova_theme', theme);
             if(theme === 'light') {
                 document.documentElement.style.filter = 'invert(1) hue-rotate(180deg) brightness(1.05)';
                 let style = document.getElementById('light-theme-fix');
@@ -1729,6 +1770,9 @@ return html;
                 const style = document.getElementById('light-theme-fix');
                 if(style) style.remove();
             }
+            // 更新手機版快速切換圖示
+            const icon = document.getElementById('theme-toggle-icon');
+            if (icon) { icon.className = theme === 'dark' ? 'ph ph-moon text-slate-400 text-xl' : 'ph ph-sun text-yellow-400 text-xl'; }
         };
 
         window.initSettingsTabs = function() {
@@ -1822,11 +1866,11 @@ return html;
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
 
         window.switchSettingsTab = function(tabId) {
-            ['tab-main', 'tab-voice', 'tab-tg'].forEach(id => {
+            ['tab-main', 'tab-voice', 'tab-tg', 'tab-ui'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
             });
             document.getElementById(tabId).classList.remove('hidden');
-            ['stab-main', 'stab-voice', 'stab-tg'].forEach(id => {
+            ['stab-main', 'stab-voice', 'stab-tg', 'stab-ui'].forEach(id => {
                 const btn = document.getElementById(id);
                 btn.classList.remove('bg-blue-600', 'text-white');
                 btn.classList.add('text-slate-400');
@@ -1837,6 +1881,13 @@ return html;
             // 切換到語音分頁時重新填充人聲選單
             if (tabId === 'tab-voice' && typeof populateVoices === 'function') {
                 populateVoices();
+            }
+            // 切換到外觀分頁時同步目前主題值
+            if (tabId === 'tab-ui') {
+                const themeSel = document.getElementById('key-theme-mode');
+                if (themeSel) themeSel.value = appState.theme || 'dark';
+                const colorSel = document.getElementById('key-ui-color');
+                if (colorSel) colorSel.value = appState.uiColor || 'blue';
             }
         };
 
@@ -2645,11 +2696,120 @@ handleSendMessage(); }
             const file = e.target.files[0];
             if (!file) return;
             e.target.value = ''; // 重置讓同一檔案可再次選取
-            const audioBlob = new Blob([await file.arrayBuffer()], { type: file.type || 'audio/webm' });
             const title = file.name || '上傳音檔';
-            // 直接走分段逐字稿引擎；itemType 用 'audioRecord'，itemId 為 null（不儲存，只顯示）
-            await runChunkedTranscription(audioBlob, file.type || 'audio/webm', 'uploadOnly', null, title);
+            const fileSizeMB = (file.size / 1024 / 1024).toFixed(1);
+
+            // 顯示模式選擇對話框
+            const choice = await showAudioAnalyzeModal(title, fileSizeMB);
+            if (!choice) return; // 使用者取消
+
+            const audioBlob = new Blob([await file.arrayBuffer()], { type: file.type || 'audio/webm' });
+
+            if (choice === 'direct') {
+                await directAnalyzeAudio(audioBlob, file.type || 'audio/webm', title);
+            } else {
+                // 分段逐字稿引擎
+                await runChunkedTranscription(audioBlob, file.type || 'audio/webm', 'uploadOnly', null, title);
+            }
         };
+
+        // 音檔分析模式選擇彈窗（回傳 'direct' | 'chunked' | null）
+        function showAudioAnalyzeModal(title, sizeMB) {
+            return new Promise((resolve) => {
+                // 建立彈窗
+                const overlay = document.createElement('div');
+                overlay.id = 'audio-mode-overlay';
+                overlay.className = 'fixed inset-0 z-[300] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4';
+                overlay.innerHTML = `
+                    <div class="bg-slate-900 border border-teal-500/50 rounded-2xl p-6 w-full max-w-sm shadow-[0_0_40px_rgba(20,184,166,0.2)] flex flex-col gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-teal-500/20 rounded-xl flex items-center justify-center shrink-0">
+                                <i class="ph-bold ph-file-audio text-teal-400 text-xl"></i>
+                            </div>
+                            <div class="overflow-hidden">
+                                <h3 class="font-bold text-white text-base truncate" title="${title}">${title}</h3>
+                                <p class="text-[11px] text-slate-400">${sizeMB} MB — 請選擇分析模式</p>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <!-- 直接分析 -->
+                            <button id="amBtn-direct" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 hover:border-teal-500 transition-colors text-left active:scale-95">
+                                <i class="ph-bold ph-lightning text-yellow-400 text-xl mt-0.5 shrink-0"></i>
+                                <div>
+                                    <p class="text-sm font-bold text-white">直接 AI 分析</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">整段音檔直接送 Gemini，速度快。<br>適合 <span class="text-teal-400 font-bold">短音檔（建議 &lt; 20MB）</span>，一次取得摘要與分析。</p>
+                                </div>
+                            </button>
+                            <!-- 分段逐字稿 -->
+                            <button id="amBtn-chunked" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 hover:border-purple-500 transition-colors text-left active:scale-95">
+                                <i class="ph-bold ph-queue text-purple-400 text-xl mt-0.5 shrink-0"></i>
+                                <div>
+                                    <p class="text-sm font-bold text-white">分段逐字稿（完整轉錄）</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">自動每 5 分鐘切段，逐段轉錄後合成完整逐字稿再摘要。<br>適合 <span class="text-purple-400 font-bold">長錄音（會議、訪談等）</span>，確保不遺漏任何內容。</p>
+                                </div>
+                            </button>
+                        </div>
+                        <button id="amBtn-cancel" class="text-slate-500 hover:text-slate-300 text-sm text-center transition-colors">取消</button>
+                    </div>`;
+                document.body.appendChild(overlay);
+
+                const cleanup = (val) => {
+                    overlay.remove();
+                    resolve(val);
+                };
+                document.getElementById('amBtn-direct').onclick = () => cleanup('direct');
+                document.getElementById('amBtn-chunked').onclick = () => cleanup('chunked');
+                document.getElementById('amBtn-cancel').onclick = () => cleanup(null);
+                overlay.addEventListener('click', (ev) => { if (ev.target === overlay) cleanup(null); });
+            });
+        }
+
+        // 直接分析模式：整段音檔送 Gemini 做摘要 & 分析
+        async function directAnalyzeAudio(audioBlob, mimeType, itemTitle) {
+            const key = appState.keys.gemini;
+            if (!key) { addMessage('⚠️ 請先設定 Gemini API Key！', 'system'); return; }
+            switchTab('dashboard');
+
+            const fileSizeMB = (audioBlob.size / 1024 / 1024).toFixed(1);
+            addMessage(`🎙️ **直接 AI 分析啟動**｜音檔「${itemTitle}」(${fileSizeMB} MB) 正在上傳至 Gemini…`, 'system');
+
+            try {
+                // 轉為 base64
+                const arrayBuffer = await audioBlob.arrayBuffer();
+                const uint8 = new Uint8Array(arrayBuffer);
+                let binary = '';
+                for (let i = 0; i < uint8.length; i++) binary += String.fromCharCode(uint8[i]);
+                const base64Data = btoa(binary);
+
+                const safeMime = mimeType.startsWith('audio/') ? mimeType : 'audio/webm';
+                const prompt = `你是一位專業的音訊分析師與逐字稿員。請針對以下音檔完成：
+1. 【完整逐字稿】：將所有說話內容完整轉錄（繁體中文），保留每一句話，不省略。
+2. 【重點摘要】：條列整理出最重要的主題、討論點與結論。
+3. 【待辦事項/行動項目】（如有）：列出音檔中提及的具體行動或決議。
+
+請依序輸出以上三個區塊，若音檔為純聲音（音樂/環境音）請說明音檔內容性質。`;
+
+                const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+                const payload = {
+                    contents: [{ role: 'user', parts: [
+                        { text: prompt },
+                        { inlineData: { mimeType: safeMime, data: base64Data } }
+                    ]}],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: 16384 }
+                };
+
+                const res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error?.message || `HTTP ${res.status}`);
+
+                const resultText = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('') || '(無回傳內容)';
+                addMessage(`📝 **AI 直接分析完成**｜${itemTitle}\n\n${resultText}`, 'ai', 'gemini');
+                addMessage(`✅ 分析完成！以上為「${itemTitle}」的 AI 直接分析結果。`, 'system');
+
+            } catch(e) {
+                addMessage(`⚠️ 直接分析失敗（${e.message}）。\n\n若音檔較大，建議改用「分段逐字稿」模式以確保完整轉錄。`, 'system');
+            }
+        }
 
         window.toggleSearch = function() { appState.isSearchEnabled = !appState.isSearchEnabled; updateModelUI(); };
         window.toggleDeepDive = function() { 
