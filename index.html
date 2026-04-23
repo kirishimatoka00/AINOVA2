@@ -190,7 +190,6 @@
                         <i id="mobile-weather-icon" class="ph-fill ph-navigation-arrow text-blue-400"></i><span id="mobile-weather-temp" class="text-xs font-bold text-white whitespace-nowrap">更新</span>
                     </div>
                     <button onclick="openSettings()"><i class="ph ph-gear text-slate-400 text-xl"></i></button>
-                    <button onclick="(function(){var t=appState.theme==='dark'?'light':'dark';appState.theme=t;localStorage.setItem('nova_theme',t);applyTheme(t);showToast(t==='dark'?'🌙 黑夜模式':'☀️ 白晝模式');})()" title="切換日/夜模式"><i id="theme-toggle-icon" class="ph ph-moon text-slate-400 text-xl"></i></button>
                     <button onclick="toggleMobileMenu()"><i class="ph ph-list text-white text-2xl"></i></button>
                 </div>
             </div>
@@ -393,14 +392,15 @@
 
                         <!-- 分頁四：外觀/主題 -->
                         <div id="tab-ui" class="space-y-4 hidden">
+                            <p class="text-xs text-slate-400 text-center">選擇後即時套用，按「儲存」永久保留</p>
                             <!-- 快速切換按鈕 -->
                             <div class="flex gap-3">
-                                <button onclick="applyTheme('dark'); document.getElementById('key-theme-mode').value='dark'; showToast('🌙 已切換為黑夜模式');" class="flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-slate-700 bg-slate-900 hover:border-blue-500 transition-colors active:scale-95">
+                                <button id="theme-btn-dark" onclick="applyTheme('dark'); document.getElementById('key-theme-mode').value='dark'; updateThemeButtons(); showToast('🌙 已切換為黑夜模式');" class="flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-slate-700 bg-slate-900 hover:border-blue-500 transition-all active:scale-95">
                                     <span class="text-3xl">🌙</span>
                                     <span class="text-xs font-bold text-slate-300">黑夜模式</span>
                                     <span class="text-[10px] text-slate-500">Dark Mode</span>
                                 </button>
-                                <button onclick="applyTheme('light'); document.getElementById('key-theme-mode').value='light'; showToast('☀️ 已切換為白晝模式');" class="flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-slate-700 bg-slate-900 hover:border-yellow-400 transition-colors active:scale-95">
+                                <button id="theme-btn-light" onclick="applyTheme('light'); document.getElementById('key-theme-mode').value='light'; updateThemeButtons(); showToast('☀️ 已切換為白晝模式');" class="flex-1 flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-slate-700 bg-slate-900 hover:border-yellow-400 transition-all active:scale-95">
                                     <span class="text-3xl">☀️</span>
                                     <span class="text-xs font-bold text-slate-300">白晝模式</span>
                                     <span class="text-[10px] text-slate-500">Light Mode</span>
@@ -411,17 +411,6 @@
                                 <option value="dark">黑夜</option>
                                 <option value="light">白晝</option>
                             </select>
-                            <!-- 主色調選擇 -->
-                            <div>
-                                <label class="block text-xs text-slate-300 mb-2 font-bold"><i class="ph-fill ph-palette"></i> 介面主色調</label>
-                                <select id="key-ui-color" onchange="if(typeof applyUiColor==='function') applyUiColor(this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:border-blue-500 outline-none">
-                                    <option value="blue">🔵 科技藍 (預設)</option>
-                                    <option value="emerald">🟢 翡翠綠</option>
-                                    <option value="purple">🟣 魅影紫</option>
-                                    <option value="rose">🔴 玫瑰紅</option>
-                                </select>
-                            </div>
-                            <p class="text-[10px] text-slate-500 text-center">點擊上方切換後請按「儲存」以永久套用設定</p>
                         </div>
 
                     </div>
@@ -1770,9 +1759,23 @@ return html;
                 const style = document.getElementById('light-theme-fix');
                 if(style) style.remove();
             }
-            // 更新手機版快速切換圖示
-            const icon = document.getElementById('theme-toggle-icon');
-            if (icon) { icon.className = theme === 'dark' ? 'ph ph-moon text-slate-400 text-xl' : 'ph ph-sun text-yellow-400 text-xl'; }
+        };
+        window.updateThemeButtons = function() {
+            const t = appState.theme || 'dark';
+            const darkBtn = document.getElementById('theme-btn-dark');
+            const lightBtn = document.getElementById('theme-btn-light');
+            if (darkBtn) {
+                darkBtn.classList.toggle('border-blue-500', t === 'dark');
+                darkBtn.classList.toggle('border-slate-700', t !== 'dark');
+                darkBtn.classList.toggle('ring-2', t === 'dark');
+                darkBtn.classList.toggle('ring-blue-500', t === 'dark');
+            }
+            if (lightBtn) {
+                lightBtn.classList.toggle('border-yellow-400', t === 'light');
+                lightBtn.classList.toggle('border-slate-700', t !== 'light');
+                lightBtn.classList.toggle('ring-2', t === 'light');
+                lightBtn.classList.toggle('ring-yellow-400', t === 'light');
+            }
         };
 
         window.initSettingsTabs = function() {
@@ -1886,8 +1889,7 @@ return html;
             if (tabId === 'tab-ui') {
                 const themeSel = document.getElementById('key-theme-mode');
                 if (themeSel) themeSel.value = appState.theme || 'dark';
-                const colorSel = document.getElementById('key-ui-color');
-                if (colorSel) colorSel.value = appState.uiColor || 'blue';
+                if (typeof updateThemeButtons === 'function') updateThemeButtons();
             }
         };
 
@@ -3633,35 +3635,101 @@ return; }
                 let jsonStr = decodeURIComponent(escape(atob(base64Data)));
                 let pptData = JSON.parse(jsonStr);
 
-                // ── 圖片預載輔助（Picsum Photos，CORS 開放，無需 API Key）──
-                const fetchImgBase64 = async (query) => {
-                    if (!query) return null;
-                    const seed = encodeURIComponent((query + '').replace(/\s+/g, '-').substring(0, 60));
+                // ══════════════════════════════════════════════════════════
+                // AI 圖片生成引擎（依序嘗試 Grok → Gemini Flash → Picsum 備援）
+                // ══════════════════════════════════════════════════════════
+                const genAIImage = async (slideTitle, slideContent, slideIndex) => {
+                    // 先用 Gemini 把中文主題優化成英文 prompt（避免直接傳中文給圖像 API）
+                    const buildPrompt = async (query) => {
+                        const gKey = appState.keys.gemini;
+                        if (!gKey) return `Professional business illustration about: ${query}`;
+                        try {
+                            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text:
+                                    `Create a concise English image generation prompt (max 60 words) for a presentation slide about: "${query}". The image should be professional, clean, modern illustration style. Return only the prompt text, no explanation.` }] }],
+                                    generationConfig: { maxOutputTokens: 100, temperature: 0.5 } })
+                            });
+                            const d = await r.json();
+                            return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${query}`;
+                        } catch { return `Professional business illustration: ${query}`; }
+                    };
+
+                    const slideContext = `${slideTitle}${slideContent ? ': ' + (Array.isArray(slideContent) ? slideContent.slice(0,2).join(', ') : slideContent).substring(0, 80) : ''}`;
+                    const prompt = await buildPrompt(slideContext);
+
+                    // 1️⃣ 嘗試 Grok Image (aurora)
+                    const grokKey = appState.keys.grok || appState.keys.xai;
+                    if (grokKey) {
+                        try {
+                            const r = await Promise.race([
+                                fetch('https://api.x.ai/v1/images/generations', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${grokKey}` },
+                                    body: JSON.stringify({ model: 'grok-2-image', prompt: prompt, n: 1, response_format: 'b64_json' })
+                                }),
+                                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 25000))
+                            ]);
+                            if (r.ok) {
+                                const d = await r.json();
+                                const b64 = d.data?.[0]?.b64_json;
+                                if (b64) return `data:image/png;base64,${b64}`;
+                            }
+                        } catch(e) { console.warn(`[PPT] Grok image 第${slideIndex+1}頁失敗:`, e.message); }
+                    }
+
+                    // 2️⃣ 嘗試 Gemini 2.0 Flash 圖像生成
+                    const gKey2 = appState.keys.gemini;
+                    if (gKey2) {
+                        try {
+                            const r = await Promise.race([
+                                fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${gKey2}`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                                        generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
+                                    })
+                                }),
+                                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 25000))
+                            ]);
+                            if (r.ok) {
+                                const d = await r.json();
+                                const imgPart = d.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+                                if (imgPart?.inlineData?.data) return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+                            }
+                        } catch(e) { console.warn(`[PPT] Gemini image 第${slideIndex+1}頁失敗:`, e.message); }
+                    }
+
+                    // 3️⃣ Picsum Photos 備援（不需 API Key）
                     try {
-                        const res = await Promise.race([
+                        const seed = encodeURIComponent((slideTitle + '').replace(/\s+/g, '-').substring(0, 50));
+                        const r = await Promise.race([
                             fetch(`https://picsum.photos/seed/${seed}/800/450`),
                             new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
                         ]);
-                        const blob = await res.blob();
+                        const blob = await r.blob();
                         return await new Promise(resolve => {
                             const reader = new FileReader();
                             reader.onloadend = () => resolve(reader.result);
                             reader.readAsDataURL(blob);
                         });
-                    } catch(e) { return null; }
+                    } catch { return null; }
                 };
+
+                showToast(`🎨 正在為每頁投影片生成 AI 配圖（共 ${(pptData.slides||[]).length} 頁）…`);
 
                 let pptx = new PptxGenJS();
                 pptx.layout = 'LAYOUT_16x9';
 
-                // ── 封面頁（全幅背景圖 + 深色蒙層）──
-                const coverImg = await fetchImgBase64(pptData.title || 'business presentation');
+                // ── 封面頁 ──
+                const coverImg = await genAIImage(pptData.title || 'Presentation Cover', pptData.subtitle || '', -1);
                 let coverSlide = pptx.addSlide();
                 coverSlide.background = { color: "0F172A" };
                 if (coverImg) {
                     coverSlide.addImage({ data: coverImg, x: 0, y: 0, w: '100%', h: '100%', transparency: 65 });
                 }
-                // 底部藍色橫條裝飾
                 coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 6.8, w: '100%', h: 0.7, fill: { color: '1E3A5F', transparency: 20 } });
                 coverSlide.addShape(pptx.ShapeType.rect, { x: 0, y: 6.78, w: '100%', h: 0.08, fill: { color: '3B82F6' } });
                 coverSlide.addText(pptData.title || "AI 生成簡報", {
@@ -3673,59 +3741,67 @@ return; }
                     coverSlide.addText(pptData.subtitle, { x: 0.8, y: 4.0, w: "85%", h: 1.0, fontSize: 22, color: "93C5FD", align: "center" });
                 }
 
-                // ── 內容頁 ──
+                // ── 內容頁（左圖右文，自動縮放）──
                 if (pptData.slides && Array.isArray(pptData.slides)) {
-                    for (const slideData of pptData.slides) {
-                        const imgQuery = slideData.imageQuery || slideData.title || 'business';
-                        const imgData = await fetchImgBase64(imgQuery);
+                    for (let si = 0; si < pptData.slides.length; si++) {
+                        const slideData = pptData.slides[si];
+                        const imgData = await genAIImage(slideData.title || 'slide', slideData.content, si);
                         let slide = pptx.addSlide();
 
+                        const items = slideData.content
+                            ? (Array.isArray(slideData.content) ? slideData.content : [slideData.content])
+                            : [];
+
+                        // 計算最佳字級：依條目數自動縮放
+                        const itemCount = items.length;
+                        const fontSize = itemCount <= 3 ? 20 : itemCount <= 6 ? 17 : itemCount <= 9 ? 14 : 12;
+
                         if (imgData) {
-                            // 圖文並茂版：左圖（40%）右文（55%）
+                            // 圖文並茂：左圖 42% 右文 53%
                             slide.background = { color: "F8FAFC" };
+                            // 左側淺藍色背景
+                            slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 4.62, h: '100%', fill: { color: 'EFF6FF' } });
+                            // 左側藍邊條
+                            slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.07, h: '100%', fill: { color: '3B82F6' } });
+                            // 圖片（確保不超出左半區域，留上下 padding）
+                            slide.addImage({ data: imgData, x: 0.15, y: 1.28, w: 4.30, h: 5.60, sizing: { type: 'contain', w: 4.30, h: 5.60 } });
 
-                            // 左側藍色背景區塊
-                            slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 4.45, h: '100%', fill: { color: 'EFF6FF' } });
-                            // 左側圖片
-                            slide.addImage({ data: imgData, x: 0.18, y: 1.35, w: 4.08, h: 5.55 });
-                            // 藍色左邊條
-                            slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.08, h: '100%', fill: { color: '3B82F6' } });
-
-                            // 標題橫跨全寬（上方）
+                            // 全寬標題列
                             if (slideData.title) {
-                                slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 1.2, fill: { color: '1E293B' } });
-                                slide.addText(slideData.title, { x: 0.3, y: 0.15, w: "95%", h: 0.9, fontSize: 26, bold: true, color: "FFFFFF" });
+                                slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 1.18, fill: { color: '1E293B' } });
+                                // 標題字級依長度調整
+                                const titleFs = slideData.title.length > 30 ? 20 : slideData.title.length > 18 ? 24 : 28;
+                                slide.addText(slideData.title, { x: 0.25, y: 0.12, w: '95%', h: 0.94, fontSize: titleFs, bold: true, color: 'FFFFFF', valign: 'middle' });
                             }
 
-                            // 右側文字
-                            if (slideData.content) {
-                                const items = Array.isArray(slideData.content) ? slideData.content : [slideData.content];
+                            // 右側條列文字
+                            if (items.length > 0) {
                                 const bulletData = items.map(t => ({
-                                    text: t,
-                                    options: { bullet: { type: 'bullet', characterCode: '25B6', color: '3B82F6' }, color: "1E293B", fontSize: 17, breakLine: true, paraSpaceBefore: 10 }
+                                    text: String(t),
+                                    options: { bullet: { type: 'bullet', characterCode: '25B6', color: '3B82F6' }, color: '1E293B', fontSize, breakLine: true, paraSpaceBefore: itemCount > 6 ? 6 : 10 }
                                 }));
-                                slide.addText(bulletData, { x: 4.65, y: 1.35, w: 5.15, h: 5.6, align: "left", valign: "top", lineSpacing: 26 });
+                                slide.addText(bulletData, { x: 4.80, y: 1.28, w: 4.95, h: 5.60, align: 'left', valign: 'top', lineSpacing: itemCount > 8 ? 20 : 26 });
                             }
                         } else {
-                            // 純文字版（圖片載入失敗退路）
-                            slide.background = { color: "F8FAFC" };
+                            // 純文字版（AI 圖片全部失敗的退路）
+                            slide.background = { color: 'F8FAFC' };
                             if (slideData.title) {
                                 slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 1.2, fill: { color: '1E293B' } });
                                 slide.addShape(pptx.ShapeType.rect, { x: 0, y: 1.18, w: '100%', h: 0.06, fill: { color: '3B82F6' } });
-                                slide.addText(slideData.title, { x: 0.5, y: 0.15, w: "90%", h: 0.9, fontSize: 30, bold: true, color: "FFFFFF" });
+                                const titleFs = slideData.title.length > 30 ? 22 : slideData.title.length > 18 ? 26 : 30;
+                                slide.addText(slideData.title, { x: 0.5, y: 0.15, w: '90%', h: 0.9, fontSize: titleFs, bold: true, color: 'FFFFFF' });
                             }
-                            if (slideData.content) {
-                                const items = Array.isArray(slideData.content) ? slideData.content : [slideData.content];
-                                const bulletData = items.map(t => ({ text: t, options: { bullet: true, color: "334155", fontSize: 20, breakLine: true } }));
-                                slide.addText(bulletData, { x: 0.5, y: 1.45, w: "90%", h: 5.6, align: "left", valign: "top", lineSpacing: 32 });
+                            if (items.length > 0) {
+                                const bulletData = items.map(t => ({ text: String(t), options: { bullet: true, color: '334155', fontSize, breakLine: true } }));
+                                slide.addText(bulletData, { x: 0.5, y: 1.45, w: '90%', h: 5.6, align: 'left', valign: 'top', lineSpacing: 30 });
                             }
                         }
                     }
                 }
 
-                let filename = (pptData.title || "NOVA_Presentation") + ".pptx";
+                let filename = (pptData.title || "NOVA_Presentation").replace(/[\\/:*?"<>|]/g, '_') + ".pptx";
                 await pptx.writeFile({ fileName: filename });
-                showToast("✅ 圖文簡報下載中...");
+                showToast("✅ AI 圖文簡報下載中...");
             } catch (e) {
                 console.error("PPT Generation Error:", e);
                 alert("❌ PPT 產生失敗: " + e.message);
@@ -4201,9 +4277,39 @@ msg.text === "請詳細描述畫面中的內容。" || msg.text === `[夾帶檔�
             const el = document.getElementById('audio-records-list'); if(!el) return;
             el.innerHTML = appState.audioRecords.map(r => {
                 let audioPlayerHtml = `<div class="mb-3 w-full" data-audio-wrapper><audio controls class="w-full h-10 rounded-lg bg-slate-800 shadow-inner" data-audio-id="${r.id}"></audio></div>`;
-                let linkHtml = (r.driveUrl && !r.driveUrl.startsWith('blob:')) ? `<a href="${r.driveUrl}" target="_blank" class="flex items-center gap-1 text-sm bg-blue-900/30 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-800/50 transition-colors"><i class="ph-bold ph-cloud-arrow-down"></i> 雲端備份</a>` : '';
+                const cloudBtn = appState.driveUrl
+                    ? (r.driveUrl && !r.driveUrl.startsWith('blob:')
+                        ? `<a href="${r.driveUrl}" target="_blank" class="flex items-center gap-1 text-sm bg-blue-900/30 text-blue-400 border border-blue-500/30 px-3 py-1.5 rounded-lg hover:bg-blue-800/50 transition-colors"><i class="ph-bold ph-cloud-check"></i> 已備份雲端</a>`
+                        : `<button onclick="manualUploadToDrive('${r.id}')" class="flex items-center gap-1 text-sm bg-emerald-700 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg transition-colors shadow"><i class="ph-bold ph-cloud-arrow-up"></i> 上傳 Drive</button>`)
+                    : '';
+                const transcriptHtml = r.transcript
+                    ? `<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 mb-2"><p class="text-xs text-slate-400 font-bold mb-1">逐字稿：</p><p class="text-sm text-slate-300 max-h-28 overflow-y-auto scrollbar-thin whitespace-pre-wrap">${escapeHtml(r.transcript)}</p></div>`
+                    : `<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 mb-2"><p class="text-xs text-slate-600 italic">尚無逐字稿</p></div>`;
+                const summaryHtml = r.aiSummary
+                    ? `<div class="bg-purple-950/30 p-3 rounded-lg border border-purple-800/40 mb-2"><p class="text-xs text-purple-300 font-bold mb-1"><i class="ph-fill ph-sparkle"></i> AI 摘要：</p><p class="text-sm text-slate-300 max-h-28 overflow-y-auto scrollbar-thin whitespace-pre-wrap">${escapeHtml(r.aiSummary)}</p></div>`
+                    : '';
 
-                return `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative slide-in group"><div class="flex justify-between items-start mb-3"><div><h3 class="text-lg font-bold text-white flex items-center gap-2"><i class="ph-fill ph-file-audio text-red-400"></i> ${escapeHtml(r.title)}</h3><p class="text-xs text-slate-500">${r.date}</p></div><button onclick="deleteAudioRecord('${r.id}')" class="text-slate-500 hover:text-red-400 p-2"><i class="ph-bold ph-trash"></i></button></div>${audioPlayerHtml}<div class="bg-slate-950/50 p-3 rounded-lg border border-slate-800/50 mb-4"><p class="text-xs text-slate-400 font-bold mb-1">即時逐字稿：</p><p class="text-sm text-slate-300 max-h-32 overflow-y-auto scrollbar-thin whitespace-pre-wrap">${escapeHtml(r.transcript) || '<span class="text-slate-600 italic">無文字紀錄</span>'}</p></div><div class="flex flex-wrap items-center gap-3">${linkHtml}<button onclick="downloadLocalAudio('${r.id}', 'record')" class="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-download-simple"></i> 下載 .MP3</button><button onclick="summarizeAudioRecord('${r.id}')" class="flex items-center gap-1 text-sm bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition-colors shadow-lg"><i class="ph-bold ph-sparkle"></i> AI 深度分析</button></div></div>`;
+                return `<div class="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative slide-in group" id="audio-card-${r.id}">
+                    <div class="flex justify-between items-start mb-3">
+                        <div class="flex-1 min-w-0 mr-2">
+                            <div class="flex items-center gap-2 group/title">
+                                <i class="ph-fill ph-file-audio text-red-400 shrink-0"></i>
+                                <h3 class="text-lg font-bold text-white truncate" id="audio-title-${r.id}" ondblclick="startEditAudioTitle('${r.id}')">${escapeHtml(r.title)}</h3>
+                                <button onclick="startEditAudioTitle('${r.id}')" class="opacity-0 group-hover/title:opacity-100 text-slate-500 hover:text-blue-400 transition-opacity shrink-0" title="編輯標題"><i class="ph-bold ph-pencil text-xs"></i></button>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-0.5">${r.date}${r.duration ? ` · ${Math.floor(r.duration/60)}分${r.duration%60}秒` : ''}</p>
+                        </div>
+                        <button onclick="deleteAudioRecord('${r.id}')" class="text-slate-500 hover:text-red-400 p-2 shrink-0"><i class="ph-bold ph-trash"></i></button>
+                    </div>
+                    ${audioPlayerHtml}
+                    ${transcriptHtml}
+                    ${summaryHtml}
+                    <div class="flex flex-wrap items-center gap-2 mt-3">
+                        ${cloudBtn}
+                        <button onclick="downloadLocalAudio('${r.id}', 'record')" class="flex items-center gap-1 text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-download-simple"></i> 下載</button>
+                        <button onclick="summarizeAudioRecord('${r.id}')" class="flex items-center gap-1 text-sm bg-purple-600 hover:bg-purple-500 text-white px-3 py-1.5 rounded-lg transition-colors shadow-lg"><i class="ph-bold ph-sparkle"></i> AI 深度分析</button>
+                    </div>
+                </div>`;
             }).join('') || '<div class="text-center text-slate-500 mt-10"><i class="ph-thin ph-microphone text-6xl mb-3"></i><p>尚無錄音紀錄</p></div>';
             attachAudioPlayers(); // 異步掛載音訊 Blob URL
         }
@@ -5061,99 +5167,8 @@ try {
             }
 
             let finalDriveUrl = "";
-            if (appState.driveUrl) {
-    addMessage(`☁️ 正在與 Google Drive 同步中，請稍候...`, 'system');
-    try {
-        let payloadObj = {};
-
-        // ✅ 音訊類型：先嘗試轉 MP3 再上傳（直接使用 audioBlob，不再依賴 base64dataWithPrefix）
-        const isAudioUpload = (appState.recordingContext === 'note' && newNote && newNote.type === 'audio')
-                           || (appState.recordingContext !== 'note');
-
-        if (isAudioUpload) {
-            let mp3Base64 = null;
-            try {
-                const arrayBuf = await audioBlob.arrayBuffer();
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
-                const mp3Blob = await encodeMp3(audioBuffer);
-                audioCtx.close();
-                mp3Base64 = await new Promise((res, rej) => {
-                    const r2 = new FileReader();
-                    r2.onloadend = () => res(r2.result.split(',')[1]);
-                    r2.onerror = rej;
-                    r2.readAsDataURL(mp3Blob);
-                });
-            } catch(convErr) {
-                console.warn('MP3 轉換失敗，改用原格式上傳:', convErr);
-            }
-
-            if (mp3Base64) {
-                payloadObj = { filename: filename, mimeType: 'audio/mpeg', data: mp3Base64 };
-            } else {
-                // 備援：MP3 失敗則上傳原始 WebM（即時讀取，不佔用額外記憶體）
-                const rawBase64 = await new Promise((res, rej) => {
-                    const fr = new FileReader();
-                    fr.onloadend = () => res(fr.result.split(',')[1]);
-                    fr.onerror = rej;
-                    fr.readAsDataURL(audioBlob);
-                });
-                payloadObj = { filename: filename.replace('.mp3', '.weba'), mimeType: actualMimeType, data: rawBase64 };
-            }
-                    } else if (appState.recordingContext === 'note' && newNote && newNote.type !== 'audio') {
-                        let htmlContent = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>${newNote.title}</title></head><body style="font-family: sans-serif; padding: 20px;"><h1>${newNote.title}</h1><p style="color: gray;">${newNote.date}</p><hr><div style="line-height: 1.6;">${newNote.isHtml ? newNote.content : newNote.content.replace(/\n/g, '<br>')}</div>`;
-                        const displayImages = newNote.images || (newNote.image ? [newNote.image] : []);
-                        if (displayImages.length > 0) {
-                            htmlContent += `<div style="margin-top: 20px;">`;
-                            displayImages.forEach(img => {
-                                htmlContent += `<img src="${img}" style="max-width: 100%; border-radius: 8px; margin-top: 10px;"><br>`;
-                            });
-                            htmlContent += `</div>`;
-                        }
-                        htmlContent += `</body></html>`;
-                        const base64Text = btoa(unescape(encodeURIComponent(htmlContent)));
-                        payloadObj = { filename: `${newNote.title}.html`, mimeType: 'text/html', data: base64Text };
-                    } else {
-                        const rawBase64 = await new Promise((res, rej) => {
-                            const fr = new FileReader();
-                            fr.onloadend = () => res(fr.result.split(',')[1]);
-                            fr.onerror = rej;
-                            fr.readAsDataURL(audioBlob);
-                        });
-                        payloadObj = { filename: filename, mimeType: actualMimeType, data: rawBase64 };
-                    }
-                    
-                    const payload = JSON.stringify(payloadObj);
-                    const res = await fetch(appState.driveUrl, { 
-                        method: 'POST', 
-                        headers: { 'Content-Type': 'text/plain' },
-                        body: payload 
-                    });
-                    
-                    if (res.ok) {
-                        const resText = await res.text();
-                        try { 
-                            const resJson = JSON.parse(resText); 
-                            finalDriveUrl = resJson.url || resJson.link || resText; 
-                        } catch(e) { finalDriveUrl = resText; }
-                        
-                        addMessage(`✅ **雲端同步成功！** 檔案已確實存入 Google Drive。\n連結: ${finalDriveUrl}`, 'system');
-                        if(appState.recordingContext === 'note'){ const n = appState.notes.find(x => String(x.id) === String(recordId)); if(n) { n.driveUrl = finalDriveUrl; saveToDB('notes', n); renderNotes(); } } 
-                        else { const r = appState.audioRecords.find(x => String(x.id) === String(recordId)); if(r) { r.driveUrl = finalDriveUrl; saveToDB('audioRecords', r); renderAudioRecords(); } }
-                    } else {
-                        throw new Error('伺服器回傳狀態異常: HTTP ' + res.status);
-                    }
-                } catch (e) { 
-                    if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-                        finalDriveUrl = "https://drive.google.com/";
-                        addMessage(`✅ **雲端同步成功！** \n*(註: 由於瀏覽器安全攔截，無法取得直接連結，但檔案已成功送達您的 Google Drive)*`, 'system');
-                        if(appState.recordingContext === 'note'){ const n = appState.notes.find(x => String(x.id) === String(recordId)); if(n) { n.driveUrl = finalDriveUrl; saveToDB('notes', n); renderNotes(); } } 
-                        else { const r = appState.audioRecords.find(x => String(x.id) === String(recordId)); if(r) { r.driveUrl = finalDriveUrl; saveToDB('audioRecords', r); renderAudioRecords(); } }
-                    } else {
-                        addMessage(`❌ **雲端同步失敗**：${e.message}\n請確認您的 Apps Script 權限有設為「所有人」。`, 'system');
-                    }
-                }
-            }
+            // 🚫 錄音完成後不再自動上傳 Google Drive；
+            //    請至「錄音紀錄」頁面點「上傳 Drive」按鈕手動上傳。
 
             appState.recordingContext = 'default'; appState.currentAudioTranscript = "";
         }
@@ -5293,7 +5308,12 @@ try {
                 if (n) { n.content += `\n\n====================\n[AI 分段完整轉錄與分析]\n${fullAnalysis}`; saveToDB('notes', n); renderNotes(); addMessage(`✅ 完整逐字稿與摘要已自動儲存至筆記「${n.title}」。`, 'system'); }
             } else if (itemType === 'audioRecord') {
                 const rec = appState.audioRecords.find(x => String(x.id) === String(itemId));
-                if (rec) { rec.transcript = (rec.transcript ? rec.transcript + '\n\n' : '') + `[AI 分段完整轉錄]\n${fullTranscript}`; saveToDB('audioRecords', rec); renderAudioRecords(); addMessage(`✅ 完整逐字稿已自動儲存至錄音紀錄「${rec.title}」。`, 'system'); }
+                if (rec) {
+                    rec.transcript = (rec.transcript ? rec.transcript + '\n\n' : '') + `[AI 分段完整轉錄]\n${fullTranscript}`;
+                    if (summaryText) rec.aiSummary = summaryText;
+                    saveToDB('audioRecords', rec); renderAudioRecords();
+                    addMessage(`✅ 完整逐字稿與 AI 摘要已儲存至錄音紀錄「${rec.title}」。`, 'system');
+                }
             } else if (itemType === 'uploadOnly') {
                 addMessage(`✅ 分析完成！以上為上傳音檔「${itemTitle}」的完整逐字稿與摘要（未綁定紀錄，如需儲存請複製上方內容）。`, 'system');
             }
@@ -5330,6 +5350,83 @@ try {
                 }
             });
         }
+
+        // ── 標題行內編輯 ──────────────────────────────────────────────────
+        window.startEditAudioTitle = function(id) {
+            const rec = appState.audioRecords.find(x => String(x.id) === String(id));
+            if (!rec) return;
+            const el = document.getElementById(`audio-title-${id}`);
+            if (!el || el.querySelector('input')) return; // 已在編輯中
+            const prev = rec.title;
+            el.innerHTML = `<input id="title-input-${id}" class="bg-slate-800 text-white font-bold rounded px-2 py-0.5 w-full text-base border border-blue-500 outline-none" value="${escapeHtml(prev)}" maxlength="80">`;
+            const input = document.getElementById(`title-input-${id}`);
+            input.focus(); input.select();
+            const save = () => {
+                const newTitle = input.value.trim() || prev;
+                rec.title = newTitle;
+                saveToDB('audioRecords', rec);
+                renderAudioRecords();
+                showToast(`✏️ 已更名為「${newTitle}」`);
+            };
+            input.addEventListener('blur', save);
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } if (e.key === 'Escape') { el.innerHTML = escapeHtml(prev); } });
+        };
+
+        // ── 手動上傳 Google Drive ────────────────────────────────────────
+        window.manualUploadToDrive = async function(id) {
+            if (!appState.driveUrl) { showToast('⚠️ 請先在設定中填入 Google Drive Apps Script URL'); return; }
+            const rec = appState.audioRecords.find(x => String(x.id) === String(id));
+            if (!rec) return;
+            showToast('☁️ 正在準備上傳，請稍候…');
+            try {
+                let audioBlob = await loadAudioBlob(rec.id);
+                if (!audioBlob && rec.audioData) audioBlob = base64ToBlob(rec.audioData);
+                if (!audioBlob) { showToast('❌ 找不到音訊資料'); return; }
+
+                // 嘗試編碼為 MP3
+                let mp3Base64 = null;
+                let uploadFilename = rec.title.replace(/[\\/:*?"<>|]/g, '_') + '.mp3';
+                try {
+                    const arrayBuf = await audioBlob.arrayBuffer();
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
+                    const mp3Blob = await encodeMp3(audioBuffer);
+                    audioCtx.close();
+                    mp3Base64 = await new Promise((res, rej) => {
+                        const fr = new FileReader(); fr.onloadend = () => res(fr.result.split(',')[1]); fr.onerror = rej; fr.readAsDataURL(mp3Blob);
+                    });
+                } catch(convErr) { console.warn('MP3 轉換失敗，改用原格式:', convErr); }
+
+                let payloadObj;
+                if (mp3Base64) {
+                    payloadObj = { filename: uploadFilename, mimeType: 'audio/mpeg', data: mp3Base64 };
+                } else {
+                    const rawBase64 = await new Promise((res, rej) => {
+                        const fr = new FileReader(); fr.onloadend = () => res(fr.result.split(',')[1]); fr.onerror = rej; fr.readAsDataURL(audioBlob);
+                    });
+                    payloadObj = { filename: uploadFilename.replace('.mp3', '.weba'), mimeType: rec.mimeType || 'audio/webm', data: rawBase64 };
+                }
+
+                const res = await fetch(appState.driveUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payloadObj) });
+                let finalUrl = '';
+                if (res.ok) {
+                    const txt = await res.text();
+                    try { const j = JSON.parse(txt); finalUrl = j.url || j.link || txt; } catch { finalUrl = txt; }
+                    rec.driveUrl = finalUrl; saveToDB('audioRecords', rec); renderAudioRecords();
+                    showToast('✅ 已成功上傳至 Google Drive！');
+                } else {
+                    throw new Error('HTTP ' + res.status);
+                }
+            } catch(e) {
+                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                    rec.driveUrl = 'https://drive.google.com/';
+                    saveToDB('audioRecords', rec); renderAudioRecords();
+                    showToast('✅ 已上傳！（因瀏覽器安全限制無法取得直接連結）');
+                } else {
+                    showToast(`❌ 上傳失敗：${e.message}`);
+                }
+            }
+        };
 
         function summarizeTextNote(id) {
             const n = appState.notes.find(x => String(x.id) === String(id)); if (!n) return;
