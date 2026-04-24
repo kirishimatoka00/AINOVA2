@@ -3707,10 +3707,15 @@ return; }
                 let pptData = JSON.parse(jsonStr);
 
                 // ══════════════════════════════════════════════════════════
-                // AI 圖片生成引擎（依序嘗試 Grok → Gemini Flash → Picsum 備援）
+                // AI 圖片生成引擎
+                // 調用順序：Grok Image Pro → Grok Image → Gemini 2.5 Flash-Image
+                //           → Gemini 3.1 Flash-Image → Picsum 備援
                 // ══════════════════════════════════════════════════════════
+                const GROK_PROXY = 'https://grokcaller.kirishimatoka00.workers.dev/';
+                const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
+
                 const genAIImage = async (slideTitle, slideContent, slideIndex) => {
-                    // 先用 Gemini 把中文主題優化成英文 prompt（避免直接傳中文給圖像 API）
+                    // 先用 Gemini 把中文主題優化成英文 prompt
                     const buildPrompt = async (query) => {
                         const gKey = appState.keys.gemini;
                         if (!gKey) return `Professional business illustration about: ${query}`;
@@ -3719,7 +3724,7 @@ return; }
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text:
-                                    `Create a concise English image generation prompt (max 60 words) for a presentation slide about: "${query}". The image should be professional, clean, modern illustration style. Return only the prompt text, no explanation.` }] }],
+                                    `Create a concise English image generation prompt (max 60 words) for a presentation slide about: "${query}". Professional, clean, modern illustration style. Return only the prompt text.` }] }],
                                     generationConfig: { maxOutputTokens: 100, temperature: 0.5 } })
                             });
                             const d = await r.json();
@@ -3727,55 +3732,84 @@ return; }
                         } catch { return `Professional business illustration: ${query}`; }
                     };
 
-                    const slideContext = `${slideTitle}${slideContent ? ': ' + (Array.isArray(slideContent) ? slideContent.slice(0,2).join(', ') : slideContent).substring(0, 80) : ''}`;
+                    const slideContext = `${slideTitle}${slideContent ? ': ' + (Array.isArray(slideContent) ? slideContent.slice(0,2).join(', ') : String(slideContent)).substring(0, 80) : ''}`;
+                    const slideLabel = slideIndex < 0 ? '封面' : `第 ${slideIndex + 1} 頁`;
+                    
+                    showToast(`🔤 ${slideLabel}：正在生成圖片 Prompt…`);
                     const prompt = await buildPrompt(slideContext);
 
-                    // 1️⃣ 嘗試 Grok Image (aurora)
-                    const grokKey = appState.keys.grok || appState.keys.xai;
+                    // 1️⃣ Grok Image Pro
+                    const grokKey = appState.keys.grok;
                     if (grokKey) {
-                        try {
-                            const r = await Promise.race([
-                                fetch('https://api.x.ai/v1/images/generations', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${grokKey}` },
-                                    body: JSON.stringify({ model: 'grok-2-image', prompt: prompt, n: 1, response_format: 'b64_json' })
-                                }),
-                                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 25000))
-                            ]);
-                            if (r.ok) {
-                                const d = await r.json();
-                                const b64 = d.data?.[0]?.b64_json;
-                                if (b64) return `data:image/png;base64,${b64}`;
+                        for (const grokModel of ['grok-imagine-image-pro', 'grok-imagine-image']) {
+                            try {
+                                showToast(`🎨 ${slideLabel}：呼叫 ${grokModel === 'grok-imagine-image-pro' ? 'Grok Image Pro' : 'Grok Image'} 生成中…`);
+                                const r = await Promise.race([
+                                    fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
+                                        method: 'POST',
+                                        headers: { 'Authorization': `Bearer ${grokKey}`, 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ model: grokModel, prompt, response_format: 'b64_json' })
+                                    }),
+                                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 28000))
+                                ]);
+                                if (r.ok) {
+                                    const d = await r.json();
+                                    const item = d.data?.[0];
+                                    if (item) {
+                                        const imgData = item.b64_json ? `data:image/png;base64,${item.b64_json}` : item.url;
+                                        if (imgData) {
+                                            showToast(`✅ ${slideLabel}：${grokModel === 'grok-imagine-image-pro' ? 'Grok Image Pro' : 'Grok Image'} 生成成功！`);
+                                            return imgData;
+                                        }
+                                    }
+                                }
+                                showToast(`⚠️ ${slideLabel}：${grokModel} 未回傳圖片，嘗試下一個模型…`);
+                            } catch(e) {
+                                showToast(`⚠️ ${slideLabel}：${grokModel} 失敗（${e.message}），嘗試下一個模型…`);
                             }
-                        } catch(e) { console.warn(`[PPT] Grok image 第${slideIndex+1}頁失敗:`, e.message); }
+                        }
                     }
 
-                    // 2️⃣ 嘗試 Gemini 2.0 Flash 圖像生成
+                    // 2️⃣ Gemini 2.5 Flash-Image → 3️⃣ Gemini 3.1 Flash-Image
                     const gKey2 = appState.keys.gemini;
                     if (gKey2) {
-                        try {
-                            const r = await Promise.race([
-                                fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${gKey2}`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                                        generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-                                    })
-                                }),
-                                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 25000))
-                            ]);
-                            if (r.ok) {
-                                const d = await r.json();
-                                const imgPart = d.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-                                if (imgPart?.inlineData?.data) return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+                        const gemModels = [
+                            { name: 'gemini-2.5-flash-image',          ver: 'v1beta',  label: 'Gemini 2.5 Flash-Image' },
+                            { name: 'gemini-3.1-flash-image-preview',   ver: 'v1alpha', label: 'Gemini 3.1 Flash-Image' },
+                        ];
+                        for (const { name: mName, ver, label } of gemModels) {
+                            try {
+                                showToast(`🎨 ${slideLabel}：呼叫 ${label} 生成中…`);
+                                const r = await Promise.race([
+                                    fetch(`https://generativelanguage.googleapis.com/${ver}/models/${mName}:generateContent?key=${gKey2}`, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                                            generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+                                        })
+                                    }),
+                                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 28000))
+                                ]);
+                                if (r.ok) {
+                                    const d = await r.json();
+                                    const imgPart = d.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+                                    if (imgPart?.inlineData?.data) {
+                                        showToast(`✅ ${slideLabel}：${label} 生成成功！`);
+                                        return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+                                    }
+                                }
+                                showToast(`⚠️ ${slideLabel}：${label} 未回傳圖片，嘗試下一個模型…`);
+                            } catch(e) {
+                                showToast(`⚠️ ${slideLabel}：${label} 失敗（${e.message}），嘗試下一個模型…`);
                             }
-                        } catch(e) { console.warn(`[PPT] Gemini image 第${slideIndex+1}頁失敗:`, e.message); }
+                        }
                     }
 
-                    // 3️⃣ Picsum Photos 備援（不需 API Key）
+                    // 4️⃣ Picsum Photos 備援
+                    showToast(`📷 ${slideLabel}：所有 AI 模型失敗，改用 Picsum 備援圖片`);
                     try {
-                        const seed = encodeURIComponent((slideTitle + '').replace(/\s+/g, '-').substring(0, 50));
+                        const seed = encodeURIComponent(prompt.replace(/\s+/g, '-').substring(0, 50));
                         const r = await Promise.race([
                             fetch(`https://picsum.photos/seed/${seed}/800/450`),
                             new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
@@ -3789,12 +3823,14 @@ return; }
                     } catch { return null; }
                 };
 
-                showToast(`🎨 正在為每頁投影片生成 AI 配圖（共 ${(pptData.slides||[]).length} 頁）…`);
+                const totalSlides = (pptData.slides || []).length;
+                showToast(`🚀 PPT 生成開始！共 ${totalSlides} 頁投影片 + 封面，正在生成封面配圖…`);
 
                 let pptx = new PptxGenJS();
                 pptx.layout = 'LAYOUT_16x9';
 
                 // ── 封面頁 ──
+                showToast(`🖼️ [封面] 生成配圖中…`);
                 const coverImg = await genAIImage(pptData.title || 'Presentation Cover', pptData.subtitle || '', -1);
                 let coverSlide = pptx.addSlide();
                 coverSlide.background = { color: "0F172A" };
@@ -3816,6 +3852,7 @@ return; }
                 if (pptData.slides && Array.isArray(pptData.slides)) {
                     for (let si = 0; si < pptData.slides.length; si++) {
                         const slideData = pptData.slides[si];
+                        showToast(`📊 排版投影片 ${si + 1} / ${totalSlides}：生成配圖中…`);
                         const imgData = await genAIImage(slideData.title || 'slide', slideData.content, si);
                         let slide = pptx.addSlide();
 
@@ -3823,29 +3860,21 @@ return; }
                             ? (Array.isArray(slideData.content) ? slideData.content : [slideData.content])
                             : [];
 
-                        // 計算最佳字級：依條目數自動縮放
                         const itemCount = items.length;
                         const fontSize = itemCount <= 3 ? 20 : itemCount <= 6 ? 17 : itemCount <= 9 ? 14 : 12;
 
                         if (imgData) {
-                            // 圖文並茂：左圖 42% 右文 53%
                             slide.background = { color: "F8FAFC" };
-                            // 左側淺藍色背景
                             slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 4.62, h: '100%', fill: { color: 'EFF6FF' } });
-                            // 左側藍邊條
                             slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 0.07, h: '100%', fill: { color: '3B82F6' } });
-                            // 圖片（確保不超出左半區域，留上下 padding）
                             slide.addImage({ data: imgData, x: 0.15, y: 1.28, w: 4.30, h: 5.60, sizing: { type: 'contain', w: 4.30, h: 5.60 } });
 
-                            // 全寬標題列
                             if (slideData.title) {
                                 slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 1.18, fill: { color: '1E293B' } });
-                                // 標題字級依長度調整
                                 const titleFs = slideData.title.length > 30 ? 20 : slideData.title.length > 18 ? 24 : 28;
                                 slide.addText(slideData.title, { x: 0.25, y: 0.12, w: '95%', h: 0.94, fontSize: titleFs, bold: true, color: 'FFFFFF', valign: 'middle' });
                             }
 
-                            // 右側條列文字
                             if (items.length > 0) {
                                 const bulletData = items.map(t => ({
                                     text: String(t),
@@ -3854,7 +3883,6 @@ return; }
                                 slide.addText(bulletData, { x: 4.80, y: 1.28, w: 4.95, h: 5.60, align: 'left', valign: 'top', lineSpacing: itemCount > 8 ? 20 : 26 });
                             }
                         } else {
-                            // 純文字版（AI 圖片全部失敗的退路）
                             slide.background = { color: 'F8FAFC' };
                             if (slideData.title) {
                                 slide.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 1.2, fill: { color: '1E293B' } });
@@ -3871,6 +3899,7 @@ return; }
                 }
 
                 let filename = (pptData.title || "NOVA_Presentation").replace(/[\\/:*?"<>|]/g, '_') + ".pptx";
+                showToast(`📦 所有配圖完成！正在封裝 ${totalSlides + 1} 頁投影片為 .pptx…`);
                 await pptx.writeFile({ fileName: filename });
                 showToast("✅ AI 圖文簡報下載中...");
             } catch (e) {
@@ -5142,9 +5171,11 @@ try {
         async function doAutoSplit() {
             if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
             appState.isAutoSplitting = true;
-            const ctx = appState.recordingContext;
-            addMessage(`✂️ 自動分切：已達 ${appState.recSettings.autoSplitMins} 分鐘，自動截斷並續接錄音…`, 'system');
-            // 停止當前段（uploadAudioRecording 會檢查 isAutoSplitting 並重啟）
+            // 記錄本段的錄音類型（meeting vs regular）
+            appState._autoSplitIsMeeting = !!(appState._meetingMicStream);
+            if (appState._meetingSegIndex) appState._meetingSegIndex++;
+            else appState._meetingSegIndex = 2;
+            addMessage(`✂️ 自動分切：已達 ${appState.recSettings.autoSplitMins} 分鐘，截斷目前段並立即啟動下一段錄音…`, 'system');
             if (mediaRecorder.state === 'recording') mediaRecorder.stop();
         }
 
@@ -5170,8 +5201,44 @@ try {
             appState.recordingContext = context;
             switchTab('dashboard');
             appState.currentAudioTranscript = "";
-            
-            releaseMicrophone(); // 啟動前強制清理乾淨
+
+            // ── 自動分切續接：重用已有的串流，不重新詢問權限 ──
+            const isResumingSplit = appState.isAutoSplitting && appState._meetingMicStream;
+            if (isResumingSplit) {
+                const micStream = appState._meetingMicStream;
+                const sysStream = appState._meetingSysStream;
+                let mixedStream;
+                if (sysStream && sysStream.getAudioTracks().some(t => t.readyState === 'live')) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    const audioCtx = new AudioContextClass();
+                    appState.recordingAudioCtx = audioCtx;
+                    const dest = audioCtx.createMediaStreamDestination();
+                    if (micStream.getAudioTracks().length > 0) audioCtx.createMediaStreamSource(micStream).connect(dest);
+                    audioCtx.createMediaStreamSource(sysStream).connect(dest);
+                    mixedStream = dest.stream;
+                    addMessage(`✂️ 【第 ${appState._meetingSegIndex} 段】雙軌續接錄音啟動（麥克風 + 系統音）`, 'system');
+                } else {
+                    mixedStream = micStream;
+                    addMessage(`✂️ 【第 ${appState._meetingSegIndex} 段】麥克風續接錄音啟動`, 'system');
+                }
+                let actualMimeType = 'audio/webm';
+                if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) actualMimeType = 'audio/webm;codecs=opus';
+                else if (MediaRecorder.isTypeSupported('audio/mp4')) actualMimeType = 'audio/mp4';
+                audioChunks = [];
+                mediaRecorder = new MediaRecorder(mixedStream, { mimeType: actualMimeType });
+                mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+                mediaRecorder.onstop = uploadAudioRecording;
+                appState.recordingStartTime = Date.now();
+                appState.isAutoSplitting = false;
+                mediaRecorder.start(1000);
+                scheduleAutoSplit();
+                document.getElementById('recording-status').classList.remove('hidden');
+                document.getElementById('recording-status').classList.add('flex');
+                document.getElementById('recording-status-text').innerText = "錄音中... (點擊停止)";
+                return;
+            }
+
+            releaseMicrophone(); // 首次啟動前清理
 
             let micStream = null;
             let sysStream = null;
@@ -5181,7 +5248,6 @@ try {
 
             try {
                 const micConstraints = { audio: true };
-
                 micStream = await navigator.mediaDevices.getUserMedia(micConstraints);
                 appState.activeMediaTracks.push(...micStream.getTracks());
 
@@ -5198,23 +5264,18 @@ try {
                     addMessage("⚠️ **系統限制提醒**：手機瀏覽器基於隱私安全，禁止側錄內部系統聲音。\n\n💡 若您要在手機上錄製會議，請**拔下耳機，改用手機擴音播放**，系統會透過麥克風一併收錄會議聲音。", 'system');
                 }
 
+                // 儲存串流供自動分切續接使用
+                appState._meetingMicStream = micStream;
+                appState._meetingSysStream = sysStream;
+                appState._meetingSegIndex = 1;
+
                 if (sysStream && sysStream.getAudioTracks().length > 0) {
                     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
                     const audioCtx = new AudioContextClass();
                     appState.recordingAudioCtx = audioCtx;
-                    
                     const dest = audioCtx.createMediaStreamDestination();
-                    
-                    if (micStream.getAudioTracks().length > 0) {
-                        const micSource = audioCtx.createMediaStreamSource(micStream);
-                        micSource.connect(dest);
-                    }
-                    
-                    if (sysStream.getAudioTracks().length > 0) {
-                        const sysSource = audioCtx.createMediaStreamSource(sysStream);
-                        sysSource.connect(dest);
-                    }
-                    
+                    if (micStream.getAudioTracks().length > 0) audioCtx.createMediaStreamSource(micStream).connect(dest);
+                    audioCtx.createMediaStreamSource(sysStream).connect(dest);
                     mixedStream = dest.stream;
                     let titleMsg = appState.recordingContext === 'note' ? "🎙️ 開始【雙軌語音筆記】... (已成功混合麥克風與系統聲音，點擊紅燈結束)" : "🎙️ 開始【雙軌會議錄音】... (已成功混合麥克風與系統聲音，點擊紅燈結束)";
                     addMessage(titleMsg, 'system');
@@ -5235,7 +5296,7 @@ try {
                 mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
                 mediaRecorder.onstop = uploadAudioRecording; 
                 appState.recordingStartTime = Date.now();
-                if (!appState.isAutoSplitting) appState.recGroupId = null;
+                appState.recGroupId = null;
                 appState.isAutoSplitting = false;
                 mediaRecorder.start(1000);
                 scheduleAutoSplit();
@@ -5243,8 +5304,6 @@ try {
                 document.getElementById('recording-status').classList.remove('hidden'); 
                 document.getElementById('recording-status').classList.add('flex');
                 document.getElementById('recording-status-text').innerText = "錄音中... (點擊停止)";
-                
-                // 【修復】移除會造成手機音軌切換與電腦自動打字的 recognition.start()
             } catch (err) {
                 addMessage("⚠️ 無法啟動錄音，請檢查麥克風權限或瀏覽器設定。", 'system');
                 console.error(err);
@@ -5298,6 +5357,11 @@ try {
             cancelAutoSplit();         // 取消自動分切計時器
             appState.isAutoSplitting = false; // 確保不會自動重啟
             appState.recGroupId = null;       // 結束群組
+            // 清除會議串流快取（手動停止才清，自動分切不清）
+            appState._meetingMicStream = null;
+            appState._meetingSysStream = null;
+            appState._meetingSegIndex = 1;
+            appState._autoSplitIsMeeting = false;
             releaseMicrophone();
             
             document.getElementById('recording-status').classList.add('hidden'); 
@@ -5316,88 +5380,109 @@ try {
             }
 
             const wasAutoSplitting = appState.isAutoSplitting;
-            const continuationContext = appState.recordingContext; // 保留供自動重啟用
+            const isMeetingSplit   = appState._autoSplitIsMeeting;
+            const continuationCtx  = appState.recordingContext;
 
-            let recordDuration = Date.now() - (appState.recordingStartTime || Date.now());
-            const actualMimeType = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : 'audio/webm';
-            const chunksSnapshot = [...audioChunks];
+            // ── 自動分切：立即啟動下一段，不等待本段處理 ──────────────────
+            if (wasAutoSplitting) {
+                // 把 chunks 快取起來，馬上重置全域 audioChunks 讓新段能用
+                const savedChunks = [...audioChunks];
+                const savedMime   = (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : 'audio/webm';
+                const savedStart  = appState.recordingStartTime;
+                const savedCtx    = continuationCtx;
+                audioChunks = [];
+
+                // ★ 先啟動下一段（無延遲）
+                appState.isAutoSplitting = true; // 保持 flag 讓 startMeetingRecording 識別
+                if (isMeetingSplit) {
+                    startMeetingRecording(continuationCtx);
+                } else {
+                    startAudioRecordOnly();
+                }
+
+                // 背景處理舊段（不阻塞新段錄音）
+                (async () => {
+                    await processAndSaveAudioSegment(savedChunks, savedMime, savedStart, savedCtx, true);
+                })();
+                return;
+            }
+
+            // ── 正常停止：同步處理 ──────────────────────────────────────────
+            const chunks = [...audioChunks];
             audioChunks = [];
+            await processAndSaveAudioSegment(chunks,
+                (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : 'audio/webm',
+                appState.recordingStartTime, continuationCtx, false);
 
-            let audioBlob = new Blob(chunksSnapshot, { type: actualMimeType });
-            
-            // 修復 WebM duration
+            appState.recGroupId = null;
+            appState.recordingContext = 'default';
+            appState.currentAudioTranscript = "";
+        }
+
+        // 實際的音訊儲存處理（可在背景執行）
+        async function processAndSaveAudioSegment(chunksArr, actualMimeType, startTime, ctx, isSegment) {
+            let recordDuration = Date.now() - (startTime || Date.now());
+            let audioBlob = new Blob(chunksArr, { type: actualMimeType });
+
             if (actualMimeType.includes('webm') && typeof ysFixWebmDuration !== 'undefined') {
                 audioBlob = await new Promise(resolve => {
                     try { ysFixWebmDuration(audioBlob, recordDuration, resolve); } catch(e) { resolve(audioBlob); }
                 });
             }
-            
-            const dateObj = new Date();
-            const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const day = String(dateObj.getDate()).padStart(2, '0');
-            const year = dateObj.getFullYear();
-            const timeStr = dateObj.toTimeString().split(' ')[0].replace(/:/g, '');
-            
-            const recordId = Date.now();
-            const filename = `NOVA_Audio_${month}${day}${year}_${timeStr}.mp3`; 
-            const displayDate = dateObj.toLocaleString();
 
-            // 決定 groupId：首段自身為 leader，後續段使用相同 groupId
+            const dateObj = new Date();
+            const month   = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const day     = String(dateObj.getDate()).padStart(2, '0');
+            const year    = dateObj.getFullYear();
+            const timeStr = dateObj.toTimeString().split(' ')[0].replace(/:/g, '');
+            const filename    = `NOVA_Audio_${month}${day}${year}_${timeStr}.mp3`;
+            const displayDate = dateObj.toLocaleString();
+            const recordId    = Date.now();
+
             const groupId = appState.recGroupId || recordId;
             if (!appState.recGroupId) appState.recGroupId = groupId;
 
-            // 存 IndexedDB
             await saveAudioBlob(recordId, audioBlob);
 
-            // 嘗試存入使用者指定的本地資料夾
+            // 存入本地資料夾
             if (appState.recSettings.localDirHandle) {
                 let mp3BlobToSave = audioBlob;
                 try {
                     const arrayBuf = await audioBlob.arrayBuffer();
-                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                    const buf = await ctx.decodeAudioData(arrayBuf);
+                    const actx = new (window.AudioContext || window.webkitAudioContext)();
+                    const buf  = await actx.decodeAudioData(arrayBuf);
                     mp3BlobToSave = await encodeMp3(buf);
-                    ctx.close();
-                } catch(e) { /* 轉換失敗保持原格式 */ }
+                    actx.close();
+                } catch(e) { /* 保持原格式 */ }
                 const saved = await saveAudioToLocalDir(filename, mp3BlobToSave);
                 if (saved) addMessage(`📁 已存入本地資料夾「${appState.recSettings.localSaveDirName}」：${filename}`, 'system');
             }
 
             const capturedTranscript = appState.currentAudioTranscript ? appState.currentAudioTranscript.trim() : "";
-            
-            let newNote = null;
-            let newRecord = null;
 
-            if (appState.recordingContext === 'note') {
-                newNote = { id: recordId, title: `語音筆記 ${timeStr}`, content: capturedTranscript ? `[即時辨識草稿]\n${capturedTranscript}` : '[無語音內容]', date: displayDate, type: 'audio', driveUrl: "", transcript: capturedTranscript, mimeType: actualMimeType, filename: filename, images: [], image: null, folder: appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder, duration: Math.round(recordDuration / 1000), groupId };
+            if (ctx === 'note') {
+                const newNote = {
+                    id: recordId, title: `語音筆記 ${timeStr}`,
+                    content: capturedTranscript ? `[即時辨識草稿]\n${capturedTranscript}` : '[無語音內容]',
+                    date: displayDate, type: 'audio', driveUrl: "", transcript: capturedTranscript,
+                    mimeType: actualMimeType, filename, images: [], image: null,
+                    folder: appState.currentNoteFolder === '全部' ? '未分類' : appState.currentNoteFolder,
+                    duration: Math.round(recordDuration / 1000), groupId
+                };
                 appState.notes.unshift(newNote); saveToDB('notes', newNote);
                 addMessage(`📝 語音筆記已安全儲存至本地「筆記/文件」分頁。`, 'system'); renderNotes();
             } else {
                 const segIndex = appState.audioRecords.filter(r => r.groupId === groupId).length + 1;
-                const segLabel = wasAutoSplitting ? ` (第 ${segIndex} 段)` : '';
-                newRecord = { id: recordId, title: `錄音紀錄 ${timeStr}${segLabel}`, date: displayDate, filename: filename, driveUrl: "", transcript: capturedTranscript, mimeType: actualMimeType, duration: Math.round(recordDuration / 1000), groupId };
+                const segLabel = isSegment ? ` (第 ${segIndex} 段)` : '';
+                const newRecord = {
+                    id: recordId, title: `錄音紀錄 ${timeStr}${segLabel}`,
+                    date: displayDate, filename, driveUrl: "", transcript: capturedTranscript,
+                    mimeType: actualMimeType, duration: Math.round(recordDuration / 1000), groupId
+                };
                 appState.audioRecords.unshift(newRecord); saveToDB('audioRecords', newRecord);
-                const segMsg = wasAutoSplitting ? ` (自動分切第 ${segIndex} 段)` : '';
+                const segMsg = isSegment ? ` (自動分切第 ${segIndex} 段)` : '';
                 addMessage(`📼 錄音已安全儲存至本地「錄音紀錄」分頁${segMsg}。`, 'system'); renderAudioRecords();
             }
-
-            // 自動分切：重啟錄音
-            if (wasAutoSplitting) {
-                appState.isAutoSplitting = true;
-                appState.currentAudioTranscript = "";
-                // 稍微等一下讓 UI 渲染
-                setTimeout(() => {
-                    if (continuationContext === 'record') {
-                        startAudioRecordOnly();
-                    } else {
-                        startMeetingRecording(continuationContext);
-                    }
-                }, 400);
-                return;
-            }
-
-            appState.recGroupId = null;
-            appState.recordingContext = 'default'; appState.currentAudioTranscript = "";
         }
 
         // --- 深度分析功能 (AI 針對音檔或筆記進行分析) ---
@@ -5456,7 +5541,8 @@ try {
 
             const totalSecs = audioBuffer.duration;
             const totalChunks = Math.ceil(totalSecs / CHUNK_SECS);
-            addMessage(`📊 音檔總長 **${Math.round(totalSecs/60)} 分 ${Math.round(totalSecs%60)} 秒**，將自動分為 **${totalChunks} 段**（每段最多 5 分鐘）逐段轉錄。`, 'system');
+            const chunkMins = appState.recSettings?.analysisChunkMins || 5;
+            addMessage(`📊 音檔總長 **${Math.round(totalSecs/60)} 分 ${Math.round(totalSecs%60)} 秒**，將自動分為 **${totalChunks} 段**（每段最多 ${chunkMins} 分鐘）逐段轉錄。`, 'system');
 
             // 2. 逐段呼叫 Gemini 取得逐字稿
             const transcriptParts = [];
@@ -5482,7 +5568,7 @@ try {
                     continue;
                 }
 
-                const chunkPrompt = `你是專業逐字稿員。請將這段音訊（${startLabel} – ${endLabel}）完整逐字轉錄成繁體中文，保留所有說話者的每一句話，不要摘要、不要省略、不要添加任何評論，直接輸出逐字稿文字即可。`;
+                const chunkPrompt = `你是專業逐字稿員。請將這段音訊內容完整逐字轉錄成繁體中文，保留所有說話者的每一句話，不要摘要、不要省略、不要添加任何評論，直接輸出逐字稿文字即可。若整段音訊為靜音或無法辨識，請回覆「[本段無語音]」。`;
 
                 try {
                     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
@@ -5547,10 +5633,11 @@ try {
         }
 
         function summarizeAudioRecord(id) {
-            const r = appState.audioRecords.find(x => String(x.id) === String(id)); if (!r) return;
+            const r = appState.audioRecords.find(x => String(x.id) === String(id));
+            if (!r) return;
             if (appState.currentModel !== 'gemini') { alert("音檔轉錄與分析強烈建議使用 Gemini 模型，系統已自動為您切換。"); setModel('gemini'); }
 
-            // 找出同 groupId 的所有分段（按時間排序）
+            // 找出同 groupId 的所有分段（按時間先後排序）
             const groupId = r.groupId || r.id;
             const groupRecords = appState.audioRecords
                 .filter(x => (x.groupId || x.id) === groupId)
@@ -5559,25 +5646,126 @@ try {
             const segCount = groupRecords.length;
             const totalDuration = groupRecords.reduce((s, x) => s + (x.duration || 0), 0);
             const totalMin = Math.floor(totalDuration / 60);
+            const chunkMins = appState.recSettings?.analysisChunkMins || 5;
+
             const confirmMsg = segCount > 1
-                ? `即將對「${r.title}」（共 ${segCount} 個分段，合計約 ${totalMin} 分鐘）進行深度分析。\n\n系統將合併所有分段音訊後，每 ${appState.recSettings.analysisChunkMins} 分鐘切段逐字稿，再產生摘要。`
-                : `即將對「${r.title}」進行深度分析（每 ${appState.recSettings.analysisChunkMins} 分鐘切段）。`;
+                ? `即將對「${r.title}」（共 ${segCount} 個錄音分段，合計約 ${totalMin} 分鐘）進行深度分析。\n\n系統將依序處理每個分段（每 ${chunkMins} 分鐘切一次），最後合併所有逐字稿並產生摘要。`
+                : `即將對「${r.title}」進行深度分析（每 ${chunkMins} 分鐘切段）。`;
 
             if (!confirm(confirmMsg)) return;
 
+            const key = appState.keys.gemini;
+            if (!key) { addMessage('⚠️ 請先設定 Gemini API Key！', 'system'); return; }
+
             (async () => {
-                // 載入並合併所有分段 blob
-                let mergedChunks = [];
-                let mergedMime = r.mimeType || 'audio/webm';
-                for (const seg of groupRecords) {
-                    let blob = await loadAudioBlob(seg.id);
-                    if (!blob && seg.audioData) blob = base64ToBlob(seg.audioData);
-                    if (blob) mergedChunks.push(blob);
+                switchTab('dashboard');
+                addMessage(`🎙️ **AI 深度分析啟動**｜共 ${segCount} 個錄音段，開始逐段轉錄…`, 'system');
+
+                const allTranscriptParts = [];
+                const CHUNK_SECS = chunkMins * 60;
+
+                for (let si = 0; si < groupRecords.length; si++) {
+                    const seg = groupRecords[si];
+                    let audioBlob = await loadAudioBlob(seg.id);
+                    if (!audioBlob && seg.audioData) audioBlob = base64ToBlob(seg.audioData);
+                    if (!audioBlob) {
+                        addMessage(`⚠️ 第 ${si + 1} 段「${seg.title}」找不到音訊資料，跳過。`, 'system');
+                        continue;
+                    }
+
+                    // 解碼本段音檔
+                    let audioBuffer;
+                    try {
+                        const arrayBuf = await audioBlob.arrayBuffer();
+                        const actx = new (window.AudioContext || window.webkitAudioContext)();
+                        audioBuffer = await actx.decodeAudioData(arrayBuf);
+                        actx.close();
+                    } catch(e) {
+                        addMessage(`⚠️ 第 ${si + 1} 段解碼失敗（${e.message}），跳過。`, 'system');
+                        continue;
+                    }
+
+                    const segTotalSecs = audioBuffer.duration;
+                    const segChunks = Math.ceil(segTotalSecs / CHUNK_SECS);
+                    const segPrefix = segCount > 1 ? `[錄音第 ${si + 1} 段]` : '';
+                    addMessage(`📂 ${segPrefix} 總長 ${Math.round(segTotalSecs/60)}分${Math.round(segTotalSecs%60)}秒，分 ${segChunks} 小段轉錄…`, 'system');
+
+                    for (let i = 0; i < segChunks; i++) {
+                        const startSec  = i * CHUNK_SECS;
+                        const endSec    = Math.min(startSec + CHUNK_SECS, segTotalSecs);
+                        const startLabel = `${Math.floor(startSec/60)}:${String(Math.floor(startSec%60)).padStart(2,'0')}`;
+                        const endLabel   = `${Math.floor(endSec/60)}:${String(Math.floor(endSec%60)).padStart(2,'0')}`;
+
+                        const progressId = Date.now() + si * 1000 + i;
+                        appState.messages.push({ id: progressId, sessionId: appState.currentSessionId, text: `⏳ ${segPrefix}[${i+1}/${segChunks}] 轉錄 ${startLabel}–${endLabel}…`, sender: 'system', time: getTime(), sources: [], files: [] });
+                        renderMessages();
+                        const chatEl = document.getElementById('chat-container');
+                        if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+
+                        let base64Chunk;
+                        try {
+                            base64Chunk = await sliceAudioToBase64(audioBuffer, startSec, endSec);
+                        } catch(e) {
+                            const pm = appState.messages.find(x => x.id === progressId);
+                            if (pm) { pm.text = `⚠️ ${segPrefix}[${i+1}/${segChunks}] 切割失敗：${e.message}`; renderMessages(); }
+                            allTranscriptParts.push(`${segPrefix}【${startLabel}–${endLabel}】\n[切割失敗]`);
+                            continue;
+                        }
+
+                        const chunkPrompt = `你是專業逐字稿員。請將這段音訊內容完整逐字轉錄成繁體中文，保留所有說話者的每一句話，不要摘要、不要省略、不要添加任何評論，直接輸出逐字稿文字即可。若整段音訊為靜音或無法辨識，請回覆「[本段無語音]」。`;
+
+                        try {
+                            const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`;
+                            const res = await fetch(endpoint, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ role: 'user', parts: [
+                                        { text: chunkPrompt },
+                                        { inlineData: { mimeType: 'audio/mp3', data: base64Chunk.split(',')[1] } }
+                                    ]}],
+                                    generationConfig: { temperature: 0.2, maxOutputTokens: 8192 }
+                                })
+                            });
+                            const data = await res.json();
+                            if (!res.ok) throw new Error(data.error?.message || res.status);
+                            const partText = data.candidates?.[0]?.content?.parts?.filter(p => p.text).map(p => p.text).join('') || '';
+                            allTranscriptParts.push(`${segPrefix}【${startLabel}–${endLabel}】\n${partText}`);
+                            const pm = appState.messages.find(x => x.id === progressId);
+                            if (pm) { pm.text = `✅ ${segPrefix}[${i+1}/${segChunks}] ${startLabel}–${endLabel} 完成（${partText.length} 字）`; renderMessages(); }
+                        } catch(e) {
+                            const pm = appState.messages.find(x => x.id === progressId);
+                            if (pm) { pm.text = `⚠️ ${segPrefix}[${i+1}/${segChunks}] 失敗：${e.message}`; renderMessages(); }
+                            allTranscriptParts.push(`${segPrefix}【${startLabel}–${endLabel}】\n[API 錯誤: ${e.message}]`);
+                        }
+                    }
                 }
-                if (mergedChunks.length === 0) { alert("找不到本地音訊資料，請手動選取音檔。"); document.getElementById('audio-analyze-input').click(); return; }
-                const mergedBlob = mergedChunks.length === 1 ? mergedChunks[0] : new Blob(mergedChunks, { type: mergedMime });
-                const analysisTitle = segCount > 1 ? `${r.title} [合併 ${segCount} 段]` : r.title;
-                await runChunkedTranscription(mergedBlob, mergedMime, 'audioRecord', id, analysisTitle);
+
+                // 3. 顯示合併完整逐字稿
+                const fullTranscript = allTranscriptParts.join('\n\n');
+                addMessage(`📝 **完整逐字稿（${segCount > 1 ? segCount + ' 個錄音段合併，' : ''}共 ${allTranscriptParts.length} 小段，${fullTranscript.length} 字）**\n\n${fullTranscript}`, 'ai', 'gemini');
+
+                // 4. 根據完整逐字稿產生摘要
+                addMessage(`🔍 逐字稿完成，正在根據全文產生摘要與重點整理…`, 'system');
+                const summaryPrompt = `以下是一段錄音的完整逐字稿，請根據此逐字稿整理出【重點摘要】與【結構化會議紀錄】（含主題、決議、待辦事項）。\n\n【嚴格約束】：僅根據逐字稿內容摘要，不可自行補充或腦補任何外部資訊。\n\n完整逐字稿如下：\n\n${fullTranscript}`;
+                let summaryText = '';
+                try {
+                    const summaryRes = await fetchAIResponse(summaryPrompt, 'gemini', { isAnalysis: true });
+                    summaryText = typeof summaryRes === 'string' ? summaryRes : (summaryRes.text || '');
+                    addMessage(summaryText, 'ai', 'gemini');
+                } catch(e) {
+                    addMessage(`⚠️ 摘要產生失敗：${e.message}`, 'system');
+                }
+
+                // 5. 儲存回主錄音紀錄（以被點擊的那筆 id 為主）
+                const rec = appState.audioRecords.find(x => String(x.id) === String(id));
+                if (rec) {
+                    rec.transcript = fullTranscript;
+                    if (summaryText) rec.aiSummary = summaryText;
+                    saveToDB('audioRecords', rec);
+                    renderAudioRecords();
+                    addMessage(`✅ 完整逐字稿與 AI 摘要已儲存至錄音紀錄「${rec.title}」。`, 'system');
+                }
             })();
         }
 
@@ -5623,54 +5811,127 @@ try {
             if (!appState.driveUrl) { showToast('⚠️ 請先在設定中填入 Google Drive Apps Script URL'); return; }
             const rec = appState.audioRecords.find(x => String(x.id) === String(id));
             if (!rec) return;
-            showToast('☁️ 正在準備上傳，請稍候…');
+
+            // --- 防止重複點擊 ---
+            const cardEl = document.getElementById(`audio-card-${id}`);
+            const uploadBtn = cardEl ? cardEl.querySelector(`button[onclick*="manualUploadToDrive"]`) : null;
+            if (uploadBtn) { uploadBtn.disabled = true; uploadBtn.innerHTML = `<i class="ph-bold ph-spinner animate-spin"></i> 上傳中…`; }
+
+            const cleanup = () => {
+                if (uploadBtn) { uploadBtn.disabled = false; uploadBtn.innerHTML = `<i class="ph-bold ph-cloud-arrow-up"></i> 上傳 Drive`; }
+            };
+
             try {
                 let audioBlob = await loadAudioBlob(rec.id);
                 if (!audioBlob && rec.audioData) audioBlob = base64ToBlob(rec.audioData);
-                if (!audioBlob) { showToast('❌ 找不到音訊資料'); return; }
+                if (!audioBlob) { showToast('❌ 找不到音訊資料，請重新錄製'); cleanup(); return; }
 
-                // 嘗試編碼為 MP3
-                let mp3Base64 = null;
-                let uploadFilename = rec.title.replace(/[\\/:*?"<>|]/g, '_') + '.mp3';
+                const rawSizeMB = (audioBlob.size / 1024 / 1024).toFixed(1);
+                showToast(`☁️ 準備上傳（${rawSizeMB} MB），請稍候…`);
+
+                // --- 決定上傳格式 ---
+                // Apps Script POST 上限約 10 MB（base64 比原始大 33%），超過 6 MB raw 時直接用原格式
+                const SIZE_LIMIT_FOR_MP3 = 6 * 1024 * 1024; // 6 MB raw
+                let uploadBlob = audioBlob;
+                let uploadMime = rec.mimeType || 'audio/webm';
+                let uploadExt  = uploadMime.includes('mp4') ? '.m4a' : '.webm';
+                let uploadFilename = rec.title.replace(/[\\/:*?"<>|]/g, '_');
+
+                if (audioBlob.size <= SIZE_LIMIT_FOR_MP3) {
+                    // 小檔：轉 MP3 再上傳
+                    try {
+                        showToast('🔄 正在轉換為 MP3…');
+                        const arrayBuf   = await audioBlob.arrayBuffer();
+                        const audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+                        const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
+                        uploadBlob = await encodeMp3(audioBuffer);
+                        audioCtx.close();
+                        uploadMime = 'audio/mpeg';
+                        uploadExt  = '.mp3';
+                    } catch(convErr) {
+                        console.warn('MP3 轉換失敗，改用原格式:', convErr);
+                        uploadBlob = audioBlob;
+                    }
+                } else {
+                    showToast(`📦 檔案較大（${rawSizeMB} MB），以原始格式上傳…`);
+                }
+
+                uploadFilename += uploadExt;
+                const finalSizeMB = (uploadBlob.size / 1024 / 1024).toFixed(1);
+
+                // --- base64 編碼 ---
+                showToast(`🔄 編碼中（${finalSizeMB} MB），請耐心等候…`);
+                const base64Data = await new Promise((resolve, reject) => {
+                    const fr = new FileReader();
+                    fr.onloadend = () => resolve(fr.result.split(',')[1]);
+                    fr.onerror   = () => reject(new Error('FileReader 讀取失敗'));
+                    fr.readAsDataURL(uploadBlob);
+                });
+
+                // --- Apps Script 上限預估警告（base64 後約增 33%）---
+                const base64SizeMB = (base64Data.length / 1024 / 1024).toFixed(1);
+                if (parseFloat(base64SizeMB) > 9) {
+                    const proceed = confirm(
+                        `⚠️ 此檔案編碼後約 ${base64SizeMB} MB，可能超過 Google Apps Script 的上傳限制（約 10 MB）。\n\n較大的檔案建議：\n• 先手動下載後自行上傳至 Google Drive\n• 或縮短錄音時長並分段上傳\n\n仍要嘗試上傳嗎？`
+                    );
+                    if (!proceed) { cleanup(); return; }
+                }
+
+                // --- 送出上傳請求 ---
+                showToast(`☁️ 上傳至 Google Drive（${finalSizeMB} MB）…`);
+                const payload = JSON.stringify({ filename: uploadFilename, mimeType: uploadMime, data: base64Data });
+
+                let res;
                 try {
-                    const arrayBuf = await audioBlob.arrayBuffer();
-                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    const audioBuffer = await audioCtx.decodeAudioData(arrayBuf);
-                    const mp3Blob = await encodeMp3(audioBuffer);
-                    audioCtx.close();
-                    mp3Base64 = await new Promise((res, rej) => {
-                        const fr = new FileReader(); fr.onloadend = () => res(fr.result.split(',')[1]); fr.onerror = rej; fr.readAsDataURL(mp3Blob);
+                    res = await fetch(appState.driveUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'text/plain' },
+                        body: payload
                     });
-                } catch(convErr) { console.warn('MP3 轉換失敗，改用原格式:', convErr); }
-
-                let payloadObj;
-                if (mp3Base64) {
-                    payloadObj = { filename: uploadFilename, mimeType: 'audio/mpeg', data: mp3Base64 };
-                } else {
-                    const rawBase64 = await new Promise((res, rej) => {
-                        const fr = new FileReader(); fr.onloadend = () => res(fr.result.split(',')[1]); fr.onerror = rej; fr.readAsDataURL(audioBlob);
-                    });
-                    payloadObj = { filename: uploadFilename.replace('.mp3', '.weba'), mimeType: rec.mimeType || 'audio/webm', data: rawBase64 };
+                } catch(fetchErr) {
+                    // fetch 本身拋例外 = 網路失敗 / CORS 被攔截 → 真正的上傳失敗
+                    throw new Error(`網路或 CORS 錯誤：${fetchErr.message}。請確認 Apps Script 已部署為「所有人可存取」的網路應用程式。`);
                 }
 
-                const res = await fetch(appState.driveUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(payloadObj) });
+                if (!res.ok) {
+                    let errBody = '';
+                    try { errBody = await res.text(); } catch(_) {}
+                    throw new Error(`伺服器錯誤 HTTP ${res.status}${errBody ? '：' + errBody.substring(0, 100) : ''}`);
+                }
+
+                // --- 解析回傳 URL ---
+                const rawText = (await res.text()).trim();
                 let finalUrl = '';
-                if (res.ok) {
-                    const txt = await res.text();
-                    try { const j = JSON.parse(txt); finalUrl = j.url || j.link || txt; } catch { finalUrl = txt; }
-                    rec.driveUrl = finalUrl; saveToDB('audioRecords', rec); renderAudioRecords();
-                    showToast('✅ 已成功上傳至 Google Drive！');
-                } else {
-                    throw new Error('HTTP ' + res.status);
+                try {
+                    const j = JSON.parse(rawText);
+                    // 常見回傳格式：{ url: "..." } / { link: "..." } / { webViewLink: "..." } / { id: "..." }
+                    finalUrl = (j.url || j.link || j.webViewLink || '').trim();
+                    if (!finalUrl && j.id) {
+                        finalUrl = `https://drive.google.com/file/d/${j.id}/view`;
+                    }
+                } catch(_) {
+                    // 純文字 URL
+                    finalUrl = rawText;
                 }
+
+                // 確保是有效 URL
+                if (!finalUrl || (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://'))) {
+                    // Apps Script 回傳成功但沒有 URL → 連到 Drive 根目錄讓使用者自行找
+                    finalUrl = 'https://drive.google.com/drive/my-drive';
+                    showToast(`✅ 已上傳！（Apps Script 未回傳直接連結，請至 Google Drive 查看）`);
+                } else {
+                    showToast(`✅ 已成功上傳至 Google Drive（${finalSizeMB} MB）！`);
+                }
+
+                rec.driveUrl = finalUrl;
+                saveToDB('audioRecords', rec);
+                renderAudioRecords(); // 重繪後按鈕已換成連結，cleanup 不再有效
+
             } catch(e) {
-                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
-                    rec.driveUrl = 'https://drive.google.com/';
-                    saveToDB('audioRecords', rec); renderAudioRecords();
-                    showToast('✅ 已上傳！（因瀏覽器安全限制無法取得直接連結）');
-                } else {
-                    showToast(`❌ 上傳失敗：${e.message}`);
-                }
+                cleanup();
+                console.error('manualUploadToDrive error:', e);
+                showToast(`❌ 上傳失敗：${e.message}`);
+                // 不設定 rec.driveUrl，保持「上傳 Drive」按鈕可重試
             }
         };
 
@@ -5775,7 +6036,54 @@ try {
                 return null;
             }
         }
-async function checkScheduleIntent(text) {
+        // 排程任務類型選擇彈窗（回傳 'image' | 'search' | 'general' | null=取消）
+        function askScheduleTaskType(query) {
+            return new Promise((resolve) => {
+                const overlay = document.createElement('div');
+                overlay.className = 'fixed inset-0 z-[350] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4';
+                overlay.innerHTML = `
+                    <div class="bg-slate-900 border border-blue-500/40 rounded-2xl p-6 w-full max-w-sm shadow-[0_0_40px_rgba(59,130,246,0.2)] flex flex-col gap-4">
+                        <div>
+                            <h3 class="font-bold text-white text-base mb-1">⏰ 排程任務類型</h3>
+                            <p class="text-[11px] text-slate-400 leading-relaxed">「${escapeHtml(query.substring(0,60))}${query.length>60?'…':''}」</p>
+                            <p class="text-xs text-slate-400 mt-2">請選擇此排程任務執行時的工作模式：</p>
+                        </div>
+                        <div class="space-y-2">
+                            <button id="stt-image" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 hover:border-purple-500 transition-colors text-left active:scale-95">
+                                <span class="text-2xl mt-0.5 shrink-0">🎨</span>
+                                <div>
+                                    <p class="text-sm font-bold text-white">生成圖片</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">呼叫 Grok Image 或 Gemini 圖像生成 Model，依指令生成圖片</p>
+                                </div>
+                            </button>
+                            <button id="stt-search" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 hover:border-teal-500 transition-colors text-left active:scale-95">
+                                <span class="text-2xl mt-0.5 shrink-0">🌐</span>
+                                <div>
+                                    <p class="text-sm font-bold text-white">聯網查詢資料</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">啟用連網搜尋，取得最新即時資訊並整理報告</p>
+                                </div>
+                            </button>
+                            <button id="stt-general" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 hover:border-blue-400 transition-colors text-left active:scale-95">
+                                <span class="text-2xl mt-0.5 shrink-0">🤖</span>
+                                <div>
+                                    <p class="text-sm font-bold text-white">一般任務</p>
+                                    <p class="text-[11px] text-slate-400 mt-0.5">由文字 LLM 直接根據指令處理（摘要、翻譯、寫作等）</p>
+                                </div>
+                            </button>
+                        </div>
+                        <button id="stt-cancel" class="text-slate-500 hover:text-slate-300 text-sm text-center transition-colors">取消</button>
+                    </div>`;
+                document.body.appendChild(overlay);
+                const cleanup = (val) => { overlay.remove(); resolve(val); };
+                document.getElementById('stt-image').onclick   = () => cleanup('image');
+                document.getElementById('stt-search').onclick  = () => cleanup('search');
+                document.getElementById('stt-general').onclick = () => cleanup('general');
+                document.getElementById('stt-cancel').onclick  = () => cleanup(null);
+                overlay.addEventListener('click', (e) => { if (e.target === overlay) cleanup(null); });
+            });
+        }
+
+        async function checkScheduleIntent(text) {
             const key = appState.keys.gemini;
             if(!key) return null;
             const schema = {
@@ -6206,7 +6514,11 @@ window.startMultiAgentResearch = async function() {
                         // 什麼都不做，讓程式繼續往下跑一般對話邏輯
                     } else {
                         addMessage(text, 'user'); // 確保使用者的原始指令顯示在對話框中
-                        
+
+                        // ── 🆕 先詢問任務類型 ──────────────────────────────────────────
+                        const taskTypeResult = await askScheduleTaskType(scheduleIntent.query);
+                        if (!taskTypeResult) return; // 使用者取消
+                        scheduleIntent._taskType = taskTypeResult; // 'image' | 'search' | 'general'
                         let targetAlertTime = Date.now() + scheduleIntent.intervalMs;
                         let displayTimeStr = `每 ${scheduleIntent.num} ${scheduleIntent.unit}執行`;
                         
@@ -6235,7 +6547,8 @@ window.startMultiAgentResearch = async function() {
                             alertTime: targetAlertTime, 
                             repeatInterval: scheduleIntent.isOneTimeTask ? 0 : scheduleIntent.intervalMs, 
                             alertEnabled: true, alerted: false,
-                            isAutoTask: true, taskQuery: scheduleIntent.query
+                            isAutoTask: true, taskQuery: scheduleIntent.query,
+                            taskType: scheduleIntent._taskType || 'general'  // 'image' | 'search' | 'general'
                         };
                         appState.todos.push(newSearchTask); saveToDB('todos', newSearchTask);
                         
@@ -6433,17 +6746,19 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                 let promptToSent = text;
                 let modelToUse = appState.currentModel;
                 
-                // 🌟 寫入 GPS 座標記憶 (PPT 製作時跳過，避免 AI 誤解為需要定位資訊)
+                // 🌟 PPT 意圖偵測（優先攔截，避免後面的 GPS / 地點邏輯干擾）
                 const _isPPTIntent = text.includes("簡報") || text.includes("PPT") || text.includes("ppt") || text.includes("Ppt");
+
+                // 🌟 寫入 GPS 座標記憶 (PPT 製作時跳過，避免 AI 誤解為需要定位資訊)
                 if (appState.lastLat && appState.lastLon && !_isPPTIntent) {
                     injectedContext += `\n【系統真實數據】使用者目前的 GPS 座標為：緯度 ${appState.lastLat}, 經度 ${appState.lastLon}。若使用者問及「我在哪」、「我的位置」或「座標」，請務必直接提供此精確數據給使用者。\n`;
                 }
 
                 // 🌟 擴充關鍵字：把「位置」、「座標」、「定位」加進去
-                let enableSearchTool = appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位|查尋|尋找|離我|幫我找/.test(text);
+                let enableSearchTool = !_isPPTIntent && (appState.isSearchEnabled || appState.deepDiveMode || /附近|最近|在哪|地點|地址|導航|怎麼走|距離|位置|座標|定位|查尋|尋找|離我|幫我找/.test(text));
                 
-                // --- 2. 判斷是否為地點搜尋或導航意圖 ---
-                const isLocationIntent = /附近|最近|導航|帶我|怎麼走|路線|距離|位置|座標|定位|離我|查尋|尋找/.test(text) || /幫我找.{0,10}(?:店|餐廳|咖啡|超商|醫院|學校|公園|銀行|加油|藥局|便利)/.test(text);
+                // --- 2. 判斷是否為地點搜尋或導航意圖 (PPT 時強制跳過) ---
+                const isLocationIntent = !_isPPTIntent && (/附近|最近|導航|帶我|怎麼走|路線|距離|位置|座標|定位|離我|查尋|尋找/.test(text) || /幫我找.{0,10}(?:店|餐廳|咖啡|超商|醫院|學校|公園|銀行|加油|藥局|便利)/.test(text));
                 
                 // 🌟 攔截歷史紀錄中最後一筆（使用者剛輸入的訊息）
                 let originalUserMessage = "";
@@ -7575,25 +7890,104 @@ if (t.repeatInterval && t.repeatInterval > 0) { t.alertTime += t.repeatInterval;
                         // 判斷任務類型：自動化任務 vs 一般鬧鐘
                         if ((t.isAutoTask && t.taskQuery) || (t.isAutoSearch && t.searchQuery)) {
                             const query = t.taskQuery || t.searchQuery;
-                        addMessage(`🔄 [排程任務觸發] 正在為您執行：${query}...`, 'system');
-                        try {
-                            const _imgTestR = (s) => /(畫|生成|產生|製作|幫我畫|幫你畫|create|make|draw|generate).{0,200}(圖片|照片|圖像|picture|image|impage|photo)|(圖片|照片|圖像|picture|image|impage|photo).{0,50}(生成|產生|製作|畫出)/i.test(s);
-                            const isImageIntent = _imgTestR(query.trim());
-                            let prompt = query;
-                            
-                            // 針對舊版資料相容，或者純文字找資料意圖強化搜尋提示
-                            if (!isImageIntent && t.isAutoSearch) {
-                                prompt = `請連網搜尋最新資訊：「${query}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
-                            }
-                            
-                            let res = await fetchAIResponse(prompt, appState.currentModel, { enableSearch: !isImageIntent });
-                                let finalOutputText = typeof res === 'string' ? res : (res.text || "(無文字)");
-                                
-                                if (finalOutputText && finalOutputText !== "(無文字)") {
-                                    addMessage(`📊 **排程任務結果 [${query}]**\n\n${finalOutputText}`, 'ai', appState.currentModel, res.sources || [], res.file || null);
-                                    if(appState.autoTTS) speakText(`排程任務執行完畢：${query}`);
+                            const taskType = t.taskType || 'general'; // 'image' | 'search' | 'general'
+                            addMessage(`🔄 [排程任務觸發] 正在為您執行：${query}…`, 'system');
+                            try {
+                                if (taskType === 'image') {
+                                    // ── 生成圖片：依序嘗試正確的圖像 API ─────────────────────
+                                    // 順序：Grok Image Pro → Grok Image → Gemini 2.5 Flash-Image → Gemini 3.1 Flash-Image
+                                    addMessage(`🎨 排程任務「${query}」：呼叫 AI 圖像生成…`, 'system');
+                                    const GROK_PROXY = 'https://grokcaller.kirishimatoka00.workers.dev/';
+                                    const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
+                                    let imgDataUrl = null;
+
+                                    // 1️⃣ Grok Image Pro → Grok Image（透過 proxy）
+                                    const grokKey = appState.keys.grok;
+                                    if (!imgDataUrl && grokKey) {
+                                        for (const grokModel of ['grok-imagine-image-pro', 'grok-imagine-image']) {
+                                            try {
+                                                const r = await Promise.race([
+                                                    fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
+                                                        method: 'POST',
+                                                        headers: { 'Authorization': `Bearer ${grokKey}`, 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ model: grokModel, prompt: query, response_format: 'b64_json' })
+                                                    }),
+                                                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
+                                                ]);
+                                                if (r.ok) {
+                                                    const d = await r.json();
+                                                    const item = d.data?.[0];
+                                                    if (item) {
+                                                        imgDataUrl = item.b64_json ? `data:image/png;base64,${item.b64_json}` : item.url;
+                                                        if (imgDataUrl) { console.log(`[排程圖片] ${grokModel} 成功`); break; }
+                                                    }
+                                                }
+                                            } catch(e) { console.warn(`[排程圖片] ${grokModel} 失敗:`, e.message); }
+                                        }
+                                    }
+
+                                    // 2️⃣ Gemini 2.5 Flash-Image
+                                    const gemKey = appState.keys.gemini;
+                                    if (!imgDataUrl && gemKey) {
+                                        const gemModels = [
+                                            { name: 'gemini-2.5-flash-image',        ver: 'v1beta' },
+                                            { name: 'gemini-3.1-flash-image-preview', ver: 'v1alpha' },
+                                        ];
+                                        for (const { name: mName, ver } of gemModels) {
+                                            try {
+                                                const r = await Promise.race([
+                                                    fetch(`https://generativelanguage.googleapis.com/${ver}/models/${mName}:generateContent?key=${gemKey}`, {
+                                                        method: 'POST',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({
+                                                            contents: [{ role: 'user', parts: [{ text: query }] }],
+                                                            generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+                                                        })
+                                                    }),
+                                                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 30000))
+                                                ]);
+                                                if (r.ok) {
+                                                    const d = await r.json();
+                                                    const imgPart = d.candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+                                                    if (imgPart?.inlineData?.data) {
+                                                        imgDataUrl = `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+                                                        console.log(`[排程圖片] ${mName} 成功`); break;
+                                                    }
+                                                }
+                                            } catch(e) { console.warn(`[排程圖片] ${mName} 失敗:`, e.message); }
+                                        }
+                                    }
+
+                                    if (imgDataUrl) {
+                                        const imgFileObj = { category: 'image', data: imgDataUrl, name: `schedule_image_${Date.now()}.png` };
+                                        addMessage(`🖼️ **排程圖片生成完成 [${query}]**`, 'ai', 'gemini', [], imgFileObj);
+                                        if(appState.autoTTS) speakText(`排程圖片任務完成：${query}`);
+                                    } else {
+                                        addMessage(`⚠️ 排程圖片任務 [${query}] 失敗：所有圖像 API（Grok Image Pro / Grok Image / Gemini 2.5 Flash-Image / Gemini 3.1 Flash-Image）均無法回傳圖片，請確認 API Key 設定。`, 'system');
+                                    }
+
+                                } else if (taskType === 'search') {
+                                    // ── 聯網查詢：強制啟用搜尋工具 ──────────────────────────
+                                    const searchPrompt = `請連網搜尋最新資訊：「${query}」，並根據搜尋結果，為我整理一份簡潔的重點回報。`;
+                                    let res = await fetchAIResponse(searchPrompt, appState.currentModel, { enableSearch: true });
+                                    let finalOutputText = typeof res === 'string' ? res : (res.text || '(無文字)');
+                                    if (finalOutputText && finalOutputText !== '(無文字)') {
+                                        addMessage(`📊 **排程聯網查詢結果 [${query}]**\n\n${finalOutputText}`, 'ai', appState.currentModel, res.sources || [], res.file || null);
+                                        if(appState.autoTTS) speakText(`排程聯網查詢完畢：${query}`);
+                                    } else {
+                                        addMessage(`⚠️ 排程聯網查詢 [${query}] 失敗：無法取得有效回覆。`, 'system');
+                                    }
+
                                 } else {
-                                    addMessage(`⚠️ 排程任務 [${query}] 失敗：無法取得有效回覆。`, 'system');
+                                    // ── 一般任務：直接由文字 LLM 處理 ───────────────────────
+                                    let res = await fetchAIResponse(query, appState.currentModel, { enableSearch: false });
+                                    let finalOutputText = typeof res === 'string' ? res : (res.text || '(無文字)');
+                                    if (finalOutputText && finalOutputText !== '(無文字)') {
+                                        addMessage(`📊 **排程任務結果 [${query}]**\n\n${finalOutputText}`, 'ai', appState.currentModel, res.sources || [], res.file || null);
+                                        if(appState.autoTTS) speakText(`排程任務執行完畢：${query}`);
+                                    } else {
+                                        addMessage(`⚠️ 排程任務 [${query}] 失敗：無法取得有效回覆。`, 'system');
+                                    }
                                 }
                             } catch (e) {
                                 addMessage(`⚠️ 排程任務異常：${e.message}`, 'system');
