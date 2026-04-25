@@ -5405,7 +5405,11 @@ try {
                 if (isMeetingSplit) {
                     startMeetingRecording(continuationCtx);
                 } else {
-                    startAudioRecordOnly();
+                    // 直接恢復原本的 context（'note' 或 'record'），不呼叫 startAudioRecordOnly()
+                    // 因為 startAudioRecordOnly() 會強制把 context 改成 'record'
+                    appState.recordingContext = continuationCtx;
+                    appState.currentAudioTranscript = "";
+                    startAudioRecording();
                 }
 
                 // 背景處理舊段（不阻塞新段錄音）
