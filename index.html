@@ -3235,25 +3235,52 @@ handleSendMessage(); }
                 if (audioArea && audioPlayer && audioActions) {
                     if (n.type === 'audio') {
                         audioArea.classList.remove('hidden');
-                        // 載入主段音訊
-                        loadAudioBlob(n.id).then(blob => {
-                            if (blob) {
-                                const url = URL.createObjectURL(blob);
-                                audioPlayer.src = url;
-                            }
-                        });
-                        // 操作按鈕：下載 weba / 下載 MP3 / AI 分析
+
+                        // 找出同群組所有段，按時間排序
                         const noteGid = n.groupId || n.id;
-                        const noteSegs = appState.notes.filter(x => (x.groupId || x.id) === noteGid && x.type === 'audio').sort((a,b) => a.id - b.id);
-                        const segLabel = noteSegs.length > 1 ? `（共 ${noteSegs.length} 段）` : '';
+                        const noteSegs = appState.notes
+                            .filter(x => (x.groupId || x.id) === noteGid && x.type === 'audio')
+                            .sort((a, b) => a.id - b.id);
+
+                        // 動態替換播放器區為多段列表
+                        const playersContainer = audioArea.querySelector('.modal-audio-players') || (() => {
+                            const div = document.createElement('div');
+                            div.className = 'modal-audio-players space-y-1 mb-2';
+                            audioPlayer.parentNode.insertBefore(div, audioPlayer);
+                            audioPlayer.style.display = 'none'; // 隱藏原本的單一播放器
+                            return div;
+                        })();
+
+                        // 清除舊播放器並建立新的
+                        playersContainer.innerHTML = noteSegs.map((seg, i) => `
+                            <div class="flex items-center gap-2">
+                                ${noteSegs.length > 1 ? `<span class="text-[10px] text-purple-300 shrink-0 w-10 font-bold">第${i+1}段</span>` : ''}
+                                <audio id="modal-audio-${seg.id}" controls class="flex-1 h-9 rounded-lg bg-slate-900 shadow-inner min-w-0"></audio>
+                                ${seg.duration ? `<span class="text-[10px] text-slate-600 shrink-0">${Math.floor(seg.duration/60)}m${seg.duration%60}s</span>` : ''}
+                            </div>`).join('');
+
+                        // 異步載入每段的 Blob URL
+                        noteSegs.forEach(async (seg) => {
+                            const el = document.getElementById(`modal-audio-${seg.id}`);
+                            if (!el) return;
+                            let blob = await loadAudioBlob(seg.id);
+                            if (!blob && seg.audioData) blob = base64ToBlob(seg.audioData);
+                            if (blob) el.src = URL.createObjectURL(blob);
+                        });
+
+                        // 操作按鈕
+                        const aiLabel = noteSegs.length > 1 ? `AI 分析 (全 ${noteSegs.length} 段)` : 'AI 分析';
                         audioActions.innerHTML = `
                             <button onclick="downloadLocalAudio('${n.id}', 'note')" class="flex items-center gap-1 text-xs bg-slate-700 hover:bg-slate-600 text-slate-300 border border-slate-600 px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-download-simple"></i> weba</button>
                             <button onclick="downloadLocalAudioMp3('${n.id}', 'note')" class="flex items-center gap-1 text-xs bg-slate-700 hover:bg-slate-600 text-green-300 border border-green-700/50 px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-file-audio"></i> MP3</button>
-                            <button onclick="closeNoteEdit(); summarizeVoiceNote('${n.id}');" class="flex items-center gap-1 text-xs bg-purple-700 hover:bg-purple-600 text-white px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-sparkle"></i> AI 分析${segLabel}</button>`;
+                            <button onclick="closeNoteEdit(); summarizeVoiceNote('${n.id}');" class="flex items-center gap-1 text-xs bg-purple-700 hover:bg-purple-600 text-white px-3 py-1.5 rounded-lg transition-colors"><i class="ph-bold ph-sparkle"></i> ${aiLabel}</button>`;
                     } else {
                         audioArea.classList.add('hidden');
+                        audioPlayer.style.display = '';
                         audioPlayer.src = '';
                         audioActions.innerHTML = '';
+                        const old = audioArea.querySelector('.modal-audio-players');
+                        if (old) old.innerHTML = '';
                     }
                 }
                 
@@ -5458,7 +5485,8 @@ try {
 
             cancelAutoSplit();         // 取消自動分切計時器
             appState.isAutoSplitting = false; // 確保不會自動重啟
-            appState.recGroupId = null;       // 結束群組
+            // ⚠️ 注意：不在這裡清除 recGroupId，讓最後一段也能取得正確 groupId
+            // recGroupId 會在 uploadAudioRecording 完成後於 appState.recGroupId = null 被清除
             // 清除會議串流快取（手動停止才清，自動分切不清）
             appState._meetingMicStream = null;
             appState._meetingSysStream = null;
