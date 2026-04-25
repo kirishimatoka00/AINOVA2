@@ -112,6 +112,21 @@
         audio::-webkit-media-controls-panel { background-color: #1e293b; color: #fff; }
         audio::-webkit-media-controls-current-time-display, audio::-webkit-media-controls-time-remaining-display { color: #fff; }
 
+        /* 手機筆記編輯：讓 modal 隨鍵盤高度動態縮小，避免被遮蓋 */
+        @media (max-width: 767px) {
+            #note-edit-modal > div,
+            #note-modal > div {
+                height: 100dvh;
+                max-height: 100dvh;
+            }
+            /* 確保內容可捲動，讓使用者能看到被鍵盤遮住的部分 */
+            #note-edit-modal .flex-1,
+            #note-modal .space-y-4 {
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+        }
+
         .note-html-content, .note-html-content * { color: inherit !important; background-color: transparent !important; font-family: inherit !important; }
         .note-html-content img { max-width: 100%; height: auto; border-radius: 0.5rem; margin: 0.5rem 0; background-color: #f8fafc; }
         .note-html-content a { color: #60a5fa !important; text-decoration: underline !important; }
@@ -534,8 +549,8 @@
                 </div>
             </div>
 
-<div id="note-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
-                <div class="bg-slate-900 border border-slate-700 rounded-2xl p-6 w-full max-w-lg shadow-2xl flex-col max-h-[90vh]">
+<div id="note-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-start justify-center p-0 md:p-4 md:items-center">
+                <div class="bg-slate-900 border border-slate-700 md:rounded-2xl p-5 w-full md:max-w-lg shadow-2xl flex-col md:max-h-[90vh] h-full md:h-auto" style="padding-top: max(env(safe-area-inset-top), 1rem)">
                     <div class="flex justify-between items-center mb-4 shrink-0">
                         <h3 class="text-xl font-bold text-white"><i class="ph-bold ph-pencil-simple text-emerald-400 mr-2"></i>編輯圖文筆記</h3>
                         <button onclick="closeNoteModal()" class="text-slate-400 hover:text-white"><i class="ph-bold ph-x text-xl"></i></button>
@@ -1057,8 +1072,8 @@
             </div>
 
             <!-- ================= 富文本筆記劇院級編輯器彈窗 (Note Edit/View Modal) ================= -->
-            <div id="note-edit-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-2 md:p-6">
-                <div class="bg-slate-900 border border-slate-700 rounded-2xl p-4 md:p-6 w-[98vw] md:w-[85vw] max-w-7xl shadow-2xl flex flex-col h-[80vh] md:h-[75vh]">
+            <div id="note-edit-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-start justify-center p-0 md:p-6 md:items-center">
+                <div class="bg-slate-900 border border-slate-700 md:rounded-2xl p-4 md:p-6 w-full md:w-[85vw] max-w-7xl shadow-2xl flex flex-col h-full md:h-[90vh] pt-safe" style="padding-top: max(env(safe-area-inset-top), 0.5rem)">
                     <div class="flex justify-between items-center mb-4 shrink-0">
                         <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-bold ph-corners-out text-emerald-400"></i> <span id="note-modal-title-text">檢視與編輯筆記</span></h3>
                         <button onclick="closeNoteEdit()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg"><i class="ph-bold ph-x text-xl"></i></button>
@@ -5863,83 +5878,51 @@ try {
                     addMessage(`✅ 完整逐字稿與 AI 摘要已儲存至錄音紀錄「${rec.title}」。`, 'system');
                 }
 
-                // 6. 合併所有分段音訊，並新增「AI分析結果」項目
+                // 6. 合併所有分段音訊（直接 Blob concat，保留原始 weba 格式），新增「AI分析結果」項目
                 addMessage(`🔗 正在合併所有分段音訊為完整錄音…`, 'system');
                 try {
-                    // 收集所有 AudioBuffer
-                    const allBuffers = [];
+                    // 直接收集各段原始 Blob，用 Blob concat 合併（保留 weba/webm 格式）
+                    const allBlobs = [];
+                    let totalDurationSecs = 0;
+                    let mergedMimeType = 'audio/webm';
                     for (const seg of groupRecords) {
                         let blob = await loadAudioBlob(seg.id);
                         if (!blob && seg.audioData) blob = base64ToBlob(seg.audioData);
                         if (!blob) continue;
-                        try {
-                            const ab = await blob.arrayBuffer();
-                            const actx = new (window.AudioContext || window.webkitAudioContext)();
-                            const buf = await actx.decodeAudioData(ab);
-                            actx.close();
-                            allBuffers.push(buf);
-                        } catch(e) { /* skip failed segment */ }
+                        allBlobs.push(blob);
+                        totalDurationSecs += seg.duration || 0;
+                        if (seg.mimeType) mergedMimeType = seg.mimeType;
                     }
 
-                    let mergedWavBlob = null;
-                    if (allBuffers.length > 0) {
-                        // 找出最大聲道數與最高採樣率
-                        const maxCh = Math.max(...allBuffers.map(b => b.numberOfChannels));
-                        const maxSr = Math.max(...allBuffers.map(b => b.sampleRate));
-                        const totalFrames = allBuffers.reduce((s, b) => {
-                            // 若採樣率不同，先估算重採樣後長度
-                            return s + Math.round(b.length * maxSr / b.sampleRate);
-                        }, 0);
-                        const mergedCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: maxSr });
-                        const mergedBuffer = mergedCtx.createBuffer(maxCh, totalFrames, maxSr);
-                        let offset = 0;
-                        for (const buf of allBuffers) {
-                            const segFrames = Math.round(buf.length * maxSr / buf.sampleRate);
-                            for (let c = 0; c < maxCh; c++) {
-                                const srcCh = c < buf.numberOfChannels ? c : buf.numberOfChannels - 1;
-                                const srcData = buf.getChannelData(srcCh);
-                                const dstData = mergedBuffer.getChannelData(c);
-                                if (buf.sampleRate === maxSr) {
-                                    dstData.set(srcData, offset);
-                                } else {
-                                    // 簡單線性重採樣
-                                    const ratio = buf.sampleRate / maxSr;
-                                    for (let i = 0; i < segFrames; i++) {
-                                        const srcIdx = i * ratio;
-                                        const lo = Math.floor(srcIdx), hi = Math.min(lo + 1, srcData.length - 1);
-                                        const frac = srcIdx - lo;
-                                        dstData[offset + i] = srcData[lo] * (1 - frac) + srcData[hi] * frac;
-                                    }
-                                }
-                            }
-                            offset += segFrames;
-                        }
-                        mergedCtx.close();
-                        mergedWavBlob = audioBufferToWavBlob(mergedBuffer);
+                    let mergedBlob = null;
+                    if (allBlobs.length > 0) {
+                        // WebM/weba Blob 可直接串接
+                        mergedBlob = new Blob(allBlobs, { type: mergedMimeType });
                     }
 
                     // 建立新的 AI 分析結果項目
                     const nowDate = new Date();
                     const newId = Date.now() + 1;
                     const timeLabel = nowDate.toTimeString().split(' ')[0].replace(/:/g, '');
+                    const fileExt = mergedMimeType.includes('mp4') ? '.m4a' : '.weba';
                     const baseTitle = rec ? rec.title.replace(/ \(第.*?段\)/, '').replace(/錄音紀錄 /, '') : timeLabel;
                     const newTitle = `【AI分析】${baseTitle}${segCount > 1 ? `（合併${segCount}段）` : ''}`;
                     const newRecord = {
                         id: newId,
                         title: newTitle,
                         date: nowDate.toLocaleString(),
-                        filename: `NOVA_AI_Analysis_${timeLabel}.wav`,
+                        filename: `NOVA_AI_Analysis_${timeLabel}${fileExt}`,
                         driveUrl: '',
                         transcript: fullTranscript,
                         aiSummary: summaryText,
-                        mimeType: 'audio/wav',
-                        duration: allBuffers.reduce((s, b) => s + Math.round(b.duration), 0),
+                        mimeType: mergedMimeType,
+                        duration: totalDurationSecs,
                         groupId: newId,
                         isAiAnalysisResult: true
                     };
 
-                    if (mergedWavBlob) {
-                        await saveAudioBlob(newId, mergedWavBlob);
+                    if (mergedBlob) {
+                        await saveAudioBlob(newId, mergedBlob);
                     }
 
                     appState.audioRecords.unshift(newRecord);
@@ -5970,7 +5953,7 @@ try {
                     saveToDB('notes', newNote);
                     renderNotes();
 
-                    addMessage(`✅ **AI 分析完成！** 已自動新增「${newTitle}」至「錄音紀錄」與「筆記/文件」分頁，${mergedWavBlob ? '並附上完整合併錄音。' : '（音訊合併失敗，僅儲存逐字稿與摘要）'}`, 'system');
+                    addMessage(`✅ **AI 分析完成！** 已自動新增「${newTitle}」至「錄音紀錄」與「筆記/文件」分頁，${mergedBlob ? `並附上完整合併錄音（${fileExt}）。` : '（音訊合併失敗，僅儲存逐字稿與摘要）'}`, 'system');
                 } catch(e) {
                     addMessage(`⚠️ 建立 AI 分析結果項目時發生錯誤：${e.message}`, 'system');
                 }
@@ -6113,58 +6096,30 @@ try {
                     addMessage(`✅ 完整逐字稿與 AI 摘要已儲存至筆記「${targetNote.title}」（筆記/文件分頁）。`, 'system');
                 }
 
-                // 6. 合併所有分段音訊，新增「AI分析結果」筆記項目（含合併錄音）
+                // 6. 合併所有分段音訊（直接 Blob concat，保留原始 weba 格式），新增「AI分析結果」項目
                 addMessage(`🔗 正在合併所有分段音訊為完整錄音…`, 'system');
                 try {
-                    const allBuffers = [];
+                    const allBlobs = [];
+                    let totalDurationSecs = 0;
+                    let mergedMimeType = 'audio/webm';
                     for (const seg of groupNotes) {
                         let blob = await loadAudioBlob(seg.id);
                         if (!blob && seg.audioData) blob = base64ToBlob(seg.audioData);
                         if (!blob) continue;
-                        try {
-                            const ab = await blob.arrayBuffer();
-                            const actx = new (window.AudioContext || window.webkitAudioContext)();
-                            const buf = await actx.decodeAudioData(ab);
-                            actx.close();
-                            allBuffers.push(buf);
-                        } catch(e) { /* skip */ }
+                        allBlobs.push(blob);
+                        totalDurationSecs += seg.duration || 0;
+                        if (seg.mimeType) mergedMimeType = seg.mimeType;
                     }
 
-                    let mergedWavBlob = null;
-                    if (allBuffers.length > 0) {
-                        const maxCh = Math.max(...allBuffers.map(b => b.numberOfChannels));
-                        const maxSr = Math.max(...allBuffers.map(b => b.sampleRate));
-                        const totalFrames = allBuffers.reduce((s, b) => s + Math.round(b.length * maxSr / b.sampleRate), 0);
-                        const mergedCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: maxSr });
-                        const mergedBuffer = mergedCtx.createBuffer(maxCh, totalFrames, maxSr);
-                        let offset = 0;
-                        for (const buf of allBuffers) {
-                            const segFrames = Math.round(buf.length * maxSr / buf.sampleRate);
-                            for (let c = 0; c < maxCh; c++) {
-                                const srcCh = c < buf.numberOfChannels ? c : buf.numberOfChannels - 1;
-                                const srcData = buf.getChannelData(srcCh);
-                                const dstData = mergedBuffer.getChannelData(c);
-                                if (buf.sampleRate === maxSr) {
-                                    dstData.set(srcData, offset);
-                                } else {
-                                    const ratio = buf.sampleRate / maxSr;
-                                    for (let i = 0; i < segFrames; i++) {
-                                        const srcIdx = i * ratio;
-                                        const lo = Math.floor(srcIdx), hi = Math.min(lo + 1, srcData.length - 1);
-                                        const frac = srcIdx - lo;
-                                        dstData[offset + i] = srcData[lo] * (1 - frac) + srcData[hi] * frac;
-                                    }
-                                }
-                            }
-                            offset += segFrames;
-                        }
-                        mergedCtx.close();
-                        mergedWavBlob = audioBufferToWavBlob(mergedBuffer);
+                    let mergedBlob = null;
+                    if (allBlobs.length > 0) {
+                        mergedBlob = new Blob(allBlobs, { type: mergedMimeType });
                     }
 
                     const nowDate = new Date();
                     const newId = Date.now() + 2;
                     const timeLabel = nowDate.toTimeString().split(' ')[0].replace(/:/g, '');
+                    const fileExt = mergedMimeType.includes('mp4') ? '.m4a' : '.weba';
                     const baseTitle = (targetNote ? targetNote.title : n.title).replace(/ \(第.*?段\)/, '').replace(/語音筆記 /, '');
                     const newTitle = `【AI分析】${baseTitle}${segCount > 1 ? `（合併${segCount}段）` : ''}`;
                     const analysisContent = `【AI 深度分析報告】${segCount > 1 ? `（合併 ${segCount} 個分段）` : ''}\n\n` +
@@ -6179,18 +6134,18 @@ try {
                         title: newTitle,
                         content: analysisContent,
                         date: nowDate.toLocaleString(),
-                        type: mergedWavBlob ? 'audio' : 'ai_analysis',
+                        type: mergedBlob ? 'audio' : 'ai_analysis',
                         transcript: fullTranscript,
                         aiSummary: summaryText,
-                        mimeType: 'audio/wav',
-                        filename: `NOVA_AI_Analysis_${timeLabel}.wav`,
+                        mimeType: mergedMimeType,
+                        filename: `NOVA_AI_Analysis_${timeLabel}${fileExt}`,
                         images: [], image: null,
                         folder: '未分類', driveUrl: '',
-                        duration: allBuffers.reduce((s, b) => s + Math.round(b.duration), 0),
+                        duration: totalDurationSecs,
                         groupId: newNoteId,
                         isAiAnalysisResult: true
                     };
-                    if (mergedWavBlob) await saveAudioBlob(newNoteId, mergedWavBlob);
+                    if (mergedBlob) await saveAudioBlob(newNoteId, mergedBlob);
                     appState.notes.unshift(newNote);
                     saveToDB('notes', newNote);
 
@@ -6200,20 +6155,20 @@ try {
                         id: newRecordId,
                         title: newTitle,
                         date: nowDate.toLocaleString(),
-                        filename: `NOVA_AI_Analysis_${timeLabel}.wav`,
+                        filename: `NOVA_AI_Analysis_${timeLabel}${fileExt}`,
                         driveUrl: '', transcript: fullTranscript, aiSummary: summaryText,
-                        mimeType: 'audio/wav',
-                        duration: allBuffers.reduce((s, b) => s + Math.round(b.duration), 0),
+                        mimeType: mergedMimeType,
+                        duration: totalDurationSecs,
                         groupId: newRecordId,
                         isAiAnalysisResult: true
                     };
-                    if (mergedWavBlob) await saveAudioBlob(newRecordId, mergedWavBlob);
+                    if (mergedBlob) await saveAudioBlob(newRecordId, mergedBlob);
                     appState.audioRecords.unshift(newRecord);
                     saveToDB('audioRecords', newRecord);
 
                     renderNotes();
                     renderAudioRecords();
-                    addMessage(`✅ **AI 分析完成！** 已自動新增「${newTitle}」至「筆記/文件」與「錄音紀錄」分頁，${mergedWavBlob ? '並附上完整合併錄音。' : '（音訊合併失敗，僅儲存逐字稿與摘要）'}`, 'system');
+                    addMessage(`✅ **AI 分析完成！** 已自動新增「${newTitle}」至「筆記/文件」與「錄音紀錄」分頁，${mergedBlob ? `並附上完整合併錄音（${fileExt}）。` : '（音訊合併失敗，僅儲存逐字稿與摘要）'}`, 'system');
                 } catch(e) {
                     addMessage(`⚠️ 建立 AI 分析結果項目時發生錯誤：${e.message}`, 'system');
                 }
