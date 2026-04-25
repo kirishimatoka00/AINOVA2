@@ -1953,7 +1953,16 @@ return html;
                 const dirEl = document.getElementById('rec-dir-name');
                 if (splitEl) splitEl.value = appState.recSettings.autoSplitMins;
                 if (chunkEl) chunkEl.value = appState.recSettings.analysisChunkMins;
-                if (dirEl) dirEl.textContent = appState.recSettings.localSaveDirName || '尚未指定，將儲存至瀏覽器預設下載資料夾';
+                if (dirEl) {
+                    if (appState.recSettings.localSaveDirName) {
+                        const needsPerm = appState.recSettings._dirHandleNeedsPermission;
+                        dirEl.textContent = appState.recSettings.localSaveDirName + (needsPerm ? '（⚠️ 需重新授權，請重新選擇資料夾）' : '');
+                        dirEl.style.color = needsPerm ? '#f59e0b' : '';
+                    } else {
+                        dirEl.textContent = '尚未指定，將儲存至瀏覽器預設下載資料夾';
+                        dirEl.style.color = '';
+                    }
+                }
             }
         };
 
@@ -5126,12 +5135,20 @@ try {
             }
         };
 
-        window.clearRecordingDirectory = function() {
+        window.clearRecordingDirectory = async function() {
             appState.recSettings.localDirHandle = null;
             appState.recSettings.localSaveDirName = '';
+            appState.recSettings._dirHandleNeedsPermission = false;
             localStorage.removeItem('nova_rec_dir_name');
+            // 同步清除 IndexedDB 中的 handle
+            try {
+                if (db) {
+                    const tx = db.transaction('audioBlobs', 'readwrite');
+                    tx.objectStore('audioBlobs').delete('__dir_handle__');
+                }
+            } catch(e) {}
             const el = document.getElementById('rec-dir-name');
-            if (el) el.textContent = '尚未指定，將儲存至瀏覽器預設下載資料夾';
+            if (el) { el.textContent = '尚未指定，將儲存至瀏覽器預設下載資料夾'; el.style.color = ''; }
             showToast('🗑️ 已清除本地儲存位置指定');
         };
 
@@ -5164,10 +5181,22 @@ try {
             const dirHandle = appState.recSettings.localDirHandle;
             if (!dirHandle) return false;
             try {
-                const perm = await dirHandle.queryPermission({ mode: 'readwrite' });
+                let perm = await dirHandle.queryPermission({ mode: 'readwrite' });
                 if (perm !== 'granted') {
-                    const req = await dirHandle.requestPermission({ mode: 'readwrite' });
-                    if (req !== 'granted') { showToast('⚠️ 無法取得資料夾寫入權限'); return false; }
+                    // 嘗試重新申請（瀏覽器重啟後通常需要一次使用者手勢觸發）
+                    try {
+                        const req = await dirHandle.requestPermission({ mode: 'readwrite' });
+                        if (req !== 'granted') {
+                            showToast(`⚠️ 本地存檔路徑「${dirHandle.name}」需重新授權，請至設定頁重新選擇資料夾`);
+                            appState.recSettings._dirHandleNeedsPermission = false;
+                            return false;
+                        }
+                        appState.recSettings._dirHandleNeedsPermission = false;
+                        showToast(`✅ 已重新取得「${dirHandle.name}」的寫入權限`);
+                    } catch(permErr) {
+                        showToast(`⚠️ 無法取得資料夾「${dirHandle.name}」的寫入權限，請至設定頁重新選擇`);
+                        return false;
+                    }
                 }
                 const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
                 const writable = await fileHandle.createWritable();
@@ -5176,6 +5205,9 @@ try {
                 return true;
             } catch(e) {
                 console.warn('saveAudioToLocalDir 失敗:', e);
+                if (e.name === 'NotAllowedError') {
+                    showToast(`⚠️ 本地存檔需授權：請點擊設定頁的「選擇資料夾」重新授權`);
+                }
                 return false;
             }
         }
@@ -5439,11 +5471,13 @@ try {
             }
 
             // ── 正常停止：同步處理 ──────────────────────────────────────────
+            // 若 recGroupId 已存在（代表之前有自動分切），最後一段也視為分段
+            const isLastSegment = !!(appState.recGroupId);
             const chunks = [...audioChunks];
             audioChunks = [];
             await processAndSaveAudioSegment(chunks,
                 (mediaRecorder && mediaRecorder.mimeType) ? mediaRecorder.mimeType : 'audio/webm',
-                appState.recordingStartTime, continuationCtx, false);
+                appState.recordingStartTime, continuationCtx, isLastSegment);
 
             appState.recGroupId = null;
             appState.recordingContext = 'default';
@@ -8051,6 +8085,34 @@ if (appState.pendingAnalyzeContextId) {
                 migrateLS('nova_todos', 'todos', appState.todos);
                 migrateLS('nova_audio_records', 'audioRecords', appState.audioRecords);
             } catch (err) { console.error("IndexedDB 初始化失敗", err); }
+
+            // ── 恢復本地錄音存檔路徑（重啟後自動恢復 FileSystemDirectoryHandle）──
+            try {
+                const savedDirName = localStorage.getItem('nova_rec_dir_name');
+                if (savedDirName) {
+                    const handle = await loadDirHandleFromDB();
+                    if (handle) {
+                        appState.recSettings.localDirHandle = handle;
+                        appState.recSettings.localSaveDirName = handle.name;
+                        // 嘗試靜默查詢現有權限（不彈出）
+                        try {
+                            const perm = await handle.queryPermission({ mode: 'readwrite' });
+                            if (perm === 'granted') {
+                                // 已有權限，直接使用
+                                console.log('[錄音路徑] 已自動恢復：', handle.name);
+                            } else {
+                                // 標記需要在第一次錄音時重新申請
+                                appState.recSettings._dirHandleNeedsPermission = true;
+                            }
+                        } catch(e) {
+                            appState.recSettings._dirHandleNeedsPermission = true;
+                        }
+                        // 更新設定UI（如果設定頁已開啟）
+                        const dirEl = document.getElementById('rec-dir-name');
+                        if (dirEl) dirEl.textContent = handle.name;
+                    }
+                }
+            } catch(e) { console.warn('[錄音路徑] 恢復失敗:', e); }
 
             if(appState.messages.length === 0) {
                 const welcomeMsg = { 
