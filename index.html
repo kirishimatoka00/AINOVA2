@@ -20,9 +20,8 @@
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1500.0.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.all.min.js"></script>
-    <!-- FFmpeg.wasm — 用於無損合併多段 weba/webm 音訊 -->
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+    <!-- FFmpeg.wasm 0.11 — 無需 SharedArrayBuffer，相容所有環境 -->
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <!-- 引入 Google 字體 Inter -->
     <script src="./telegram.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -282,6 +281,14 @@
                                 <div>
                                     <label class="block text-xs text-red-300 mb-1 font-bold"><i class="ph-fill ph-upload"></i> Google Drive 上傳 URL</label>
                                     <input type="text" id="key-drive-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-red-500 outline-none" placeholder="(選填) 雲端備份 Apps Script URL">
+                                </div>
+                                <!-- 自動存檔資料夾（File System Access API） -->
+                                <div class="bg-slate-800/60 border border-emerald-700/40 rounded-xl p-3">
+                                    <p class="text-xs text-emerald-300 font-bold mb-1 flex items-center gap-1"><i class="ph-fill ph-folder-open"></i> 本機自動存檔資料夾</p>
+                                    <p class="text-[10px] text-slate-400 mb-2">設定後，所有下載（weba / MP3）將自動靜默寫入該資料夾，<br>不再每次跳出存檔對話框。<span id="auto-save-dir-name" class="text-emerald-400 font-bold ml-1"></span></p>
+                                    <button onclick="setupAutoSaveFolder()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2 active:scale-95">
+                                        <i class="ph-bold ph-folder-plus"></i> 選擇並授權存檔資料夾（一次設定，永久生效）
+                                    </button>
                                 </div>
                             </div>
                             <div class="space-y-3">
@@ -4110,8 +4117,13 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
 
             // ── 批次下載（多段群組）weba ─────────────────────────────────
             // ── FFmpeg.wasm 無損合併下載 ──────────────────────────────────
+            // ══════════════════════════════════════════════════════════════
+            // FFmpeg.wasm 0.11 引擎（無需 SharedArrayBuffer / COOP 標頭）
+            // + OPFS 自動授權儲存資料夾（File System Access API）
+            // ══════════════════════════════════════════════════════════════
+
             let _ffmpegInstance = null;
-            let _ffmpegLoading = false;
+            let _ffmpegLoading  = false;
             let _ffmpegLoadQueue = [];
 
             async function getFFmpeg() {
@@ -4121,18 +4133,23 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                 }
                 _ffmpegLoading = true;
                 try {
-                    // FFmpeg.wasm 0.12.x UMD 掛載在 window.FFmpegWASM
-                    const { FFmpeg } = window.FFmpegWASM || window;
-                    if (!FFmpeg) throw new Error('FFmpeg.wasm 未載入，請確認網路連線後重試');
-                    const ff = new FFmpeg();
-                    await ff.load({
-                        coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
-                        wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+                    // @ffmpeg/ffmpeg 0.11.x 掛載於 window.FFmpeg（全局物件）
+                    const { createFFmpeg, fetchFile: _ff } = window.FFmpeg || {};
+                    if (!createFFmpeg) throw new Error('FFmpeg.wasm 未就緒，請確認網路可連線後重試');
+
+                    const ff = createFFmpeg({
+                        log: false,
+                        corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
                     });
+                    await ff.load();
+
+                    // 掛上 fetchFile 供後續使用
+                    ff._fetchFile = _ff || window.FFmpeg?.fetchFile;
                     _ffmpegInstance = ff;
                     _ffmpegLoadQueue.forEach(q => q.res(ff));
                     return ff;
                 } catch(e) {
+                    _ffmpegInstance = null; // 失敗時清除，允許重試
                     _ffmpegLoadQueue.forEach(q => q.rej(e));
                     throw e;
                 } finally {
@@ -4141,10 +4158,146 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                 }
             }
 
+            // ── OPFS / File System Access API 自動存檔引擎 ───────────────
+            // 首次呼叫會彈一次「選擇儲存資料夾」對話框，之後自動靜默寫入
+            let _savedDirHandle = null;
+
+            async function initSaveDirectory() {
+                // 嘗試從 IndexedDB 取回上次授權的 directory handle（Chrome 允許持久化）
+                if (!_savedDirHandle) {
+                    try {
+                        _savedDirHandle = await loadDirHandleFromDB();
+                        if (_savedDirHandle) {
+                            // 驗證權限是否仍有效
+                            const perm = await _savedDirHandle.requestPermission({ mode: 'readwrite' });
+                            if (perm !== 'granted') _savedDirHandle = null;
+                        }
+                    } catch(_) { _savedDirHandle = null; }
+                }
+                return _savedDirHandle;
+            }
+
+            async function pickAndSaveDirHandle() {
+                if (!window.showDirectoryPicker) return null;
+                try {
+                    const handle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'downloads' });
+                    _savedDirHandle = handle;
+                    await saveDirHandleToDB(handle);
+                    return handle;
+                } catch(_) { return null; }
+            }
+
+            // 用 IndexedDB 持久化 FileSystemDirectoryHandle
+            const DIR_HANDLE_DB = 'nova_fs_handles';
+            const DIR_HANDLE_KEY = 'download_dir';
+
+            function openHandleDB() {
+                return new Promise((res, rej) => {
+                    const req = indexedDB.open(DIR_HANDLE_DB, 1);
+                    req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
+                    req.onsuccess = e => res(e.target.result);
+                    req.onerror   = e => rej(e.target.error);
+                });
+            }
+
+            async function saveDirHandleToDB(handle) {
+                try {
+                    const db = await openHandleDB();
+                    const tx = db.transaction('handles', 'readwrite');
+                    tx.objectStore('handles').put(handle, DIR_HANDLE_KEY);
+                    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+                } catch(_) {}
+            }
+
+            async function loadDirHandleFromDB() {
+                try {
+                    const db = await openHandleDB();
+                    const tx = db.transaction('handles', 'readonly');
+                    return await new Promise((res, rej) => {
+                        const req = tx.objectStore('handles').get(DIR_HANDLE_KEY);
+                        req.onsuccess = e => res(e.target.result || null);
+                        req.onerror   = e => rej(e.target.error);
+                    });
+                } catch(_) { return null; }
+            }
+
+            // 核心：智慧下載 — 優先寫入授權資料夾，否則彈對話框
+            async function smartDownloadBlob(blob, filename) {
+                // 1. 嘗試用已授權的資料夾靜默寫入
+                let dirHandle = await initSaveDirectory();
+                if (dirHandle) {
+                    try {
+                        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+                        const writable   = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        showToast(`✅ 已自動儲存至「${dirHandle.name}」資料夾：${filename}`);
+                        return;
+                    } catch(e) {
+                        // 權限失效 → 清除快取，下方降級處理
+                        _savedDirHandle = null;
+                        console.warn('smartDownload write failed:', e);
+                    }
+                }
+
+                // 2. 嘗試用 File System Access API showSaveFilePicker（單次授權）
+                if (window.showSaveFilePicker) {
+                    try {
+                        const ext = filename.split('.').pop();
+                        const types = ext === 'weba' || ext === 'webm'
+                            ? [{ description: 'WebM Audio', accept: { 'audio/webm': ['.weba', '.webm'] } }]
+                            : ext === 'mp3'
+                            ? [{ description: 'MP3 Audio', accept: { 'audio/mpeg': ['.mp3'] } }]
+                            : [{ description: '檔案', accept: { 'application/octet-stream': ['.' + ext] } }];
+                        const fh = await window.showSaveFilePicker({ suggestedName: filename, types });
+                        const writable = await fh.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        showToast(`✅ 已儲存：${filename}`);
+                        return;
+                    } catch(e) {
+                        if (e.name === 'AbortError') return; // 使用者取消，不繼續
+                    }
+                }
+
+                // 3. 傳統 <a> 下載（最終降級）
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = filename; a.style.display = 'none';
+                document.body.appendChild(a); a.click();
+                await new Promise(r => setTimeout(r, 800));
+                document.body.removeChild(a); URL.revokeObjectURL(url);
+            }
+
+            // 設定一次性下載資料夾（可從設定頁呼叫）
+            window.setupAutoSaveFolder = async function() {
+                showToast('📂 請選擇要自動儲存的資料夾…');
+                const handle = await pickAndSaveDirHandle();
+                if (handle) {
+                    showToast(`✅ 已設定自動存檔資料夾：「${handle.name}」，之後下載將直接靜默寫入！`);
+                    const nameEl = document.getElementById('auto-save-dir-name');
+                    if (nameEl) nameEl.textContent = `（已授權：${handle.name}）`;
+                } else {
+                    showToast('⚠️ 已取消，仍使用傳統下載對話框');
+                }
+            };
+
+            // 啟動時自動嘗試恢復資料夾授權並更新 UI（無聲無息）
+            (async () => {
+                try {
+                    const h = await initSaveDirectory();
+                    if (h) {
+                        const nameEl = document.getElementById('auto-save-dir-name');
+                        if (nameEl) nameEl.textContent = `（已授權：${h.name}）`;
+                    }
+                } catch(_) {}
+            })();
+
+            // ── 批次下載 weba（多段群組，FFmpeg 無損合併）────────────────
             window.batchDownloadWeba = async function(groupIds, type) {
                 const ids = Array.isArray(groupIds) ? groupIds : [groupIds];
 
-                // ── 單段：直接下載，不需 FFmpeg ──────────────────────────
+                // ── 單段：直接智慧下載 ────────────────────────────────────
                 if (ids.length === 1) {
                     const id = ids[0];
                     const record = type === 'record'
@@ -4155,24 +4308,18 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                     if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
                     if (!audioBlob) { showToast('⚠️ 找不到音訊資料'); return; }
                     const ext = (record.mimeType || 'audio/webm').includes('mp4') ? '.m4a' : '.weba';
-                    const safeTitle = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_');
-                    const url = URL.createObjectURL(audioBlob);
-                    const a = document.createElement('a'); a.href = url; a.download = safeTitle + ext; a.style.display = 'none';
-                    document.body.appendChild(a); a.click();
-                    await new Promise(r => setTimeout(r, 600));
-                    document.body.removeChild(a); URL.revokeObjectURL(url);
-                    showToast('✅ weba 下載完成！');
+                    const filename = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_') + ext;
+                    await smartDownloadBlob(audioBlob, filename);
                     return;
                 }
 
                 // ── 多段：FFmpeg.wasm concat 無損合併 ────────────────────
-                showToast('⏳ 正在載入 FFmpeg.wasm 引擎（首次需 10-30 秒）…');
+                showToast('⏳ 正在載入 FFmpeg.wasm（首次約 10-20 秒）…');
                 let ff;
                 try {
                     ff = await getFFmpeg();
                 } catch(e) {
-                    // FFmpeg 載入失敗 → 降級為逐段分開下載
-                    showToast('⚠️ FFmpeg 載入失敗，改為逐段分別下載…');
+                    showToast(`⚠️ FFmpeg 載入失敗（${e.message}），改為逐段分別下載…`);
                     for (let i = 0; i < ids.length; i++) {
                         const id = ids[i];
                         const record = type === 'record'
@@ -4183,24 +4330,19 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                         if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
                         if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊`); continue; }
                         const ext = (record.mimeType || 'audio/webm').includes('mp4') ? '.m4a' : '.weba';
-                        const safeTitle = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_');
-                        const url = URL.createObjectURL(audioBlob);
-                        const a = document.createElement('a'); a.href = url; a.download = safeTitle + ext; a.style.display = 'none';
-                        document.body.appendChild(a); a.click();
-                        await new Promise(r => setTimeout(r, 600));
-                        document.body.removeChild(a); URL.revokeObjectURL(url);
+                        const filename = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_') + ext;
+                        await smartDownloadBlob(audioBlob, filename);
                     }
                     showToast(`✅ ${ids.length} 段分別下載完成`);
                     return;
                 }
 
                 try {
-                    // 1. 載入每段 weba 到 FFmpeg 虛擬檔案系統
-                    const { fetchFile } = window.FFmpegUtil || {};
+                    showToast(`⏳ 正在寫入 ${ids.length} 段音訊至 FFmpeg 記憶體…`);
                     let concatList = '';
                     let firstRecord = null;
+                    let writtenCount = 0;
 
-                    showToast(`⏳ 正在寫入 ${ids.length} 段音訊至 FFmpeg 記憶體…`);
                     for (let i = 0; i < ids.length; i++) {
                         const id = ids[i];
                         const record = type === 'record'
@@ -4213,52 +4355,61 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                         if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
                         if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊，已跳過`); continue; }
 
-                        const fname = `seg_${i}.webm`;
+                        // FFmpeg 0.11 writeFile API
                         const arrayBuf = await audioBlob.arrayBuffer();
-                        await ff.writeFile(fname, new Uint8Array(arrayBuf));
+                        const fname = `seg_${i}.webm`;
+                        ff.FS('writeFile', fname, new Uint8Array(arrayBuf));
                         concatList += `file '${fname}'\n`;
+                        writtenCount++;
                     }
 
-                    if (!concatList) { showToast('⚠️ 沒有可合併的音訊段'); return; }
+                    if (writtenCount === 0) { showToast('⚠️ 沒有可合併的音訊段'); return; }
 
-                    // 2. 寫入 concat list
-                    await ff.writeFile('concat_list.txt', concatList);
+                    // 如果只有 1 段成功寫入（其他都找不到），直接下載那一段
+                    if (writtenCount === 1) {
+                        const singleData = ff.FS('readFile', 'seg_0.webm');
+                        const singleBlob = new Blob([singleData.buffer], { type: 'audio/webm' });
+                        const filename = (firstRecord?.title || 'NOVA_Audio').replace(/[\\/:*?"<>|]/g, '_') + '.weba';
+                        ff.FS('unlink', 'seg_0.webm');
+                        await smartDownloadBlob(singleBlob, filename);
+                        return;
+                    }
 
-                    // 3. 執行無損合併（-c copy = 不重新編碼，速度極快、無音質損失）
+                    // 寫入 concat list
+                    ff.FS('writeFile', 'concat_list.txt', concatList);
+
+                    // 執行無損合併（-c copy 不重新編碼，秒速完成）
                     showToast('🔗 FFmpeg 無損合併中（不重新編碼）…');
-                    await ff.exec([
+                    await ff.run(
                         '-f', 'concat',
                         '-safe', '0',
                         '-i', 'concat_list.txt',
                         '-c', 'copy',
                         'merged.webm'
-                    ]);
+                    );
 
-                    // 4. 讀出合併結果並下載
-                    const mergedData = await ff.readFile('merged.webm');
+                    // 讀出合併結果
+                    const mergedData = ff.FS('readFile', 'merged.webm');
                     const mergedBlob = new Blob([mergedData.buffer], { type: 'audio/webm' });
 
-                    const primaryRecord = firstRecord;
-                    const baseTitle = (primaryRecord?.title || 'NOVA_Merged').replace(/[\\/:*?"<>|]/g, '_');
-                    const url = URL.createObjectURL(mergedBlob);
-                    const a = document.createElement('a'); a.href = url; a.download = `${baseTitle}_merged.weba`; a.style.display = 'none';
-                    document.body.appendChild(a); a.click();
-                    await new Promise(r => setTimeout(r, 800));
-                    document.body.removeChild(a); URL.revokeObjectURL(url);
-
-                    // 5. 清理 FFmpeg 虛擬 FS
+                    // 清理 FFmpeg FS
                     for (let i = 0; i < ids.length; i++) {
-                        try { await ff.deleteFile(`seg_${i}.webm`); } catch(_) {}
+                        try { ff.FS('unlink', `seg_${i}.webm`); } catch(_) {}
                     }
-                    try { await ff.deleteFile('concat_list.txt'); } catch(_) {}
-                    try { await ff.deleteFile('merged.webm'); } catch(_) {}
+                    try { ff.FS('unlink', 'concat_list.txt'); } catch(_) {}
+                    try { ff.FS('unlink', 'merged.webm'); } catch(_) {}
 
                     const sizeMB = (mergedBlob.size / 1024 / 1024).toFixed(1);
-                    showToast(`✅ FFmpeg 無損合併完成！${ids.length} 段 → ${sizeMB} MB weba`);
+                    const baseTitle = (firstRecord?.title || 'NOVA_Merged').replace(/[\\/:*?"<>|]/g, '_');
+                    const outFilename = `${baseTitle}_merged.weba`;
+
+                    showToast(`📦 合併完成（${sizeMB} MB），準備儲存…`);
+                    await smartDownloadBlob(mergedBlob, outFilename);
+                    showToast(`✅ FFmpeg 無損合併完成！${ids.length} 段 → ${sizeMB} MB`);
 
                 } catch(ffErr) {
                     console.error('FFmpeg merge error:', ffErr);
-                    showToast(`❌ FFmpeg 合併失敗：${ffErr.message}，請改用 MP3 下載或逐段下載`);
+                    showToast(`❌ FFmpeg 合併失敗：${ffErr.message}`);
                 }
             };
 
@@ -4281,18 +4432,14 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                         const mp3Blob = await encodeMp3(audioBuffer);
                         audioCtx.close();
-                        const safeTitle = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_');
-                        const blobUrl = URL.createObjectURL(mp3Blob);
-                        const a = document.createElement('a'); a.href = blobUrl; a.download = safeTitle + '.mp3'; a.style.display = 'none';
-                        document.body.appendChild(a); a.click();
-                        await new Promise(r => setTimeout(r, 600));
-                        document.body.removeChild(a); URL.revokeObjectURL(blobUrl);
+                        const filename = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_') + '.mp3';
+                        await smartDownloadBlob(mp3Blob, filename);
                         showToast(`✅ 第 ${i+1}/${ids.length} 段 MP3 下載完成`);
                     } catch(e) {
                         showToast(`❌ 第 ${i+1} 段 MP3 轉換失敗：${e.message}`);
                     }
                 }
-                showToast(`✅ 全部 ${ids.length} 段 MP3 下載完成！`);
+                if (ids.length > 1) showToast(`✅ 全部 ${ids.length} 段 MP3 下載完成！`);
             };
 
             // ── 批次上傳 Drive（多段群組）────────────────────────────────
