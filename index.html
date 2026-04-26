@@ -20,8 +20,6 @@
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1500.0.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.all.min.js"></script>
-    <!-- FFmpeg.wasm 0.11 — 無需 SharedArrayBuffer，相容所有環境 -->
-    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
     <!-- 引入 Google 字體 Inter -->
     <script src="./telegram.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -121,21 +119,6 @@
         .note-html-content ol { list-style-type: decimal; margin-left: 1.5rem; }
         .note-html-content iframe { border-radius: 0.5rem; max-width: 100%; }
         [contenteditable]:empty:before { content: attr(placeholder); color: #64748b; pointer-events: none; display: block; }
-
-        /* ── 筆記 Modal：鍵盤防遮擋 ── */
-        #note-edit-modal {
-            /* 覆蓋 Tailwind inset-0，改由 JS 動態設置 top/height */
-            position: fixed !important;
-            left: 0 !important;
-            right: 0 !important;
-            /* top 和 height 由 visualViewport JS 動態注入 */
-        }
-        #note-edit-modal #edit-note-content {
-            /* 確保內文區在 flex 佈局下正確伸展 */
-            flex: 1 1 auto;
-            min-height: 80px;
-            -webkit-overflow-scrolling: touch;
-        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30 h-full">
@@ -281,14 +264,6 @@
                                 <div>
                                     <label class="block text-xs text-red-300 mb-1 font-bold"><i class="ph-fill ph-upload"></i> Google Drive 上傳 URL</label>
                                     <input type="text" id="key-drive-url" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs focus:border-red-500 outline-none" placeholder="(選填) 雲端備份 Apps Script URL">
-                                </div>
-                                <!-- 自動存檔資料夾（File System Access API） -->
-                                <div class="bg-slate-800/60 border border-emerald-700/40 rounded-xl p-3">
-                                    <p class="text-xs text-emerald-300 font-bold mb-1 flex items-center gap-1"><i class="ph-fill ph-folder-open"></i> 本機自動存檔資料夾</p>
-                                    <p class="text-[10px] text-slate-400 mb-2">設定後，所有下載（weba / MP3）將自動靜默寫入該資料夾，<br>不再每次跳出存檔對話框。<span id="auto-save-dir-name" class="text-emerald-400 font-bold ml-1"></span></p>
-                                    <button onclick="setupAutoSaveFolder()" class="w-full bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2 active:scale-95">
-                                        <i class="ph-bold ph-folder-plus"></i> 選擇並授權存檔資料夾（一次設定，永久生效）
-                                    </button>
                                 </div>
                             </div>
                             <div class="space-y-3">
@@ -1084,50 +1059,61 @@
                 </div>
             </div>
 
+            <!-- ================= 全螢幕筆記內容編輯器（手機鍵盤友好）================= -->
+            <div id="fullscreen-content-editor" class="hidden fixed inset-0 z-[200] bg-slate-950 flex flex-col" style="padding-top: env(safe-area-inset-top, 0px);">
+                <div class="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-700 shrink-0">
+                    <span class="text-sm font-bold text-white truncate max-w-[60vw]" id="fse-title">✏️ 編輯內容</span>
+                    <div class="flex gap-2">
+                        <button onclick="saveFullscreenEditor()" class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors active:scale-95"><i class="ph-bold ph-check"></i> 儲存</button>
+                        <button onclick="closeFullscreenEditor()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm px-3 py-2 rounded-lg transition-colors">取消</button>
+                    </div>
+                </div>
+                <div id="fse-content" contenteditable="true"
+                    class="flex-1 w-full bg-slate-950 text-slate-100 text-base leading-relaxed p-4 outline-none overflow-y-auto"
+                    style="min-height:0; -webkit-overflow-scrolling:touch; resize:none;"
+                    placeholder="在此輸入筆記內容…"></div>
+            </div>
+
             <!-- ================= 富文本筆記劇院級編輯器彈窗 (Note Edit/View Modal) ================= -->
-            <div id="note-edit-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-sm flex flex-col" style="transition: height 0.15s ease;">
-                <div id="note-edit-modal-inner" class="bg-slate-900 w-full flex flex-col overflow-hidden" style="height:100%;max-height:100%;">
-                    <!-- 頂部標題列 (固定) -->
-                    <div class="flex justify-between items-center px-4 py-3 border-b border-slate-800 shrink-0 bg-slate-900 z-10">
-                        <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="ph-bold ph-corners-out text-emerald-400"></i> <span id="note-modal-title-text">檢視與編輯筆記</span></h3>
-                        <button onclick="closeNoteEdit()" class="text-slate-400 hover:text-white bg-slate-800 p-2 rounded-lg active:scale-95"><i class="ph-bold ph-x text-lg"></i></button>
+            <div id="note-edit-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-start justify-center p-0 md:p-6 overflow-y-auto">
+                <div class="bg-slate-900 border-0 md:border border-slate-700 rounded-none md:rounded-2xl p-4 md:p-6 w-full md:w-[85vw] max-w-7xl shadow-2xl flex flex-col md:my-auto" style="min-height:100dvh; max-height:100dvh; md:min-height:unset; md:max-height:85dvh;">
+                    <div class="flex justify-between items-center mb-4 shrink-0">
+                        <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-bold ph-corners-out text-emerald-400"></i> <span id="note-modal-title-text">檢視與編輯筆記</span></h3>
+                        <button onclick="closeNoteEdit()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg"><i class="ph-bold ph-x text-xl"></i></button>
                     </div>
                     <input type="hidden" id="edit-note-id">
-
-                    <!-- 錄音筆記專用播放器區 (固定，非錄音時隱藏) -->
-                    <div id="edit-note-audio-area" class="hidden shrink-0 px-4 pt-3">
+                    <!-- 錄音筆記專用：播放器區（非錄音筆記時隱藏） -->
+                    <div id="edit-note-audio-area" class="hidden shrink-0 mb-2">
                         <div class="bg-slate-800/60 border border-purple-700/40 rounded-xl p-3 flex flex-col gap-2">
                             <p class="text-xs text-purple-300 font-bold flex items-center gap-1"><i class="ph-fill ph-microphone"></i> 語音錄音</p>
                             <audio id="edit-note-audio-player" controls class="w-full h-10 rounded-lg bg-slate-900 shadow-inner"></audio>
                             <div id="edit-note-audio-actions" class="flex flex-wrap gap-2"></div>
                         </div>
                     </div>
+                    <div class="space-y-4 overflow-y-auto flex-1 pr-2 scrollbar-thin scrollbar-thumb-slate-700 flex flex-col min-h-0">
+                        
+                        <div class="flex flex-col md:flex-row gap-3 shrink-0">
+                            <div class="flex-1"><label class="text-xs text-slate-400 mb-1 block">標題</label><input type="text" id="edit-note-title" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-lg font-bold text-white focus:border-emerald-500 outline-none"></div>
+                            <div class="md:w-48"><label class="text-xs text-slate-400 mb-1 block">分類資料夾</label><select id="edit-note-folder" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-emerald-500 outline-none h-[52px]"></select></div>
+                        </div>
 
-                    <!-- 標題 + 資料夾列 (固定) -->
-                    <div class="flex flex-col md:flex-row gap-2 px-4 pt-3 shrink-0">
-                        <div class="flex-1"><label class="text-[10px] text-slate-500 mb-0.5 block">標題</label><input type="text" id="edit-note-title" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-base font-bold text-white focus:border-emerald-500 outline-none"></div>
-                        <div class="md:w-40"><label class="text-[10px] text-slate-500 mb-0.5 block">資料夾</label><select id="edit-note-folder" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none h-[42px]"></select></div>
+                        <div class="flex-1 flex flex-col min-h-0 mt-2">
+                            <label class="text-xs text-slate-400 mb-1 flex justify-between shrink-0">
+                                內文 (支援直接貼上網頁圖文排版、YouTube 網址)
+                                <label for="edit-note-img-upload" class="text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1 bg-emerald-900/30 px-2 py-1 rounded"><i class="ph-bold ph-image"></i> 插入圖片</label>
+                                <input type="file" id="edit-note-img-upload" accept="image/*" multiple class="hidden" onchange="handleNoteEditImage(event)">
+                            </label>
+                            <div class="flex items-center justify-between mb-1">
+                                <label class="text-xs text-slate-400 font-bold">筆記內容</label>
+                                <button onclick="openFullscreenEditor()" class="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600" title="全螢幕編輯（手機建議使用）"><i class="ph-bold ph-arrows-out-simple"></i> 全螢幕編輯</button>
+                            </div>
+                            <div id="edit-note-content" contenteditable="true" placeholder="在這裡輸入文字，或直接 Ctrl+V 貼上網頁圖文、YouTube連結..." class="note-html-content flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 text-base md:text-lg leading-relaxed text-slate-200 focus:border-emerald-500 outline-none overflow-y-auto"></div>
+                            <div id="edit-note-img-preview-container" class="hidden mt-3 flex-wrap gap-2 shrink-0"></div>
+                        </div>
                     </div>
-
-                    <!-- 內文標籤 (固定) -->
-                    <div class="flex justify-between items-center px-4 pt-2 pb-1 shrink-0">
-                        <label class="text-[10px] text-slate-500">內文 (支援貼上網頁圖文、YouTube 連結)</label>
-                        <label for="edit-note-img-upload" class="text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1 bg-emerald-900/30 px-2 py-1 rounded text-xs active:scale-95"><i class="ph-bold ph-image"></i> 插入圖片</label>
-                        <input type="file" id="edit-note-img-upload" accept="image/*" multiple class="hidden" onchange="handleNoteEditImage(event)">
-                    </div>
-
-                    <!-- 主要內文編輯區 (flex-1 填滿剩餘空間) -->
-                    <div class="flex-1 overflow-hidden px-4 pb-1 min-h-0 flex flex-col">
-                        <div id="edit-note-content" contenteditable="true" placeholder="在這裡輸入文字，或直接 Ctrl+V 貼上網頁圖文、YouTube連結..."
-                            class="note-html-content flex-1 w-full h-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-base leading-relaxed text-slate-200 focus:border-emerald-500 outline-none overflow-y-auto"
-                            style="min-height:80px;"></div>
-                        <div id="edit-note-img-preview-container" class="hidden mt-2 flex-wrap gap-2 shrink-0"></div>
-                    </div>
-
-                    <!-- 底部按鈕列 (固定) -->
-                    <div class="flex justify-end gap-3 px-4 py-3 shrink-0 border-t border-slate-800 bg-slate-900">
-                        <button onclick="closeNoteEdit()" class="px-4 py-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium text-sm">取消</button>
-                        <button onclick="saveNoteEdit()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-bold text-sm shadow-lg">儲存變更</button>
+                    <div class="flex justify-end space-x-3 mt-4 shrink-0 pt-4 border-t border-slate-800">
+                        <button onclick="closeNoteEdit()" class="px-5 py-2.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium">取消</button>
+                        <button onclick="saveNoteEdit()" class="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-bold text-lg shadow-lg">儲存變更</button>
                     </div>
                 </div>
             </div>
@@ -3222,13 +3208,6 @@ handleSendMessage(); }
                 if (modal) {
                     modal.classList.remove('hidden');
                     modal.classList.add('flex');
-                    // 初始化 modal 高度為整個可視區（鍵盤未開時）
-                    requestAnimationFrame(() => {
-                        const vv = window.visualViewport;
-                        if (vv) { modal.style.top = vv.offsetTop + 'px'; modal.style.height = vv.height + 'px'; }
-                        const titleInput = document.getElementById('edit-note-title');
-                        if (titleInput) setTimeout(() => titleInput.focus(), 80);
-                    });
                 } else {
                     alert("找不到編輯器視窗元件 (note-edit-modal)");
                 }
@@ -3237,64 +3216,65 @@ handleSendMessage(); }
             }
         };
 
-        // ── 筆記 Modal 鍵盤感知引擎 ──────────────────────────────────────
-        // 當手機軟鍵盤彈出時，利用 visualViewport 動態壓縮 modal 高度，
-        // 使編輯區始終可見，不被鍵盤蓋住。
-        (function setupNoteModalKeyboardAwareness() {
-            const vv = window.visualViewport;
-            if (!vv) return;
+        // ── 全螢幕筆記內容編輯器 ────────────────────────────────────────
+        window.openFullscreenEditor = function() {
+            const noteContent = document.getElementById('edit-note-content');
+            const noteTitle   = document.getElementById('edit-note-title');
+            const fseEl       = document.getElementById('fullscreen-content-editor');
+            const fseContent  = document.getElementById('fse-content');
+            const fseTitle    = document.getElementById('fse-title');
+            if (!fseEl || !noteContent) return;
+            // 同步目前內容到全螢幕編輯器
+            fseContent.innerHTML = noteContent.innerHTML;
+            if (fseTitle) fseTitle.textContent = `✏️ ${noteTitle?.value || '筆記內容'}`;
+            fseEl.classList.remove('hidden');
+            // 手機：滾到最頂並聚焦
+            fseContent.focus();
+            setTimeout(() => {
+                fseContent.scrollTop = 0;
+                fseContent.focus();
+                // 移游標到末尾
+                const range = document.createRange();
+                const sel = window.getSelection();
+                range.selectNodeContents(fseContent);
+                range.collapse(false);
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }, 80);
+        };
 
-            let _rafId = null;
-            function applyViewport() {
-                const modal = document.getElementById('note-edit-modal');
-                if (!modal || modal.classList.contains('hidden')) return;
-
-                // visualViewport.height = 鍵盤彈出後的可見視窗高度
-                const visibleH = vv.height;
-                const offsetY  = vv.offsetTop;   // 若有 top-bar 偏移 (少數瀏覽器)
-
-                // 將 modal 鎖定在可視區域內
-                modal.style.top    = offsetY + 'px';
-                modal.style.height = visibleH + 'px';
-                modal.style.bottom = 'auto';
-
-                // 確保 contenteditable 仍然能捲動到 caret
-                const contentEl = document.getElementById('edit-note-content');
-                if (contentEl && document.activeElement === contentEl) {
-                    // 給 DOM 重排一個 frame 後再確認 caret 可見
-                    requestAnimationFrame(() => {
-                        const sel = window.getSelection();
-                        if (sel && sel.rangeCount > 0) {
-                            const range = sel.getRangeAt(0);
-                            const rect  = range.getBoundingClientRect();
-                            if (rect.bottom > vv.height - 8) {
-                                contentEl.scrollTop += rect.bottom - (vv.height - 8);
-                            }
-                        }
-                    });
-                }
+        window.saveFullscreenEditor = function() {
+            const fseContent  = document.getElementById('fse-content');
+            const noteContent = document.getElementById('edit-note-content');
+            if (fseContent && noteContent) {
+                noteContent.innerHTML = fseContent.innerHTML;
             }
+            closeFullscreenEditor();
+            showToast('✅ 內容已更新，請記得按「儲存筆記」完成儲存。');
+        };
 
-            function onVVChange() {
-                if (_rafId) cancelAnimationFrame(_rafId);
-                _rafId = requestAnimationFrame(applyViewport);
-            }
-
-            vv.addEventListener('resize', onVVChange);
-            vv.addEventListener('scroll', onVVChange);
-
-            // 當 modal 關閉後還原 inline style，下次重新打開乾淨
-            window._resetNoteModalViewport = function() {
-                const modal = document.getElementById('note-edit-modal');
-                if (!modal) return;
-                modal.style.top    = '';
-                modal.style.height = '';
-                modal.style.bottom = '';
-            };
-        })();
+        window.closeFullscreenEditor = function() {
+            const fseEl = document.getElementById('fullscreen-content-editor');
+            if (fseEl) fseEl.classList.add('hidden');
+        };
 
         window.openNoteEdit = function(id) {
             try {
+                // 手機鍵盤彈出時自動滾動 modal 到 focused 欄位
+                if (!window._noteModalVVListener) {
+                    window._noteModalVVListener = true;
+                    const vv = window.visualViewport;
+                    if (vv) {
+                        vv.addEventListener('resize', () => {
+                            const modal = document.getElementById('note-edit-modal');
+                            if (!modal || modal.classList.contains('hidden')) return;
+                            const focused = modal.querySelector(':focus');
+                            if (focused) {
+                                setTimeout(() => focused.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+                            }
+                        });
+                    }
+                }
                 const n = appState.notes.find(x => String(x.id) === String(id));
                 if(!n) return;
                 
@@ -3391,14 +3371,6 @@ handleSendMessage(); }
                 if (modal) {
                     modal.classList.remove('hidden');
                     modal.classList.add('flex');
-                    // 初始化 modal 高度為整個可視區（鍵盤未開時）
-                    requestAnimationFrame(() => {
-                        const vv = window.visualViewport;
-                        if (vv) { modal.style.top = vv.offsetTop + 'px'; modal.style.height = vv.height + 'px'; }
-                        // 聚焦到內文編輯區（錄音筆記聚焦標題，一般筆記聚焦內文）
-                        const focusTarget = document.getElementById('edit-note-content');
-                        if (focusTarget) setTimeout(() => focusTarget.focus(), 100);
-                    });
                 } else {
                     alert("找不到編輯器視窗元件 (note-edit-modal)");
                 }
@@ -3412,10 +3384,6 @@ handleSendMessage(); }
             if (modal) {
                 modal.classList.add('hidden'); 
                 modal.classList.remove('flex');
-            }
-            // 還原 visualViewport 調整的 inline style，確保下次開啟乾淨
-            if (typeof window._resetNoteModalViewport === 'function') {
-                window._resetNoteModalViewport();
             }
         };
 
@@ -4115,307 +4083,43 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                 } catch(e) { alert("下載失敗：" + e.message); }
             };
 
+            // ── 共用：AudioBuffer → WebM Blob（透過 MediaRecorder 離線編碼，壓縮比接近原始 webm）──
+            async function audioBufferToWebmBlob(audioBuffer) {
+                const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(
+                    audioBuffer.numberOfChannels, audioBuffer.length, audioBuffer.sampleRate);
+                const src = offlineCtx.createBufferSource();
+                src.buffer = audioBuffer;
+                src.connect(offlineCtx.destination);
+                src.start(0);
+                await offlineCtx.startRendering();
+
+                // 建立即時 AudioContext + 媒體串流節點來錄製
+                const actx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: audioBuffer.sampleRate });
+                const dest = actx.createMediaStreamDestination();
+                const bufSrc = actx.createBufferSource();
+                bufSrc.buffer = audioBuffer;
+                bufSrc.connect(dest);
+
+                const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                    ? 'audio/webm;codecs=opus'
+                    : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg;codecs=opus';
+                const chunks = [];
+                const mr = new MediaRecorder(dest.stream, { mimeType });
+                mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+                const done = new Promise(res => { mr.onstop = res; });
+                mr.start();
+                bufSrc.start(0);
+                await new Promise(res => setTimeout(res, audioBuffer.duration * 1000 + 200));
+                mr.stop();
+                await done;
+                actx.close();
+                return new Blob(chunks, { type: mimeType });
+            }
+
             // ── 批次下載（多段群組）weba ─────────────────────────────────
-            // ── FFmpeg.wasm 無損合併下載 ──────────────────────────────────
-            // ══════════════════════════════════════════════════════════════
-            // FFmpeg.wasm 0.11 引擎（無需 SharedArrayBuffer / COOP 標頭）
-            // + OPFS 自動授權儲存資料夾（File System Access API）
-            // ══════════════════════════════════════════════════════════════
-
-            let _ffmpegInstance = null;
-            let _ffmpegLoading  = false;
-            let _ffmpegLoadQueue = [];
-
-            async function getFFmpeg() {
-                if (_ffmpegInstance) return _ffmpegInstance;
-                if (_ffmpegLoading) {
-                    return new Promise((res, rej) => _ffmpegLoadQueue.push({ res, rej }));
-                }
-                _ffmpegLoading = true;
-                try {
-                    // @ffmpeg/ffmpeg 0.11.x 掛載於 window.FFmpeg（全局物件）
-                    const { createFFmpeg, fetchFile: _ff } = window.FFmpeg || {};
-                    if (!createFFmpeg) throw new Error('FFmpeg.wasm 未就緒，請確認網路可連線後重試');
-
-                    const ff = createFFmpeg({
-                        log: false,
-                        corePath: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js',
-                    });
-                    await ff.load();
-
-                    // 掛上 fetchFile 供後續使用
-                    ff._fetchFile = _ff || window.FFmpeg?.fetchFile;
-                    _ffmpegInstance = ff;
-                    _ffmpegLoadQueue.forEach(q => q.res(ff));
-                    return ff;
-                } catch(e) {
-                    _ffmpegInstance = null; // 失敗時清除，允許重試
-                    _ffmpegLoadQueue.forEach(q => q.rej(e));
-                    throw e;
-                } finally {
-                    _ffmpegLoading = false;
-                    _ffmpegLoadQueue = [];
-                }
-            }
-
-            // ── OPFS / File System Access API 自動存檔引擎 ───────────────
-            // 首次呼叫會彈一次「選擇儲存資料夾」對話框，之後自動靜默寫入
-            let _savedDirHandle = null;
-
-            async function initSaveDirectory() {
-                // 嘗試從 IndexedDB 取回上次授權的 directory handle（Chrome 允許持久化）
-                if (!_savedDirHandle) {
-                    try {
-                        _savedDirHandle = await loadDirHandleFromDB();
-                        if (_savedDirHandle) {
-                            // 驗證權限是否仍有效
-                            const perm = await _savedDirHandle.requestPermission({ mode: 'readwrite' });
-                            if (perm !== 'granted') _savedDirHandle = null;
-                        }
-                    } catch(_) { _savedDirHandle = null; }
-                }
-                return _savedDirHandle;
-            }
-
-            async function pickAndSaveDirHandle() {
-                if (!window.showDirectoryPicker) return null;
-                try {
-                    const handle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'downloads' });
-                    _savedDirHandle = handle;
-                    await saveDirHandleToDB(handle);
-                    return handle;
-                } catch(_) { return null; }
-            }
-
-            // 用 IndexedDB 持久化 FileSystemDirectoryHandle
-            const DIR_HANDLE_DB = 'nova_fs_handles';
-            const DIR_HANDLE_KEY = 'download_dir';
-
-            function openHandleDB() {
-                return new Promise((res, rej) => {
-                    const req = indexedDB.open(DIR_HANDLE_DB, 1);
-                    req.onupgradeneeded = e => e.target.result.createObjectStore('handles');
-                    req.onsuccess = e => res(e.target.result);
-                    req.onerror   = e => rej(e.target.error);
-                });
-            }
-
-            async function saveDirHandleToDB(handle) {
-                try {
-                    const db = await openHandleDB();
-                    const tx = db.transaction('handles', 'readwrite');
-                    tx.objectStore('handles').put(handle, DIR_HANDLE_KEY);
-                    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
-                } catch(_) {}
-            }
-
-            async function loadDirHandleFromDB() {
-                try {
-                    const db = await openHandleDB();
-                    const tx = db.transaction('handles', 'readonly');
-                    return await new Promise((res, rej) => {
-                        const req = tx.objectStore('handles').get(DIR_HANDLE_KEY);
-                        req.onsuccess = e => res(e.target.result || null);
-                        req.onerror   = e => rej(e.target.error);
-                    });
-                } catch(_) { return null; }
-            }
-
-            // 核心：智慧下載 — 優先寫入授權資料夾，否則彈對話框
-            async function smartDownloadBlob(blob, filename) {
-                // 1. 嘗試用已授權的資料夾靜默寫入
-                let dirHandle = await initSaveDirectory();
-                if (dirHandle) {
-                    try {
-                        const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
-                        const writable   = await fileHandle.createWritable();
-                        await writable.write(blob);
-                        await writable.close();
-                        showToast(`✅ 已自動儲存至「${dirHandle.name}」資料夾：${filename}`);
-                        return;
-                    } catch(e) {
-                        // 權限失效 → 清除快取，下方降級處理
-                        _savedDirHandle = null;
-                        console.warn('smartDownload write failed:', e);
-                    }
-                }
-
-                // 2. 嘗試用 File System Access API showSaveFilePicker（單次授權）
-                if (window.showSaveFilePicker) {
-                    try {
-                        const ext = filename.split('.').pop();
-                        const types = ext === 'weba' || ext === 'webm'
-                            ? [{ description: 'WebM Audio', accept: { 'audio/webm': ['.weba', '.webm'] } }]
-                            : ext === 'mp3'
-                            ? [{ description: 'MP3 Audio', accept: { 'audio/mpeg': ['.mp3'] } }]
-                            : [{ description: '檔案', accept: { 'application/octet-stream': ['.' + ext] } }];
-                        const fh = await window.showSaveFilePicker({ suggestedName: filename, types });
-                        const writable = await fh.createWritable();
-                        await writable.write(blob);
-                        await writable.close();
-                        showToast(`✅ 已儲存：${filename}`);
-                        return;
-                    } catch(e) {
-                        if (e.name === 'AbortError') return; // 使用者取消，不繼續
-                    }
-                }
-
-                // 3. 傳統 <a> 下載（最終降級）
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = filename; a.style.display = 'none';
-                document.body.appendChild(a); a.click();
-                await new Promise(r => setTimeout(r, 800));
-                document.body.removeChild(a); URL.revokeObjectURL(url);
-            }
-
-            // 設定一次性下載資料夾（可從設定頁呼叫）
-            window.setupAutoSaveFolder = async function() {
-                showToast('📂 請選擇要自動儲存的資料夾…');
-                const handle = await pickAndSaveDirHandle();
-                if (handle) {
-                    showToast(`✅ 已設定自動存檔資料夾：「${handle.name}」，之後下載將直接靜默寫入！`);
-                    const nameEl = document.getElementById('auto-save-dir-name');
-                    if (nameEl) nameEl.textContent = `（已授權：${handle.name}）`;
-                } else {
-                    showToast('⚠️ 已取消，仍使用傳統下載對話框');
-                }
-            };
-
-            // 啟動時自動嘗試恢復資料夾授權並更新 UI（無聲無息）
-            (async () => {
-                try {
-                    const h = await initSaveDirectory();
-                    if (h) {
-                        const nameEl = document.getElementById('auto-save-dir-name');
-                        if (nameEl) nameEl.textContent = `（已授權：${h.name}）`;
-                    }
-                } catch(_) {}
-            })();
-
-            // ── 批次下載 weba（多段群組，FFmpeg 無損合併）────────────────
             window.batchDownloadWeba = async function(groupIds, type) {
                 const ids = Array.isArray(groupIds) ? groupIds : [groupIds];
-
-                // ── 單段：直接智慧下載 ────────────────────────────────────
-                if (ids.length === 1) {
-                    const id = ids[0];
-                    const record = type === 'record'
-                        ? appState.audioRecords.find(x => String(x.id) === String(id))
-                        : appState.notes.find(x => String(x.id) === String(id));
-                    if (!record) return;
-                    let audioBlob = await loadAudioBlob(record.id);
-                    if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
-                    if (!audioBlob) { showToast('⚠️ 找不到音訊資料'); return; }
-                    const ext = (record.mimeType || 'audio/webm').includes('mp4') ? '.m4a' : '.weba';
-                    const filename = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_') + ext;
-                    await smartDownloadBlob(audioBlob, filename);
-                    return;
-                }
-
-                // ── 多段：FFmpeg.wasm concat 無損合併 ────────────────────
-                showToast('⏳ 正在載入 FFmpeg.wasm（首次約 10-20 秒）…');
-                let ff;
-                try {
-                    ff = await getFFmpeg();
-                } catch(e) {
-                    showToast(`⚠️ FFmpeg 載入失敗（${e.message}），改為逐段分別下載…`);
-                    for (let i = 0; i < ids.length; i++) {
-                        const id = ids[i];
-                        const record = type === 'record'
-                            ? appState.audioRecords.find(x => String(x.id) === String(id))
-                            : appState.notes.find(x => String(x.id) === String(id));
-                        if (!record) continue;
-                        let audioBlob = await loadAudioBlob(record.id);
-                        if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
-                        if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊`); continue; }
-                        const ext = (record.mimeType || 'audio/webm').includes('mp4') ? '.m4a' : '.weba';
-                        const filename = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_') + ext;
-                        await smartDownloadBlob(audioBlob, filename);
-                    }
-                    showToast(`✅ ${ids.length} 段分別下載完成`);
-                    return;
-                }
-
-                try {
-                    showToast(`⏳ 正在寫入 ${ids.length} 段音訊至 FFmpeg 記憶體…`);
-                    let concatList = '';
-                    let firstRecord = null;
-                    let writtenCount = 0;
-
-                    for (let i = 0; i < ids.length; i++) {
-                        const id = ids[i];
-                        const record = type === 'record'
-                            ? appState.audioRecords.find(x => String(x.id) === String(id))
-                            : appState.notes.find(x => String(x.id) === String(id));
-                        if (!record) continue;
-                        if (!firstRecord) firstRecord = record;
-
-                        let audioBlob = await loadAudioBlob(record.id);
-                        if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
-                        if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊，已跳過`); continue; }
-
-                        // FFmpeg 0.11 writeFile API
-                        const arrayBuf = await audioBlob.arrayBuffer();
-                        const fname = `seg_${i}.webm`;
-                        ff.FS('writeFile', fname, new Uint8Array(arrayBuf));
-                        concatList += `file '${fname}'\n`;
-                        writtenCount++;
-                    }
-
-                    if (writtenCount === 0) { showToast('⚠️ 沒有可合併的音訊段'); return; }
-
-                    // 如果只有 1 段成功寫入（其他都找不到），直接下載那一段
-                    if (writtenCount === 1) {
-                        const singleData = ff.FS('readFile', 'seg_0.webm');
-                        const singleBlob = new Blob([singleData.buffer], { type: 'audio/webm' });
-                        const filename = (firstRecord?.title || 'NOVA_Audio').replace(/[\\/:*?"<>|]/g, '_') + '.weba';
-                        ff.FS('unlink', 'seg_0.webm');
-                        await smartDownloadBlob(singleBlob, filename);
-                        return;
-                    }
-
-                    // 寫入 concat list
-                    ff.FS('writeFile', 'concat_list.txt', concatList);
-
-                    // 執行無損合併（-c copy 不重新編碼，秒速完成）
-                    showToast('🔗 FFmpeg 無損合併中（不重新編碼）…');
-                    await ff.run(
-                        '-f', 'concat',
-                        '-safe', '0',
-                        '-i', 'concat_list.txt',
-                        '-c', 'copy',
-                        'merged.webm'
-                    );
-
-                    // 讀出合併結果
-                    const mergedData = ff.FS('readFile', 'merged.webm');
-                    const mergedBlob = new Blob([mergedData.buffer], { type: 'audio/webm' });
-
-                    // 清理 FFmpeg FS
-                    for (let i = 0; i < ids.length; i++) {
-                        try { ff.FS('unlink', `seg_${i}.webm`); } catch(_) {}
-                    }
-                    try { ff.FS('unlink', 'concat_list.txt'); } catch(_) {}
-                    try { ff.FS('unlink', 'merged.webm'); } catch(_) {}
-
-                    const sizeMB = (mergedBlob.size / 1024 / 1024).toFixed(1);
-                    const baseTitle = (firstRecord?.title || 'NOVA_Merged').replace(/[\\/:*?"<>|]/g, '_');
-                    const outFilename = `${baseTitle}_merged.weba`;
-
-                    showToast(`📦 合併完成（${sizeMB} MB），準備儲存…`);
-                    await smartDownloadBlob(mergedBlob, outFilename);
-                    showToast(`✅ FFmpeg 無損合併完成！${ids.length} 段 → ${sizeMB} MB`);
-
-                } catch(ffErr) {
-                    console.error('FFmpeg merge error:', ffErr);
-                    showToast(`❌ FFmpeg 合併失敗：${ffErr.message}`);
-                }
-            };
-
-            // ── 批次下載（多段群組）MP3 ─────────────────────────────────
-            window.batchDownloadMp3 = async function(groupIds, type) {
-                const ids = Array.isArray(groupIds) ? groupIds : [groupIds];
+                const totalSegs = ids.length;
                 for (let i = 0; i < ids.length; i++) {
                     const id = ids[i];
                     const record = type === 'record'
@@ -4425,21 +4129,66 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                     let audioBlob = await loadAudioBlob(record.id);
                     if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
                     if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊`); continue; }
-                    showToast(`🎵 第 ${i+1}/${ids.length} 段 weba → MP3 轉換中…`);
+
+                    // 若為 WAV（merged），重新編碼為 webm 壓縮
+                    if (record.mimeType === 'audio/wav' || record.filename?.endsWith('.wav')) {
+                        showToast(`🗜️ 第 ${i+1}/${totalSegs} 段：WAV → WebM 壓縮中…`);
+                        try {
+                            const ab = await audioBlob.arrayBuffer();
+                            const actx = new (window.AudioContext || window.webkitAudioContext)();
+                            const audioBuf = await actx.decodeAudioData(ab);
+                            actx.close();
+                            audioBlob = await audioBufferToWebmBlob(audioBuf);
+                        } catch(e) { showToast(`⚠️ 壓縮失敗，以原格式下載`); }
+                    }
+
+                    showToast(`⬇️ 下載第 ${i+1}/${totalSegs} 段 weba…`);
+                    const ext = '.weba';
+                    // Bug2 fix: 加上段落編號
+                    const baseTitle = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_');
+                    const segSuffix = totalSegs > 1 ? `_第${i+1}段` : '';
+                    const url = URL.createObjectURL(audioBlob);
+                    const a = document.createElement('a'); a.href = url; a.download = baseTitle + segSuffix + ext; a.style.display = 'none';
+                    document.body.appendChild(a); a.click();
+                    await new Promise(r => setTimeout(r, 700));
+                    document.body.removeChild(a); URL.revokeObjectURL(url);
+                }
+                showToast(`✅ 全部 ${totalSegs} 段 weba 下載完成！`);
+            };
+
+            // ── 批次下載（多段群組）MP3 ─────────────────────────────────
+            window.batchDownloadMp3 = async function(groupIds, type) {
+                const ids = Array.isArray(groupIds) ? groupIds : [groupIds];
+                const totalSegs = ids.length;
+                for (let i = 0; i < ids.length; i++) {
+                    const id = ids[i];
+                    const record = type === 'record'
+                        ? appState.audioRecords.find(x => String(x.id) === String(id))
+                        : appState.notes.find(x => String(x.id) === String(id));
+                    if (!record) continue;
+                    let audioBlob = await loadAudioBlob(record.id);
+                    if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
+                    if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊`); continue; }
+                    showToast(`🎵 第 ${i+1}/${totalSegs} 段 → MP3 轉換中…`);
                     try {
                         const arrayBuffer = await audioBlob.arrayBuffer();
                         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                         const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
                         const mp3Blob = await encodeMp3(audioBuffer);
                         audioCtx.close();
-                        const filename = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_') + '.mp3';
-                        await smartDownloadBlob(mp3Blob, filename);
-                        showToast(`✅ 第 ${i+1}/${ids.length} 段 MP3 下載完成`);
+                        const baseTitle = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_');
+                        const segSuffix = totalSegs > 1 ? `_第${i+1}段` : '';
+                        const blobUrl = URL.createObjectURL(mp3Blob);
+                        const a = document.createElement('a'); a.href = blobUrl; a.download = baseTitle + segSuffix + '.mp3'; a.style.display = 'none';
+                        document.body.appendChild(a); a.click();
+                        await new Promise(r => setTimeout(r, 700));
+                        document.body.removeChild(a); URL.revokeObjectURL(blobUrl);
+                        showToast(`✅ 第 ${i+1}/${totalSegs} 段 MP3 下載完成`);
                     } catch(e) {
                         showToast(`❌ 第 ${i+1} 段 MP3 轉換失敗：${e.message}`);
                     }
                 }
-                if (ids.length > 1) showToast(`✅ 全部 ${ids.length} 段 MP3 下載完成！`);
+                showToast(`✅ 全部 ${totalSegs} 段 MP3 下載完成！`);
             };
 
             // ── 批次上傳 Drive（多段群組）────────────────────────────────
