@@ -20,6 +20,9 @@
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.1500.0.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.all.min.js"></script>
+    <!-- FFmpeg.wasm — 用於無損合併多段 weba/webm 音訊 -->
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
     <!-- 引入 Google 字體 Inter -->
     <script src="./telegram.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -119,6 +122,21 @@
         .note-html-content ol { list-style-type: decimal; margin-left: 1.5rem; }
         .note-html-content iframe { border-radius: 0.5rem; max-width: 100%; }
         [contenteditable]:empty:before { content: attr(placeholder); color: #64748b; pointer-events: none; display: block; }
+
+        /* ── 筆記 Modal：鍵盤防遮擋 ── */
+        #note-edit-modal {
+            /* 覆蓋 Tailwind inset-0，改由 JS 動態設置 top/height */
+            position: fixed !important;
+            left: 0 !important;
+            right: 0 !important;
+            /* top 和 height 由 visualViewport JS 動態注入 */
+        }
+        #note-edit-modal #edit-note-content {
+            /* 確保內文區在 flex 佈局下正確伸展 */
+            flex: 1 1 auto;
+            min-height: 80px;
+            -webkit-overflow-scrolling: touch;
+        }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 font-sans overflow-hidden selection:bg-blue-500/30 h-full">
@@ -1060,41 +1078,49 @@
             </div>
 
             <!-- ================= 富文本筆記劇院級編輯器彈窗 (Note Edit/View Modal) ================= -->
-            <div id="note-edit-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/90 backdrop-blur-sm flex items-start justify-center p-0 md:p-6 overflow-y-auto">
-                <div class="bg-slate-900 border-0 md:border border-slate-700 rounded-none md:rounded-2xl p-4 md:p-6 w-full md:w-[85vw] max-w-7xl shadow-2xl flex flex-col md:my-auto" style="min-height:100dvh; max-height:100dvh; md:min-height:unset; md:max-height:85dvh;">
-                    <div class="flex justify-between items-center mb-4 shrink-0">
-                        <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="ph-bold ph-corners-out text-emerald-400"></i> <span id="note-modal-title-text">檢視與編輯筆記</span></h3>
-                        <button onclick="closeNoteEdit()" class="text-slate-400 hover:text-white bg-slate-800 p-1.5 rounded-lg"><i class="ph-bold ph-x text-xl"></i></button>
+            <div id="note-edit-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/95 backdrop-blur-sm flex flex-col" style="transition: height 0.15s ease;">
+                <div id="note-edit-modal-inner" class="bg-slate-900 w-full flex flex-col overflow-hidden" style="height:100%;max-height:100%;">
+                    <!-- 頂部標題列 (固定) -->
+                    <div class="flex justify-between items-center px-4 py-3 border-b border-slate-800 shrink-0 bg-slate-900 z-10">
+                        <h3 class="text-base font-bold text-white flex items-center gap-2"><i class="ph-bold ph-corners-out text-emerald-400"></i> <span id="note-modal-title-text">檢視與編輯筆記</span></h3>
+                        <button onclick="closeNoteEdit()" class="text-slate-400 hover:text-white bg-slate-800 p-2 rounded-lg active:scale-95"><i class="ph-bold ph-x text-lg"></i></button>
                     </div>
                     <input type="hidden" id="edit-note-id">
-                    <!-- 錄音筆記專用：播放器區（非錄音筆記時隱藏） -->
-                    <div id="edit-note-audio-area" class="hidden shrink-0 mb-2">
+
+                    <!-- 錄音筆記專用播放器區 (固定，非錄音時隱藏) -->
+                    <div id="edit-note-audio-area" class="hidden shrink-0 px-4 pt-3">
                         <div class="bg-slate-800/60 border border-purple-700/40 rounded-xl p-3 flex flex-col gap-2">
                             <p class="text-xs text-purple-300 font-bold flex items-center gap-1"><i class="ph-fill ph-microphone"></i> 語音錄音</p>
                             <audio id="edit-note-audio-player" controls class="w-full h-10 rounded-lg bg-slate-900 shadow-inner"></audio>
                             <div id="edit-note-audio-actions" class="flex flex-wrap gap-2"></div>
                         </div>
                     </div>
-                    <div class="space-y-4 overflow-y-auto flex-1 pr-2 scrollbar-thin scrollbar-thumb-slate-700 flex flex-col min-h-0">
-                        
-                        <div class="flex flex-col md:flex-row gap-3 shrink-0">
-                            <div class="flex-1"><label class="text-xs text-slate-400 mb-1 block">標題</label><input type="text" id="edit-note-title" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-lg font-bold text-white focus:border-emerald-500 outline-none"></div>
-                            <div class="md:w-48"><label class="text-xs text-slate-400 mb-1 block">分類資料夾</label><select id="edit-note-folder" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-sm text-white focus:border-emerald-500 outline-none h-[52px]"></select></div>
-                        </div>
 
-                        <div class="flex-1 flex flex-col min-h-0 mt-2">
-                            <label class="text-xs text-slate-400 mb-1 flex justify-between shrink-0">
-                                內文 (支援直接貼上網頁圖文排版、YouTube 網址)
-                                <label for="edit-note-img-upload" class="text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1 bg-emerald-900/30 px-2 py-1 rounded"><i class="ph-bold ph-image"></i> 插入圖片</label>
-                                <input type="file" id="edit-note-img-upload" accept="image/*" multiple class="hidden" onchange="handleNoteEditImage(event)">
-                            </label>
-                            <div id="edit-note-content" contenteditable="true" placeholder="在這裡輸入文字，或直接 Ctrl+V 貼上網頁圖文、YouTube連結..." class="note-html-content flex-1 w-full bg-slate-950 border border-slate-700 rounded-lg p-4 text-base md:text-lg leading-relaxed text-slate-200 focus:border-emerald-500 outline-none overflow-y-auto"></div>
-                            <div id="edit-note-img-preview-container" class="hidden mt-3 flex-wrap gap-2 shrink-0"></div>
-                        </div>
+                    <!-- 標題 + 資料夾列 (固定) -->
+                    <div class="flex flex-col md:flex-row gap-2 px-4 pt-3 shrink-0">
+                        <div class="flex-1"><label class="text-[10px] text-slate-500 mb-0.5 block">標題</label><input type="text" id="edit-note-title" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-base font-bold text-white focus:border-emerald-500 outline-none"></div>
+                        <div class="md:w-40"><label class="text-[10px] text-slate-500 mb-0.5 block">資料夾</label><select id="edit-note-folder" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-emerald-500 outline-none h-[42px]"></select></div>
                     </div>
-                    <div class="flex justify-end space-x-3 mt-4 shrink-0 pt-4 border-t border-slate-800">
-                        <button onclick="closeNoteEdit()" class="px-5 py-2.5 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium">取消</button>
-                        <button onclick="saveNoteEdit()" class="px-8 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-bold text-lg shadow-lg">儲存變更</button>
+
+                    <!-- 內文標籤 (固定) -->
+                    <div class="flex justify-between items-center px-4 pt-2 pb-1 shrink-0">
+                        <label class="text-[10px] text-slate-500">內文 (支援貼上網頁圖文、YouTube 連結)</label>
+                        <label for="edit-note-img-upload" class="text-emerald-400 hover:text-emerald-300 cursor-pointer flex items-center gap-1 bg-emerald-900/30 px-2 py-1 rounded text-xs active:scale-95"><i class="ph-bold ph-image"></i> 插入圖片</label>
+                        <input type="file" id="edit-note-img-upload" accept="image/*" multiple class="hidden" onchange="handleNoteEditImage(event)">
+                    </div>
+
+                    <!-- 主要內文編輯區 (flex-1 填滿剩餘空間) -->
+                    <div class="flex-1 overflow-hidden px-4 pb-1 min-h-0 flex flex-col">
+                        <div id="edit-note-content" contenteditable="true" placeholder="在這裡輸入文字，或直接 Ctrl+V 貼上網頁圖文、YouTube連結..."
+                            class="note-html-content flex-1 w-full h-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-base leading-relaxed text-slate-200 focus:border-emerald-500 outline-none overflow-y-auto"
+                            style="min-height:80px;"></div>
+                        <div id="edit-note-img-preview-container" class="hidden mt-2 flex-wrap gap-2 shrink-0"></div>
+                    </div>
+
+                    <!-- 底部按鈕列 (固定) -->
+                    <div class="flex justify-end gap-3 px-4 py-3 shrink-0 border-t border-slate-800 bg-slate-900">
+                        <button onclick="closeNoteEdit()" class="px-4 py-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors font-medium text-sm">取消</button>
+                        <button onclick="saveNoteEdit()" class="px-6 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors font-bold text-sm shadow-lg">儲存變更</button>
                     </div>
                 </div>
             </div>
@@ -3189,6 +3215,13 @@ handleSendMessage(); }
                 if (modal) {
                     modal.classList.remove('hidden');
                     modal.classList.add('flex');
+                    // 初始化 modal 高度為整個可視區（鍵盤未開時）
+                    requestAnimationFrame(() => {
+                        const vv = window.visualViewport;
+                        if (vv) { modal.style.top = vv.offsetTop + 'px'; modal.style.height = vv.height + 'px'; }
+                        const titleInput = document.getElementById('edit-note-title');
+                        if (titleInput) setTimeout(() => titleInput.focus(), 80);
+                    });
                 } else {
                     alert("找不到編輯器視窗元件 (note-edit-modal)");
                 }
@@ -3197,23 +3230,64 @@ handleSendMessage(); }
             }
         };
 
+        // ── 筆記 Modal 鍵盤感知引擎 ──────────────────────────────────────
+        // 當手機軟鍵盤彈出時，利用 visualViewport 動態壓縮 modal 高度，
+        // 使編輯區始終可見，不被鍵盤蓋住。
+        (function setupNoteModalKeyboardAwareness() {
+            const vv = window.visualViewport;
+            if (!vv) return;
+
+            let _rafId = null;
+            function applyViewport() {
+                const modal = document.getElementById('note-edit-modal');
+                if (!modal || modal.classList.contains('hidden')) return;
+
+                // visualViewport.height = 鍵盤彈出後的可見視窗高度
+                const visibleH = vv.height;
+                const offsetY  = vv.offsetTop;   // 若有 top-bar 偏移 (少數瀏覽器)
+
+                // 將 modal 鎖定在可視區域內
+                modal.style.top    = offsetY + 'px';
+                modal.style.height = visibleH + 'px';
+                modal.style.bottom = 'auto';
+
+                // 確保 contenteditable 仍然能捲動到 caret
+                const contentEl = document.getElementById('edit-note-content');
+                if (contentEl && document.activeElement === contentEl) {
+                    // 給 DOM 重排一個 frame 後再確認 caret 可見
+                    requestAnimationFrame(() => {
+                        const sel = window.getSelection();
+                        if (sel && sel.rangeCount > 0) {
+                            const range = sel.getRangeAt(0);
+                            const rect  = range.getBoundingClientRect();
+                            if (rect.bottom > vv.height - 8) {
+                                contentEl.scrollTop += rect.bottom - (vv.height - 8);
+                            }
+                        }
+                    });
+                }
+            }
+
+            function onVVChange() {
+                if (_rafId) cancelAnimationFrame(_rafId);
+                _rafId = requestAnimationFrame(applyViewport);
+            }
+
+            vv.addEventListener('resize', onVVChange);
+            vv.addEventListener('scroll', onVVChange);
+
+            // 當 modal 關閉後還原 inline style，下次重新打開乾淨
+            window._resetNoteModalViewport = function() {
+                const modal = document.getElementById('note-edit-modal');
+                if (!modal) return;
+                modal.style.top    = '';
+                modal.style.height = '';
+                modal.style.bottom = '';
+            };
+        })();
+
         window.openNoteEdit = function(id) {
             try {
-                // 手機鍵盤彈出時自動滾動 modal 到 focused 欄位
-                if (!window._noteModalVVListener) {
-                    window._noteModalVVListener = true;
-                    const vv = window.visualViewport;
-                    if (vv) {
-                        vv.addEventListener('resize', () => {
-                            const modal = document.getElementById('note-edit-modal');
-                            if (!modal || modal.classList.contains('hidden')) return;
-                            const focused = modal.querySelector(':focus');
-                            if (focused) {
-                                setTimeout(() => focused.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
-                            }
-                        });
-                    }
-                }
                 const n = appState.notes.find(x => String(x.id) === String(id));
                 if(!n) return;
                 
@@ -3310,6 +3384,14 @@ handleSendMessage(); }
                 if (modal) {
                     modal.classList.remove('hidden');
                     modal.classList.add('flex');
+                    // 初始化 modal 高度為整個可視區（鍵盤未開時）
+                    requestAnimationFrame(() => {
+                        const vv = window.visualViewport;
+                        if (vv) { modal.style.top = vv.offsetTop + 'px'; modal.style.height = vv.height + 'px'; }
+                        // 聚焦到內文編輯區（錄音筆記聚焦標題，一般筆記聚焦內文）
+                        const focusTarget = document.getElementById('edit-note-content');
+                        if (focusTarget) setTimeout(() => focusTarget.focus(), 100);
+                    });
                 } else {
                     alert("找不到編輯器視窗元件 (note-edit-modal)");
                 }
@@ -3323,6 +3405,10 @@ handleSendMessage(); }
             if (modal) {
                 modal.classList.add('hidden'); 
                 modal.classList.remove('flex');
+            }
+            // 還原 visualViewport 調整的 inline style，確保下次開啟乾淨
+            if (typeof window._resetNoteModalViewport === 'function') {
+                window._resetNoteModalViewport();
             }
         };
 
@@ -4023,18 +4109,51 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
             };
 
             // ── 批次下載（多段群組）weba ─────────────────────────────────
+            // ── FFmpeg.wasm 無損合併下載 ──────────────────────────────────
+            let _ffmpegInstance = null;
+            let _ffmpegLoading = false;
+            let _ffmpegLoadQueue = [];
+
+            async function getFFmpeg() {
+                if (_ffmpegInstance) return _ffmpegInstance;
+                if (_ffmpegLoading) {
+                    return new Promise((res, rej) => _ffmpegLoadQueue.push({ res, rej }));
+                }
+                _ffmpegLoading = true;
+                try {
+                    // FFmpeg.wasm 0.12.x UMD 掛載在 window.FFmpegWASM
+                    const { FFmpeg } = window.FFmpegWASM || window;
+                    if (!FFmpeg) throw new Error('FFmpeg.wasm 未載入，請確認網路連線後重試');
+                    const ff = new FFmpeg();
+                    await ff.load({
+                        coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js',
+                        wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm',
+                    });
+                    _ffmpegInstance = ff;
+                    _ffmpegLoadQueue.forEach(q => q.res(ff));
+                    return ff;
+                } catch(e) {
+                    _ffmpegLoadQueue.forEach(q => q.rej(e));
+                    throw e;
+                } finally {
+                    _ffmpegLoading = false;
+                    _ffmpegLoadQueue = [];
+                }
+            }
+
             window.batchDownloadWeba = async function(groupIds, type) {
                 const ids = Array.isArray(groupIds) ? groupIds : [groupIds];
-                for (let i = 0; i < ids.length; i++) {
-                    const id = ids[i];
+
+                // ── 單段：直接下載，不需 FFmpeg ──────────────────────────
+                if (ids.length === 1) {
+                    const id = ids[0];
                     const record = type === 'record'
                         ? appState.audioRecords.find(x => String(x.id) === String(id))
                         : appState.notes.find(x => String(x.id) === String(id));
-                    if (!record) continue;
+                    if (!record) return;
                     let audioBlob = await loadAudioBlob(record.id);
                     if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
-                    if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊`); continue; }
-                    showToast(`⬇️ 下載第 ${i+1}/${ids.length} 段 weba…`);
+                    if (!audioBlob) { showToast('⚠️ 找不到音訊資料'); return; }
                     const ext = (record.mimeType || 'audio/webm').includes('mp4') ? '.m4a' : '.weba';
                     const safeTitle = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_');
                     const url = URL.createObjectURL(audioBlob);
@@ -4042,8 +4161,105 @@ const mimeStr = base64URI.slice(5, splitIndex).split(';')[0];
                     document.body.appendChild(a); a.click();
                     await new Promise(r => setTimeout(r, 600));
                     document.body.removeChild(a); URL.revokeObjectURL(url);
+                    showToast('✅ weba 下載完成！');
+                    return;
                 }
-                showToast(`✅ 全部 ${ids.length} 段 weba 下載完成！`);
+
+                // ── 多段：FFmpeg.wasm concat 無損合併 ────────────────────
+                showToast('⏳ 正在載入 FFmpeg.wasm 引擎（首次需 10-30 秒）…');
+                let ff;
+                try {
+                    ff = await getFFmpeg();
+                } catch(e) {
+                    // FFmpeg 載入失敗 → 降級為逐段分開下載
+                    showToast('⚠️ FFmpeg 載入失敗，改為逐段分別下載…');
+                    for (let i = 0; i < ids.length; i++) {
+                        const id = ids[i];
+                        const record = type === 'record'
+                            ? appState.audioRecords.find(x => String(x.id) === String(id))
+                            : appState.notes.find(x => String(x.id) === String(id));
+                        if (!record) continue;
+                        let audioBlob = await loadAudioBlob(record.id);
+                        if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
+                        if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊`); continue; }
+                        const ext = (record.mimeType || 'audio/webm').includes('mp4') ? '.m4a' : '.weba';
+                        const safeTitle = (record.title || `NOVA_Audio_${id}`).replace(/[\\/:*?"<>|]/g, '_');
+                        const url = URL.createObjectURL(audioBlob);
+                        const a = document.createElement('a'); a.href = url; a.download = safeTitle + ext; a.style.display = 'none';
+                        document.body.appendChild(a); a.click();
+                        await new Promise(r => setTimeout(r, 600));
+                        document.body.removeChild(a); URL.revokeObjectURL(url);
+                    }
+                    showToast(`✅ ${ids.length} 段分別下載完成`);
+                    return;
+                }
+
+                try {
+                    // 1. 載入每段 weba 到 FFmpeg 虛擬檔案系統
+                    const { fetchFile } = window.FFmpegUtil || {};
+                    let concatList = '';
+                    let firstRecord = null;
+
+                    showToast(`⏳ 正在寫入 ${ids.length} 段音訊至 FFmpeg 記憶體…`);
+                    for (let i = 0; i < ids.length; i++) {
+                        const id = ids[i];
+                        const record = type === 'record'
+                            ? appState.audioRecords.find(x => String(x.id) === String(id))
+                            : appState.notes.find(x => String(x.id) === String(id));
+                        if (!record) continue;
+                        if (!firstRecord) firstRecord = record;
+
+                        let audioBlob = await loadAudioBlob(record.id);
+                        if (!audioBlob && record.audioData) audioBlob = base64ToBlob(record.audioData);
+                        if (!audioBlob) { showToast(`⚠️ 第 ${i+1} 段找不到音訊，已跳過`); continue; }
+
+                        const fname = `seg_${i}.webm`;
+                        const arrayBuf = await audioBlob.arrayBuffer();
+                        await ff.writeFile(fname, new Uint8Array(arrayBuf));
+                        concatList += `file '${fname}'\n`;
+                    }
+
+                    if (!concatList) { showToast('⚠️ 沒有可合併的音訊段'); return; }
+
+                    // 2. 寫入 concat list
+                    await ff.writeFile('concat_list.txt', concatList);
+
+                    // 3. 執行無損合併（-c copy = 不重新編碼，速度極快、無音質損失）
+                    showToast('🔗 FFmpeg 無損合併中（不重新編碼）…');
+                    await ff.exec([
+                        '-f', 'concat',
+                        '-safe', '0',
+                        '-i', 'concat_list.txt',
+                        '-c', 'copy',
+                        'merged.webm'
+                    ]);
+
+                    // 4. 讀出合併結果並下載
+                    const mergedData = await ff.readFile('merged.webm');
+                    const mergedBlob = new Blob([mergedData.buffer], { type: 'audio/webm' });
+
+                    const primaryRecord = firstRecord;
+                    const baseTitle = (primaryRecord?.title || 'NOVA_Merged').replace(/[\\/:*?"<>|]/g, '_');
+                    const url = URL.createObjectURL(mergedBlob);
+                    const a = document.createElement('a'); a.href = url; a.download = `${baseTitle}_merged.weba`; a.style.display = 'none';
+                    document.body.appendChild(a); a.click();
+                    await new Promise(r => setTimeout(r, 800));
+                    document.body.removeChild(a); URL.revokeObjectURL(url);
+
+                    // 5. 清理 FFmpeg 虛擬 FS
+                    for (let i = 0; i < ids.length; i++) {
+                        try { await ff.deleteFile(`seg_${i}.webm`); } catch(_) {}
+                    }
+                    try { await ff.deleteFile('concat_list.txt'); } catch(_) {}
+                    try { await ff.deleteFile('merged.webm'); } catch(_) {}
+
+                    const sizeMB = (mergedBlob.size / 1024 / 1024).toFixed(1);
+                    showToast(`✅ FFmpeg 無損合併完成！${ids.length} 段 → ${sizeMB} MB weba`);
+
+                } catch(ffErr) {
+                    console.error('FFmpeg merge error:', ffErr);
+                    showToast(`❌ FFmpeg 合併失敗：${ffErr.message}，請改用 MP3 下載或逐段下載`);
+                }
             };
 
             // ── 批次下載（多段群組）MP3 ─────────────────────────────────
