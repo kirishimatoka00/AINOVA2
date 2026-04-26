@@ -5553,6 +5553,7 @@ try {
                 if (result === 'granted') {
                     appState.recSettings.localDirHandle = handle;
                     appState.recSettings._pendingDirHandle = null;
+                    hideDirAuthBanner();
                     const btn = document.getElementById('rec-dir-reauth-btn');
                     if (btn) btn.classList.add('hidden');
                     showToast(`✅ 資料夾「${handle.name}」授權成功！錄音將自動存入此資料夾。`);
@@ -5563,6 +5564,22 @@ try {
                 showToast(`❌ 授權失敗：${e.message}`);
             }
         };
+
+        function showDirAuthBanner(handle) {
+            if (document.getElementById('dir-auth-banner')) return;
+            const banner = document.createElement('div');
+            banner.id = 'dir-auth-banner';
+            banner.className = 'fixed top-0 left-0 right-0 z-[9999] bg-orange-600 text-white text-xs flex items-center justify-between px-4 py-2 shadow-lg';
+            banner.innerHTML = `
+                <span><i class="ph-bold ph-folder-lock mr-1"></i>📁 「${handle.name}」需要恢復授權 — <strong>點一下畫面任何地方</strong>即自動完成</span>
+                <button onclick="hideDirAuthBanner()" class="ml-3 shrink-0 text-orange-200 hover:text-white text-lg leading-none">✕</button>`;
+            document.body.prepend(banner);
+        }
+
+        function hideDirAuthBanner() {
+            const b = document.getElementById('dir-auth-banner');
+            if (b) b.remove();
+        }
 
         async function saveDirHandleToDB(handle) {
             return new Promise((resolve, reject) => {
@@ -8370,17 +8387,39 @@ if (appState.pendingAnalyzeContextId) {
                     try {
                         const perm = await savedHandle.queryPermission({ mode: 'readwrite' });
                         if (perm === 'granted') {
-                            // 權限仍有效，直接套用
+                            // 權限仍有效，直接套用（完全靜默，無需任何操作）
                             appState.recSettings.localDirHandle = savedHandle;
                             appState.recSettings.localSaveDirName = savedHandle.name;
                             localStorage.setItem('nova_rec_dir_name', savedHandle.name);
                             console.log(`📁 已還原本地錄音資料夾：${savedHandle.name}`);
                         } else if (perm === 'prompt') {
-                            // 需要再次授權 — 存起 handle，等使用者進設定頁時再 requestPermission
+                            // 權限需要使用者手勢才能重新要求
+                            // 策略：存起 handle，等第一次使用者點擊時自動彈出授權對話框
                             appState.recSettings._pendingDirHandle = savedHandle;
                             appState.recSettings.localSaveDirName = savedHandle.name;
                             localStorage.setItem('nova_rec_dir_name', savedHandle.name);
-                            console.log(`⚠️ 本地錄音資料夾「${savedHandle.name}」需要重新授權，請至【設定 → ⏺️ 錄音】點選重新授權。`);
+                            // 顯示提示橫幅
+                            setTimeout(() => showDirAuthBanner(savedHandle), 1500);
+                            // 第一次使用者互動時自動觸發授權（無需進設定頁）
+                            const autoAuth = async () => {
+                                document.removeEventListener('click',   autoAuth, true);
+                                document.removeEventListener('touchend', autoAuth, true);
+                                if (!appState.recSettings._pendingDirHandle) return;
+                                try {
+                                    const result = await savedHandle.requestPermission({ mode: 'readwrite' });
+                                    if (result === 'granted') {
+                                        appState.recSettings.localDirHandle = savedHandle;
+                                        appState.recSettings._pendingDirHandle = null;
+                                        hideDirAuthBanner();
+                                        showToast(`✅ 錄音資料夾「${savedHandle.name}」授權成功，自動存檔已恢復！`);
+                                        console.log(`📁 自動授權完成：${savedHandle.name}`);
+                                    }
+                                    // 若使用者拒絕，靜默失敗，保留 _pendingDirHandle
+                                } catch(e) { console.warn('自動授權失敗:', e); }
+                            };
+                            // capture:true 確保在任何元素的 click 前觸發
+                            document.addEventListener('click',   autoAuth, { once: true, capture: true });
+                            document.addEventListener('touchend', autoAuth, { once: true, capture: true });
                         }
                     } catch(e) { console.warn('還原資料夾 handle 失敗:', e); }
                 }
