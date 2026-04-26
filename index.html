@@ -1984,8 +1984,15 @@ return html;
                 const reauthBtn = document.getElementById('rec-dir-reauth-btn');
                 if (splitEl) splitEl.value = appState.recSettings.autoSplitMins;
                 if (chunkEl) chunkEl.value = appState.recSettings.analysisChunkMins;
-                if (dirEl)   dirEl.textContent = appState.recSettings.localSaveDirName || '尚未指定，將儲存至瀏覽器預設下載資料夾';
-                // 若有待授權的 handle，顯示「重新授權」按鈕
+                if (dirEl) {
+                    if (appState.recSettings.localDirHandle) {
+                        dirEl.innerHTML = `<span class="text-emerald-400 font-bold">📁 ${escapeHtml(appState.recSettings.localSaveDirName)}</span>`;
+                    } else if (appState.recSettings._pendingDirHandle) {
+                        dirEl.innerHTML = `<span class="text-slate-400 line-through">${escapeHtml(appState.recSettings.localSaveDirName)}</span><br><span class="text-yellow-400 text-[10px]">⚠️ 未授權 — 目前使用：瀏覽器預設下載資料夾</span>`;
+                    } else {
+                        dirEl.innerHTML = `<span class="text-slate-500">瀏覽器預設下載資料夾</span>`;
+                    }
+                }
                 if (reauthBtn) reauthBtn.classList.toggle('hidden', !appState.recSettings._pendingDirHandle);
             }
         };
