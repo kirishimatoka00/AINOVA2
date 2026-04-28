@@ -82,9 +82,9 @@
                         API Key: <span id="api-gemini-status">...</span>
                     </div>
                 </div>
-                <div class="flex items-center gap-3 mt-1" title="為啟用 Google 圖片搜尋，請填入 Search Engine ID">
+                <div class="flex items-center gap-3 mt-1" title="為啟用 SerpApi 圖片搜尋，請填入 SerpApi Key">
                     <i class="ph-fill ph-magnifying-glass text-emerald-400 text-lg"></i>
-                    <input type="text" id="inp-google-cx" placeholder="請輸入 Google CX (Search Engine ID)" class="flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-[11px] text-slate-200 outline-none focus:border-emerald-500">
+                    <input type="password" id="inp-serpapi-key" placeholder="請輸入 SerpApi Key" class="flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-[11px] text-slate-200 outline-none focus:border-emerald-500">
                 </div>
             </div>
 
@@ -138,7 +138,7 @@
                         <div class="border-t border-slate-800 pt-3">
                             <label class="block text-slate-400 mb-1.5 font-semibold">是否需要配圖？</label>
                             <select id="sel-need-image" onchange="toggleImageCount()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="YES">✅ 需要：Google Search 抓圖</option>
+                                <option value="YES">✅ 需要：SerpApi 自動抓圖</option>
                                 <option value="NO">🚫 不需要：純文字與 HTML 圖表排版</option>
                             </select>
                         </div>
@@ -189,8 +189,8 @@
 
         <div class="flex-1 min-w-0 flex flex-col gap-4 sm:gap-5 w-full">
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-                <label class="block text-sm font-semibold text-white mb-2 sm:mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令 (AI 將為您決定視覺風格)</label>
-                <textarea id="inp-topic" rows="5" placeholder="例如：請幫我生成一份探討「2025 AI 發展趨勢」的專業報告。內文需包含大量數據，並請 AI 自行決定風格與是否加入圖表元素..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
+                <label class="block text-sm font-semibold text-white mb-2 sm:mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令 (AI 支援自主連網搜尋資料)</label>
+                <textarea id="inp-topic" rows="5" placeholder="例如：請幫我連網搜尋「2026 AI 發展趨勢」並製作一份專業報告。內文需包含最新數據，並請 AI 自行決定風格與是否加入圖表元素..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
             </div>
 
             <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
@@ -217,7 +217,7 @@
                 </div>
                 <h2 class="text-lg sm:text-xl font-bold text-white mb-2">原生可編輯 PPTX 引擎</h2>
                 <p class="text-slate-500 text-xs sm:text-sm max-w-md leading-relaxed">
-                    本次革命性升級：LLM 設計的排版將被<b>即時解析並轉換為 PPT 原生的文字方塊、形狀與圖片</b>。下載後的簡報將擁有 100% 的可編輯性，不再只是靜態圖片！
+                    本次革命性升級：支援 <b>AI 原生 Google 搜尋工具</b>，製作大綱前會先上網查資料。生成的排版將被<b>即時解析並轉換為 PPT 原生的文字方塊、流程圖與真實圖片 (SerpApi)</b>。
                 </p>
             </div>
         </div>
@@ -227,7 +227,7 @@
 
     <script>
     const AppState = {
-        googleApiKey: '', googleCx: '', xaiApiKey: '',
+        googleApiKey: '', serpApiKey: '', xaiApiKey: '',
         kbDocs: [], logoBase64: null, 
         pptxObject: null, presentationData: null,
         isGenerating: false, cancelRequested: false, abortController: null,
@@ -237,14 +237,14 @@
     function init() {
         AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
         AppState.xaiApiKey = localStorage.getItem('nova_key_grok') || '';
-        AppState.googleCx = localStorage.getItem('nova_key_cx') || '';
+        AppState.serpApiKey = localStorage.getItem('nova_key_serpapi') || '';
         
         document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
-        document.getElementById('inp-google-cx').value = AppState.googleCx;
+        document.getElementById('inp-serpapi-key').value = AppState.serpApiKey;
         
-        document.getElementById('inp-google-cx').addEventListener('input', (e) => {
-            localStorage.setItem('nova_key_cx', e.target.value.trim());
-            AppState.googleCx = e.target.value.trim();
+        document.getElementById('inp-serpapi-key').addEventListener('input', (e) => {
+            localStorage.setItem('nova_key_serpapi', e.target.value.trim());
+            AppState.serpApiKey = e.target.value.trim();
         });
 
         updateHeaderBadge();
@@ -384,7 +384,7 @@
         document.getElementById('logo-preview-wrapper').classList.add('hidden');
     }
 
-    /** 修改：讓 AI 全權決定視覺設計、並根據要求套用流程圖 layout */
+    /** 修改：讓 AI 決定視覺，並賦予 Google Search Tool 聯網能力 */
     async function callGeminiForOutline(topic, kbText) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
@@ -395,10 +395,11 @@
         const needChart = document.getElementById('sel-need-chart').value === 'YES';
 
         let imgRules = needImage 
-            ? "若內容需要配圖輔助，請在該投影片物件中加入 `image_keyword` 屬性，提供一個明確精準的英文名詞以利 Google 搜尋（例：cybersecurity hacker）。" 
+            ? "若內容需要配圖輔助，請在該投影片物件中加入 `image_keyword` 屬性，提供一個明確精準的英文名詞以利 SerpApi 搜尋（例：cybersecurity hacker）。" 
             : "絕對不要生成任何圖片關鍵字，全憑文字與排版決戰。";
 
         const systemPrompt = `你是一位世界頂級的簡報內容策略師與視覺設計總監。
+若使用者要求的內容需要最新資訊，請主動利用搜尋工具查詢後再行規劃。
 請為以下主題生成一份具備極高知識密度的簡報 JSON。
 
 【目標與規範】：
@@ -447,20 +448,34 @@ JSON Schema 範例:
             const ver = getGeminiApiVersion(modelId);
             const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId.replace('grok-4-1-fast-reasoning', 'gemini-2.5-pro')}:generateContent?key=${apiKey}`;
             
+            let payload = {
+                contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題與內容：\n" + fullContext }] }],
+                generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 8192 }
+            };
+
+            // 【重點功能】開放 AI 的原生聯網工具 (限 Gemini 支援)
+            if (modelId.includes('gemini')) {
+                payload.tools = [{ google_search: {} }];
+            }
+
             try {
-                addLog(`呼叫邏輯引擎 ${modelId}...`, 'ai');
+                addLog(`呼叫邏輯引擎 ${modelId} (支援聯網分析)...`, 'ai');
                 const resp = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題與內容：\n" + fullContext }] }],
-                        generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 8192 }
-                    }),
+                    body: JSON.stringify(payload),
                     signal: AppState.abortController.signal
                 });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
-                let raw = data.candidates[0].content.parts[0].text;
+                
+                // 確認是否有呼叫 search tool，有的話我們在前端 log 通知一下
+                const usedTools = data.candidates[0].content.parts.some(p => p.functionCall);
+                if (usedTools) {
+                    addLog(`🌐 AI 觸發了即時聯網搜尋取得最新資料...`, 'info');
+                }
+
+                let raw = data.candidates[0].content.parts.find(p => p.text)?.text || '';
                 const jsonMatch = raw.match(/\{[\s\S]*\}/);
                 if (jsonMatch) raw = jsonMatch[0];
 
@@ -476,36 +491,44 @@ JSON Schema 範例:
         throw new Error(`所有引擎皆失敗。最後錯誤: ${lastErr.message}`);
     }
 
-    /** 修正 3：透過 Google Custom Search API 取代維基百科抓圖 */
-    async function fetchImageFromGoogleSearch(keyword) {
+    /** 修改：透過 SerpApi API 抓取真實圖片 */
+    async function fetchImageFromSerpApi(keyword) {
         if (!keyword) return null;
-        const cx = AppState.googleCx;
-        const apiKey = AppState.googleApiKey;
+        const apiKey = AppState.serpApiKey;
         
-        if (!cx) {
-            addLog(`⚠ 未設定 Google CX，無法透過 Google 搜尋「${keyword}」`, 'warning');
+        if (!apiKey) {
+            addLog(`⚠ 未設定 SerpApi Key，無法自動搜尋「${keyword}」`, 'warning');
             return null;
         }
 
         try {
-            let url = `https://www.googleapis.com/customsearch/v1?q=${encodeURIComponent(keyword)}&cx=${cx}&key=${apiKey}&searchType=image&num=1`;
-            let res = await fetch(url);
-            let data = await res.json();
+            let targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&engine=google_images&num=1&api_key=${apiKey}`;
+            const proxies = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+            ];
             
-            if (data.items && data.items.length > 0) {
-                return data.items[0].link;
+            for (const proxy of proxies) {
+                try {
+                    let res = await fetch(proxy);
+                    let data = await res.json();
+                    
+                    if (data.images_results && data.images_results.length > 0) {
+                        return data.images_results[0].original;
+                    }
+                } catch (e) { }
             }
-        } catch (e) { console.warn("Google Image search failed", e); }
+        } catch (e) { console.warn("SerpApi Image search failed", e); }
         return null;
     }
 
     async function processSlideImage(keyword) {
-        addLog(`🔍 Google Search 搜尋「${keyword}」...`, 'info');
-        const imgUrl = await fetchImageFromGoogleSearch(keyword);
+        addLog(`🔍 SerpApi 搜尋圖片「${keyword}」...`, 'info');
+        const imgUrl = await fetchImageFromSerpApi(keyword);
         
         if (imgUrl) {
             try {
-                // 使用中繼代理迴避圖片 CORS 問題，以便轉為 Base64
+                // 使用中繼代理迴避圖片直接下載時的 CORS 問題，轉為 Base64 塞入 PPT
                 const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`;
                 const res = await fetch(proxyUrl);
                 const blob = await res.blob();
@@ -522,7 +545,7 @@ JSON Schema 範例:
         return null; 
     }
 
-    /** 修正：導入 AI Theme 色彩配置，與支援流程圖的動態繪製 */
+    /** DOM 與原生 PPTX 物件建構引擎 */
     async function buildNativeSlide(slide, sData, themeConfig, i, imgB64) {
         const fontFace = 'Arial';
         const bgHex = (themeConfig.bg_color || '#0F172A').replace('#', '');
