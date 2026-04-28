@@ -2,13 +2,12 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>AI 簡報生成器 · NOVA 120 Pro</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
@@ -19,7 +18,6 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <script>
-        // 設定 PDF.js worker
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
         
         tailwind.config = {
@@ -45,66 +43,65 @@
         .slide-preview-img { width: 100%; border-radius: 8px; border: 1px solid #334155; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
     <div id="html-render-stage" style="position:fixed; top:-9999px; left:-9999px; width:1280px; height:720px; overflow:hidden; z-index:-10;"></div>
-    <div id="mermaid-render-container" style="position:fixed; top:-9999px; left:-9999px; width:1280px; height:720px; visibility:hidden; pointer-events:none;"></div>
 
-    <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70">
-        <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-3 min-w-0">
-                <a href="./index.html" class="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium">
-                    <i class="ph-bold ph-arrow-left"></i><span>返回 NOVA 120</span>
+    <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70 shrink-0">
+        <div class="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
+            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
+                <a href="./index.html" class="flex items-center gap-1 text-slate-400 hover:text-white text-xs sm:text-sm font-medium">
+                    <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
                 </a>
-                <div class="w-px h-5 bg-slate-700"></div>
-                <h1 class="text-sm font-bold text-white truncate">AI 簡報生成器 Pro (HTML Engine)</h1>
+                <div class="w-px h-5 bg-slate-700 hidden sm:block"></div>
+                <h1 class="text-xs sm:text-sm font-bold text-white truncate">AI 簡報生成器 Pro (HTML)</h1>
             </div>
-            <div class="flex items-center gap-2">
-                <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <div id="header-model-badge" class="hidden md:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
                     <i class="ph-fill ph-cpu text-violet-400"></i><span id="header-model-name">檢測中</span>
                 </div>
-                <button id="btn-download" onclick="downloadPptx()" class="hidden items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-lg">
-                    <i class="ph-bold ph-download-simple"></i><span>下載 PPTX</span>
+                <button id="btn-download" onclick="downloadPptx()" class="hidden items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shadow-lg">
+                    <i class="ph-bold ph-download-simple"></i><span class="hidden sm:inline">下載 PPTX</span>
                 </button>
-                <button id="btn-generate" onclick="startGeneration()" class="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-lg">
-                    <i class="ph-bold ph-sparkle"></i><span>開始生成</span>
+                <button id="btn-generate" onclick="startGeneration()" class="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 text-white text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shadow-lg">
+                    <i class="ph-bold ph-sparkle"></i><span class="hidden sm:inline">開始生成</span><span class="sm:hidden">生成</span>
                 </button>
-                <button id="btn-stop" onclick="stopGeneration()" class="hidden items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-lg">
-                    <i class="ph-bold ph-stop"></i><span>停止生成</span>
+                <button id="btn-stop" onclick="stopGeneration()" class="hidden items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shadow-lg">
+                    <i class="ph-bold ph-stop"></i><span class="hidden sm:inline">停止生成</span><span class="sm:hidden">停止</span>
                 </button>
             </div>
         </div>
     </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-5">
-        <aside class="lg:w-80 xl:w-96 flex flex-col gap-4 shrink-0">
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
-                <i class="ph-fill ph-key text-blue-400"></i>
-                <div class="flex-1 text-[11px] text-slate-400 truncate">
+    <main class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 flex flex-col lg:flex-row gap-4 sm:gap-5 flex-1 w-full">
+        <aside class="w-full lg:w-80 xl:w-96 flex flex-col gap-4 shrink-0">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 flex items-center gap-3">
+                <i class="ph-fill ph-key text-blue-400 text-lg"></i>
+                <div class="flex-1 text-[10px] sm:text-[11px] text-slate-400 truncate">
                     Gemini Key: <span id="api-gemini-status">...</span>
                 </div>
             </div>
 
             <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-kb')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50">
-                    <div class="flex items-center gap-2.5">
-                        <i class="ph-fill ph-books text-emerald-400"></i>
+                <button onclick="togglePanel('panel-kb')" class="w-full flex items-center justify-between p-3 sm:p-4 hover:bg-slate-800/50">
+                    <div class="flex items-center gap-2">
+                        <i class="ph-fill ph-books text-emerald-400 text-lg"></i>
                         <span class="text-sm font-semibold text-white">智慧知識庫 (解析區)</span>
                     </div>
                     <i id="panel-kb-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
                 </button>
-                <div id="panel-config" class="panel-body open">
-                    <div class="px-4 pb-4 space-y-4 text-xs">
-                        <div id="kb-drop-zone" class="drop-zone rounded-xl p-4 text-center cursor-pointer bg-slate-950/50" onclick="document.getElementById('kb-file-input').click()">
-                            <i class="ph-bold ph-upload-simple text-slate-500 text-2xl mb-1.5"></i>
+                <div id="panel-kb" class="panel-body open">
+                    <div class="px-3 sm:px-4 pb-4 space-y-3 sm:space-y-4 text-xs">
+                        <div id="kb-drop-zone" class="drop-zone rounded-xl p-3 text-center cursor-pointer bg-slate-950/50" onclick="document.getElementById('kb-file-input').click()">
+                            <i class="ph-bold ph-upload-simple text-slate-500 text-xl sm:text-2xl mb-1"></i>
                             <p class="text-slate-400 font-medium">上傳參考檔案</p>
-                            <p class="text-slate-600 mt-1">支援 PDF, Word, Excel, PPTX, TXT</p>
+                            <p class="text-slate-600 mt-1 text-[10px] sm:text-xs">支援 PDF, Word, Excel, PPTX, TXT</p>
                         </div>
                         <input type="file" id="kb-file-input" multiple accept=".txt,.md,.html,.csv,.json,.pdf,.docx,.xlsx,.pptx" class="hidden" onchange="handleKbUpload(this.files)">
                         
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">網頁 / YouTube 連結 (每行一個)</label>
-                            <textarea id="kb-links-area" rows="2" placeholder="https://..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 outline-none"></textarea>
+                            <textarea id="kb-links-area" rows="2" placeholder="https://..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 outline-none"></textarea>
                         </div>
                         
                         <div id="kb-file-list" class="space-y-1.5"></div>
@@ -113,15 +110,15 @@
             </div>
 
             <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-config')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50">
-                    <div class="flex items-center gap-2.5">
-                        <i class="ph-fill ph-sliders-horizontal text-amber-400"></i>
+                <button onclick="togglePanel('panel-config')" class="w-full flex items-center justify-between p-3 sm:p-4 hover:bg-slate-800/50">
+                    <div class="flex items-center gap-2">
+                        <i class="ph-fill ph-sliders-horizontal text-amber-400 text-lg"></i>
                         <span class="text-sm font-semibold text-white">進階細節指定</span>
                     </div>
                     <i id="panel-config-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
                 </button>
                 <div id="panel-config" class="panel-body open">
-                    <div class="px-4 pb-4 space-y-4 text-xs">
+                    <div class="px-3 sm:px-4 pb-4 space-y-4 text-xs">
                         
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">首選文字模型 (LLM)</label>
@@ -134,20 +131,21 @@
                         </div>
 
                         <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">首選配圖模型 (Image)</label>
+                            <label class="block text-slate-400 mb-1.5 font-semibold">首選生圖模型 (Image)</label>
                             <select id="sel-img-model" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="grok-imagine-image-pro">Grok Imagine Image Pro (推薦)</option>
                                 <option value="grok-imagine-image">Grok Imagine Image</option>
                                 <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
                                 <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
                             </select>
+                            <p class="text-slate-500 text-[10px] mt-1">若網路搜尋不到圖片，將以此模型生成</p>
                         </div>
 
                         <div class="border-t border-slate-800 pt-3">
                             <label class="block text-slate-400 mb-1.5 font-semibold">是否需要配圖？</label>
                             <select id="sel-need-image" onchange="toggleImageCount()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="YES">✅ 需要：AI 自動生成插圖</option>
-                                <option value="NO">🚫 不需要：純文字與圖表</option>
+                                <option value="YES">✅ 需要：網路搜尋 + AI 輔助生成</option>
+                                <option value="NO">🚫 不需要：純文字與 HTML 圖表排版</option>
                             </select>
                         </div>
 
@@ -161,8 +159,8 @@
                         <div class="border-t border-slate-800 pt-3">
                             <label class="block text-slate-400 mb-1.5 font-semibold">簡報 Logo / 浮水印</label>
                             <div class="flex items-center gap-2">
-                                <button onclick="document.getElementById('logo-upload').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2 text-slate-300 transition-colors">上傳圖片</button>
-                                <select id="sel-logo-pos" class="bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 focus:border-amber-500 outline-none">
+                                <button onclick="document.getElementById('logo-upload').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-2 py-2 text-slate-300 transition-colors">上傳</button>
+                                <select id="sel-logo-pos" class="bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 outline-none">
                                     <option value="TR">右上角</option>
                                     <option value="BR">右下角</option>
                                     <option value="TL">左上角</option>
@@ -171,37 +169,16 @@
                                 <input type="file" id="logo-upload" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
                             </div>
                             <div id="logo-preview-wrapper" class="hidden mt-2 relative inline-block">
-                                <img id="logo-preview" class="h-10 object-contain bg-white/10 rounded p-1">
+                                <img id="logo-preview" class="h-8 sm:h-10 object-contain bg-white/10 rounded p-1">
                                 <button onclick="removeLogo()" class="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">&times;</button>
                             </div>
                         </div>
 
-                        <div class="border-t border-slate-800 pt-3">
-                            <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格 (HTML Template)</label>
-                            <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="modern">現代極簡 (Modern Minimalist)</option>
-                                <option value="tech">科技未來 (Tech Future)</option>
-                                <option value="corporate">商務專業 (Corporate Professional)</option>
-                                <option value="creative">活潑創意 (Creative & Playful)</option>
-                            </select>
-                        </div>
-
                         <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">投影片背景底色</label>
-                            <div class="flex gap-2">
-                                <input type="color" id="slide-bg-color" value="#0F172A" class="h-9 w-12 bg-transparent border-none cursor-pointer">
-                                <input type="text" id="slide-bg-hex" value="#0F172A" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 text-slate-200 outline-none" oninput="document.getElementById('slide-bg-color').value=this.value">
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">是否需要流程圖？</label>
+                            <label class="block text-slate-400 mb-1.5 font-semibold">是否需要 HTML 結構流程圖？</label>
                             <select id="sel-flowchart-dir" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="NONE" class="text-rose-400 font-bold">🚫 不需要流程圖</option>
-                                <option value="TD">✅ 需要：由上至下 (Top-Down)</option>
-                                <option value="LR">✅ 需要：由左至右 (Left-Right)</option>
-                                <option value="PIE">✅ 需要：環形比例圖 (Pie Chart)</option>
-                                <option value="MINDMAP">✅ 需要：心智圖 (Mindmap)</option>
+                                <option value="YES">✅ 需要：AI 自動生成 CSS/HTML 資訊圖表</option>
                             </select>
                         </div>
 
@@ -216,39 +193,41 @@
             </div>
         </aside>
 
-        <div class="flex-1 min-w-0 flex flex-col gap-5">
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <label class="block text-sm font-semibold text-white mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令 (請盡量詳細)</label>
-                <textarea id="inp-topic" rows="4" placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告，內容需包含大量數據、具體案例與未來預測，不要流於空泛..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
+        <div class="flex-1 min-w-0 flex flex-col gap-4 sm:gap-5 w-full">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
+                <label class="block text-sm font-semibold text-white mb-2 sm:mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令 (支援指定視覺風格)</label>
+                <textarea id="inp-topic" rows="5" placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告。請使用深藍色科技感風格(Cyberpunk)排版，內文需包含大量數據與未來預測，若有流程圖請用 Flexbox 排版得很漂亮..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
             </div>
 
-            <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <div class="flex items-center gap-2.5 mb-4">
-                    <div id="progress-spinner" class="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
+            <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
+                <div class="flex items-center gap-2.5 mb-3 sm:mb-4">
+                    <div id="progress-spinner" class="w-4 h-4 sm:w-5 sm:h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
                     <div class="flex-1 bg-slate-800 rounded-full h-1.5"><div id="progress-bar" class="h-1.5 bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all" style="width: 0%"></div></div>
-                    <span id="progress-pct" class="text-xs font-bold text-violet-400">0%</span>
+                    <span id="progress-pct" class="text-[10px] sm:text-xs font-bold text-violet-400">0%</span>
                 </div>
-                <div id="log-container" class="space-y-1.5 max-h-52 overflow-y-auto text-[11px] no-scrollbar"></div>
+                <div id="log-container" class="space-y-1.5 max-h-40 sm:max-h-52 overflow-y-auto text-[10px] sm:text-[11px] no-scrollbar"></div>
             </div>
 
             <div id="section-preview" class="hidden">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-semibold text-white"><i class="ph-fill ph-stack text-violet-400"></i> HTML 視覺排版預覽</h3>
                 </div>
-                <div id="slides-preview-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                <div id="slides-preview-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4"></div>
             </div>
             
-            <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                <div class="w-20 h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-5 border border-violet-500/20">
-                    <i class="ph-bold ph-code text-violet-400 text-3xl"></i>
+            <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 text-center px-4">
+                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-4 sm:mb-5 border border-violet-500/20">
+                    <i class="ph-bold ph-code text-violet-400 text-2xl sm:text-3xl"></i>
                 </div>
-                <h2 class="text-xl font-bold text-white mb-2">HTML-Based Presentation 引擎</h2>
-                <p class="text-slate-500 text-sm max-w-md">本次升級：LLM 將直接為您撰寫 HTML/CSS 版型。系統會在背景渲染後，以 4K 解析度無損轉印至 PPTX，達到真正的滿版與極致排版自由度。</p>
+                <h2 class="text-lg sm:text-xl font-bold text-white mb-2">HTML-Based Presentation 引擎</h2>
+                <p class="text-slate-500 text-xs sm:text-sm max-w-md leading-relaxed">
+                    本次重大升級：LLM 將直接化身前端工程師撰寫 HTML/CSS 版型。支援<b>網路自動搜圖</b>與<b>純 CSS 流程圖</b>。系統會在背景以 4K 無損轉印至 PPTX，達到真正的排版自由。
+                </p>
             </div>
         </div>
     </main>
 
-    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-slate-800 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700 opacity-0 transition-all pointer-events-none translate-y-4"></div>
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-slate-800 text-white text-xs sm:text-sm font-medium px-4 py-2 rounded-xl shadow-2xl border border-slate-700 opacity-0 transition-all pointer-events-none translate-y-4"></div>
 
     <script>
     const AppState = {
@@ -256,25 +235,17 @@
         kbDocs: [], logoBase64: null, 
         pptxObject: null, presentationData: null,
         isGenerating: false, cancelRequested: false, abortController: null,
-        finalSlideImages: [] // 儲存 html2canvas 截圖
+        finalSlideImages: [] 
     };
 
     const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
     const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
-
-    const TEMPLATES = {
-        modern: { accent: '#64748B', titleColor: '#FFFFFF', textColor: '#E2E8F0', font: 'Arial' },
-        tech: { accent: '#0EA5E9', titleColor: '#38BDF8', textColor: '#BAE6FD', font: 'monospace' },
-        corporate: { accent: '#2563EB', titleColor: '#FFFFFF', textColor: '#BFDBFE', font: 'Arial' },
-        creative: { accent: '#EC4899', titleColor: '#F9A8D4', textColor: '#FBCFE8', font: 'Verdana' }
-    };
 
     function init() {
         AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
         AppState.xaiApiKey = localStorage.getItem('nova_key_grok') || '';
         document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
         updateHeaderBadge();
-        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
         toggleImageCount();
     }
 
@@ -282,6 +253,7 @@
 
     function togglePanel(id) {
         document.getElementById(id).classList.toggle('open');
+        document.getElementById(id + '-icon').classList.toggle('rotate-180');
     }
 
     function showToast(m) {
@@ -326,7 +298,7 @@
         }
     }
 
-    // ★ 檔案解析功能實作 ★
+    // 檔案解析
     async function handleKbUpload(files) {
         for (const file of files) {
             try {
@@ -354,7 +326,6 @@
                         text += XLSX.utils.sheet_to_txt(wb.Sheets[sheetName]) + '\n';
                     });
                 } else if (ext === 'pptx') {
-                    // 簡易 PPTX XML 文字提取
                     const zip = await JSZip.loadAsync(file);
                     for (const filename of Object.keys(zip.files)) {
                         if (filename.startsWith('ppt/slides/slide') && filename.endsWith('.xml')) {
@@ -365,7 +336,7 @@
                 }
 
                 if(text) {
-                    AppState.kbDocs.push({ name: file.name, text: text.substring(0, 30000) }); // 限制單檔字數防爆
+                    AppState.kbDocs.push({ name: file.name, text: text.substring(0, 30000) });
                     addKbFileItem(file.name, AppState.kbDocs.length - 1);
                     showToast(`📚 已載入：${file.name}`);
                 }
@@ -404,55 +375,59 @@
         document.getElementById('logo-preview-wrapper').classList.add('hidden');
     }
 
-    /** ★ HTML-Based LLM Prompt 核心 ★ */
+    /** ★ HTML-Based LLM Prompt 核心 (已移除 Mermaid，委由 AI 自訂風格與 HTML 流程圖) ★ */
     async function callGeminiForHTMLOutline(topic, kbText) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
         const apiKey = AppState.googleApiKey;
         const userChoice = document.getElementById('sel-text-model').value;
         const slideCount = document.getElementById('range-slide-count').value;
-        const flowDir = document.getElementById('sel-flowchart-dir').value;
-        const templateStyleKey = document.getElementById('sel-template').value;
-        const templateObj = TEMPLATES[templateStyleKey];
-        const userBgHex = document.getElementById('slide-bg-hex').value;
+        const needFlowchart = document.getElementById('sel-flowchart-dir').value === 'YES';
         const needImage = document.getElementById('sel-need-image').value === 'YES';
 
-        let flowRules = flowDir === 'NONE' 
-            ? "絕對不要生成 mermaid_code 與 flowchart。" 
-            : `如果需要表達架構/流程，請使用 mermaid_code (格式: graph ${flowDir} 等)。不要在 HTML 中寫死圖表。`;
+        let flowRules = needFlowchart 
+            ? "使用者允許包含流程圖或結構圖。你【絕對禁止使用 Mermaid】！你必須直接在 html_code 中，使用 CSS Flexbox、Grid、Border、Padding 結合 `&rarr;` 等文字符號，手工刻出美觀的層次化樹狀圖或流程圖。" 
+            : "絕對不要生成任何形式的流程圖。";
 
         let imgRules = needImage 
-            ? "若要插入圖片，請在 html_code 中加入 `<img class=\"ai-img-placeholder\" style=\"...\">` 並提供 `image_prompt`。" 
-            : "絕對不要插入圖片，請完全利用 HTML 排版與文字撐滿畫面。";
+            ? "若要插入配圖，請在 HTML 中加入 `<img class=\"ai-img-placeholder\" style=\"...\" alt=\"[在這裡寫下圖片的英文提示詞(prompt)或搜尋關鍵字]\">`。系統會讀取 alt 內容來自動抓圖替換。" 
+            : "絕對不要插入圖片，請完全利用文字排版與 CSS 幾何色塊撐滿畫面。";
 
-        const systemPrompt = `你是一位世界頂級的網頁設計師與簡報內容策略師。
-請以「HTML/CSS」作為投影片排版語言，為以下主題生成一份具備極高知識密度、精美排版的簡報 JSON。
+        const systemPrompt = `你是一位世界頂級的前端設計師與商業簡報策略師。
+請為以下主題生成一份具備極高知識密度、排版精美的 HTML 簡報 JSON。
+
+【AI 視覺風格自決機制】：
+請根據使用者的「主題」與「指令語氣」，自行決定這份簡報的配色與字體，並在 \`presentation_theme\` 節點回傳。
 
 【排版與視覺限制 - 極度重要】：
-1. 每張投影片的 \`html_code\` 必須是一個最外層的 <div>，且帶有行內樣式：\`style="width:1280px; height:720px; background-color:${userBgHex}; color:${templateObj.textColor}; font-family:${templateObj.font}; position:relative; overflow:hidden; box-sizing:border-box; padding:60px;"\`。
-2. 你可以使用 Tailwind CSS classes 或 Inline CSS 進行內部排版（例如 flex, grid, absolute positioning）。
-3. 重點強調色 (Accent Color) 為：${templateObj.accent}。標題顏色為：${templateObj.titleColor}。
-4. 排版必須豐富滿版 (Full-bleed 概念)，不可讓右側或下方留白太多。可使用大字體、格狀版型(Grid) 或並排卡片(Cards) 來呈現數據。
-5. ${imgRules}
-6. ${flowRules} (如果產生 mermaid_code，請在 html_code 預留 \`<div class="mermaid-placeholder" style="width:100%; height:400px;"></div>\`)
-7. 回傳純 JSON，不可有 markdown 標籤。
+1. 每張投影片的 \`html_code\` 必須是一個最外層的 <div>，且帶有行內樣式：\`style="width:1280px; height:720px; background-color: {填入你決定的背景色}; color: {填入文字色}; font-family: {填入字體}; position:relative; overflow:hidden; box-sizing:border-box; padding:60px;"\`。
+2. 你可以使用 Inline CSS 或 Tailwind 語法排版（如 flex, grid, absolute）。
+3. 排版必須豐富滿版 (Full-bleed)，不可讓畫面留白太多。多使用大字體標題、格狀版型(Grid) 或並排卡片(Cards) 來呈現內文與數據。
+4. ${imgRules}
+5. ${flowRules}
+6. 回傳純 JSON，不可有 markdown 標籤 (不要輸出 \`\`\`json)。
 
 JSON Schema:
 {
   "presentation_title": "標題",
+  "presentation_theme": {
+    "backgroundColor": "#1E293B",
+    "textColor": "#F8FAFC",
+    "accentColor": "#38BDF8",
+    "fontFamily": "'Segoe UI', sans-serif"
+  },
   "slides": [
     { 
       "slide_number": 1, 
-      "html_code": "<div style='width:1280px;height:720px;...'><h1 style='color:${templateObj.titleColor};font-size:64px;'>...</h1><div class='flex'>...</div></div>", 
-      "image_prompt": "English prompt for image generation OR null", 
-      "mermaid_code": "graph TD... OR null" 
+      "html_code": "<div style='width:1280px;height:720px;...'><h1 style='color:#38BDF8;font-size:64px;'>...</h1><div class='flex'>...</div></div>", 
+      "image_strategy": "${needImage ? 'search OR generate' : 'none'}",
+      "image_keyword": "Concrete noun for Wikipedia search OR abstract descriptive English prompt for generation"
     }
   ]
 }`;
 
         const uniqueModels = [...new Set([userChoice, 'gemini-3.1-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'])];
         
-        // 組合 KB text
         let fullContext = topic;
         const links = document.getElementById('kb-links-area').value.trim();
         if (kbText || links) {
@@ -470,7 +445,7 @@ JSON Schema:
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題與內容：\n" + fullContext }] }],
+                        contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題指令與內容：\n" + fullContext }] }],
                         generationConfig: { responseMimeType: 'application/json', temperature: 0.8, maxOutputTokens: 8192 }
                     }),
                     signal: AppState.abortController.signal
@@ -481,7 +456,7 @@ JSON Schema:
                 const jsonMatch = raw.match(/\{[\s\S]*\}/);
                 if (jsonMatch) raw = jsonMatch[0];
 
-                addLog(`✓ 成功使用 ${modelId} 生成 HTML 架構大綱`, 'success');
+                addLog(`✓ 成功使用 ${modelId} 生成客製化 HTML 架構`, 'success');
                 return JSON.parse(raw);
             } catch (e) {
                 lastErr = e;
@@ -492,41 +467,48 @@ JSON Schema:
         throw new Error(`所有引擎皆失敗。最後錯誤: ${lastErr.message}`);
     }
 
-    async function buildImagePrompt(query) {
-        const gKey = AppState.googleApiKey;
-        if (!gKey) return `Professional 4k illustration: ${query}`;
+    /** ★ 新增：無金鑰 Wikimedia 圖片搜尋引擎 ★ */
+    async function fetchImageFromWikipedia(keyword) {
+        if (!keyword) return null;
         try {
-            const r = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`,
-                {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: `Create a highly detailed English image generation prompt (max 30 words) based on: "${query}". Style: Minimalist corporate illustration, 4k. Return ONLY the prompt.` }] }],
-                        generationConfig: { maxOutputTokens: 100, temperature: 0.6 }
-                    }),
-                    signal: AppState.abortController.signal
-                }
-            );
-            return (await r.json()).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${query}`;
-        } catch { return `Professional illustration: ${query}`; }
+            // 嘗試從中文維基抓圖
+            let url = `https://zh.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=original&titles=${encodeURIComponent(keyword)}&origin=*`;
+            let res = await fetch(url);
+            let data = await res.json();
+            let pages = data.query?.pages;
+            if (pages) {
+                let pageId = Object.keys(pages)[0];
+                if (pageId !== "-1" && pages[pageId].original) return pages[pageId].original.source;
+            }
+            
+            // Fallback 到英文維基
+            url = `https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=original&titles=${encodeURIComponent(keyword)}&origin=*`;
+            res = await fetch(url);
+            data = await res.json();
+            pages = data.query?.pages;
+            if (pages) {
+                let pageId = Object.keys(pages)[0];
+                if (pageId !== "-1" && pages[pageId].original) return pages[pageId].original.source;
+            }
+        } catch (e) { console.warn("Wiki search failed:", e); }
+        return null;
     }
 
     async function generateImage(imagePrompt, slideNum) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        const finalPrompt = await buildImagePrompt(imagePrompt);
         const preferredModel = document.getElementById('sel-img-model').value;
         const fallbackQueue = [...new Set([preferredModel, 'grok-imagine-image-pro', 'grok-imagine-image', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'])];
 
         for (const model of fallbackQueue) {
             if (AppState.cancelRequested) throw new Error('CanceledByUser');
             try {
-                addLog(`🎨 呼叫配圖引擎 ${model}...`, 'ai');
+                addLog(`🎨 呼叫 AI 配圖引擎 ${model}...`, 'ai');
                 if (model.startsWith('grok')) {
                     if (!AppState.xaiApiKey) continue;
                     const r = await fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${AppState.xaiApiKey}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: model, prompt: finalPrompt, response_format: 'b64_json' }),
+                        body: JSON.stringify({ model: model, prompt: "Professional presentation minimal illustration: " + imagePrompt, response_format: 'b64_json' }),
                         signal: AppState.abortController.signal
                     });
                     if (r.ok) {
@@ -538,7 +520,7 @@ JSON Schema:
                     const ver = model.includes('preview') ? 'v1alpha' : 'v1beta';
                     const r = await fetch(`https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${AppState.googleApiKey}`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: finalPrompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }),
+                        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: "Create minimal business illustration: " + imagePrompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }),
                         signal: AppState.abortController.signal
                     });
                     if (r.ok) {
@@ -553,18 +535,19 @@ JSON Schema:
         return null;
     }
 
-    async function mermaidToSvgBase64(code) {
-        const container = document.getElementById('mermaid-render-container');
-        let safeCode = code.replace(/```mermaid/gi, '').replace(/```/g, '').trim();
-        try {
-            const uniqueId = 'mmr-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-            const { svg } = await mermaid.render(uniqueId, safeCode, container);
-            const base64 = btoa(unescape(encodeURIComponent(svg)));
-            return `data:image/svg+xml;base64,${base64}`;
-        } catch (e) { 
-            console.warn("Mermaid 渲染失敗:", e);
-            return null; 
+    async function processSlideImage(strategy, keyword, slideNum) {
+        if (strategy === 'search' && keyword) {
+            addLog(`🔍 第 ${slideNum} 頁：嘗試網路搜尋「${keyword}」...`, 'info');
+            const wikiUrl = await fetchImageFromWikipedia(keyword);
+            if (wikiUrl) {
+                addLog(`✓ 成功取得真實網路圖片！`, 'success');
+                return wikiUrl;
+            }
+            addLog(`⚠️ 搜尋不到合適圖片，自動降級為 AI 生成...`, 'warning');
         }
+        
+        // 進入生成邏輯
+        return await generateImage(keyword || "abstract professional background", slideNum);
     }
 
     async function startGeneration() {
@@ -610,7 +593,7 @@ JSON Schema:
             for (let i = 0; i < slides.length; i++) {
                 if (AppState.cancelRequested) throw new Error('CanceledByUser');
                 const sData = slides[i];
-                addLog(`正在編譯第 ${sData.slide_number} 頁 HTML...`, 'info');
+                addLog(`正在編譯第 ${sData.slide_number} 頁 HTML 佈局...`, 'info');
 
                 // 注入 HTML
                 htmlStage.innerHTML = sData.html_code;
@@ -619,54 +602,60 @@ JSON Schema:
                 // 強制加入 Logo (若有)
                 if (AppState.logoBase64) {
                     const pos = document.getElementById('sel-logo-pos').value;
-                    let style = "position:absolute; width:120px; height:auto; z-index:9999;";
-                    if(pos==='TR') style += "top:30px; right:30px;";
-                    if(pos==='BR') style += "bottom:30px; right:30px;";
-                    if(pos==='TL') style += "top:30px; left:30px;";
-                    if(pos==='BL') style += "bottom:30px; left:30px;";
+                    let style = "position:absolute; max-width:150px; max-height:80px; object-fit:contain; z-index:9999;";
+                    if(pos==='TR') style += "top:40px; right:40px;";
+                    if(pos==='BR') style += "bottom:40px; right:40px;";
+                    if(pos==='TL') style += "top:40px; left:40px;";
+                    if(pos==='BL') style += "bottom:40px; left:40px;";
                     const logoImg = document.createElement('img');
                     logoImg.src = AppState.logoBase64;
                     logoImg.style.cssText = style;
                     slideDiv.appendChild(logoImg);
                 }
 
-                // 處理生圖
-                if (needImage && sData.image_prompt && imagesGenerated < maxImages) {
-                    const imgHolders = slideDiv.querySelectorAll('.ai-img-placeholder, img');
+                // 處理雙軌配圖 (Search OR Generate)
+                if (needImage && imagesGenerated < maxImages) {
+                    const imgHolders = slideDiv.querySelectorAll('.ai-img-placeholder, img:not([src])');
                     if (imgHolders.length > 0) {
-                        const imgB64 = await generateImage(sData.image_prompt, sData.slide_number);
-                        if (imgB64) {
-                            imgHolders.forEach(el => { el.src = imgB64; el.style.objectFit = 'cover'; });
+                        // 優先使用 JSON 裡的關鍵字，否則抓取 placeholder 上的 alt 屬性當提示詞
+                        let strategy = sData.image_strategy || 'generate';
+                        let keyword = sData.image_keyword || imgHolders[0].alt || sData.presentation_title;
+                        
+                        const imgUrlOrB64 = await processSlideImage(strategy, keyword, sData.slide_number);
+                        
+                        if (imgUrlOrB64) {
+                            // 這裡由於 html2canvas 有跨域安全限制，所以我們需要設置跨域標籤
+                            imgHolders.forEach(el => { 
+                                el.crossOrigin = "anonymous";
+                                el.src = imgUrlOrB64; 
+                                el.style.objectFit = 'cover'; 
+                            });
                             imagesGenerated++;
-                        }
-                    }
-                }
-
-                // 處理流程圖
-                if (sData.mermaid_code) {
-                    const mHolders = slideDiv.querySelectorAll('.mermaid-placeholder, div.mermaid');
-                    if (mHolders.length > 0) {
-                        const svgB64 = await mermaidToSvgBase64(sData.mermaid_code);
-                        if (svgB64) {
-                            mHolders.forEach(el => {
-                                const img = document.createElement('img');
-                                img.src = svgB64;
-                                img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'contain';
-                                el.replaceWith(img);
+                            // 等待外部圖片加載完成
+                            await new Promise(r => {
+                                const tempImg = new Image();
+                                tempImg.crossOrigin = "anonymous";
+                                tempImg.onload = r;
+                                tempImg.onerror = r; // 失敗也跳過
+                                tempImg.src = imgUrlOrB64;
                             });
                         }
                     }
                 }
 
-                // 等待圖片與字體渲染 (給瀏覽器一個呼吸時間)
-                await new Promise(r => setTimeout(r, 200));
+                // 等待字體與排版渲染
+                await new Promise(r => setTimeout(r, 300));
 
-                // ★ 核心魔法：使用 html2canvas 將 HTML 轉換為高畫質圖片 ★
-                const canvas = await html2canvas(slideDiv, { scale: 2, useCORS: true, backgroundColor: null });
+                // ★ 核心魔法：使用 html2canvas 擷取 HTML 畫面 ★
+                const canvas = await html2canvas(slideDiv, { 
+                    scale: 2.5, // 拉高解析度
+                    useCORS: true, 
+                    backgroundColor: data.presentation_theme?.backgroundColor || '#1E293B' 
+                });
                 const slideBase64 = canvas.toDataURL('image/png');
                 AppState.finalSlideImages.push(slideBase64);
 
-                // 放入 PPTX (全滿版)
+                // 將擷取的圖片塞滿 PPT 投影片 (10 x 5.625 吋 = 16:9)
                 const pptSlide = pres.addSlide();
                 pptSlide.addImage({ data: slideBase64, x: 0, y: 0, w: 10, h: 5.625 });
 
@@ -701,9 +690,9 @@ JSON Schema:
         list.innerHTML = '';
         AppState.finalSlideImages.forEach((b64, idx) => {
             const div = document.createElement('div');
-            div.className = 'bg-slate-900 border border-slate-800 p-2 rounded-xl text-center';
+            div.className = 'bg-slate-900 border border-slate-800 p-2 sm:p-3 rounded-xl text-center';
             div.innerHTML = `
-                <div class="text-xs font-bold text-violet-400 mb-2 text-left px-2">PAGE ${idx+1}</div>
+                <div class="text-[10px] sm:text-xs font-bold text-violet-400 mb-2 text-left px-1">PAGE ${idx+1}</div>
                 <img src="${b64}" class="slide-preview-img">
             `;
             list.appendChild(div);
