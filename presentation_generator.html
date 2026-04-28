@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI 簡報生成器 · NOVA 120 Pro Native</title>
+    <title>AI 簡報生成器 · NOVA 120 Pro Native Hybrid</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -39,12 +39,12 @@
         .panel-body.open { max-height: 2000px; opacity: 1; }
         .drop-zone { border: 2px dashed #475569; transition: all 0.25s ease; }
         .drop-zone:hover { border-color: #818cf8; background-color: rgba(99, 102, 241, 0.08); }
-        .slide-preview-card { width: 100%; aspect-ratio: 16/9; border-radius: 8px; border: 1px solid #334155; background-color: #0F172A; padding: 12px; font-size: 8px; overflow: hidden; color: white; }
+        .slide-preview-card { width: 100%; aspect-ratio: 16/9; border-radius: 8px; border: 1px solid #334155; background-color: #0F172A; padding: 12px; font-size: 8px; overflow: hidden; color: white; position: relative; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-    <div id="html-parse-stage" style="display:none;"></div>
+    <div id="measure-stage" style="position:fixed; top:-9999px; left:-9999px; width:1280px; height:720px; overflow:hidden; visibility:hidden;"></div>
 
     <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70 shrink-0">
         <div class="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
@@ -53,7 +53,7 @@
                     <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
                 </a>
                 <div class="w-px h-5 bg-slate-700 hidden sm:block"></div>
-                <h1 class="text-xs sm:text-sm font-bold text-white truncate">AI 簡報生成器 Pro (Native PPT)</h1>
+                <h1 class="text-xs sm:text-sm font-bold text-white truncate">AI 簡報生成器 Pro (Hybrid Engine)</h1>
             </div>
             <div class="flex items-center gap-1.5 sm:gap-2">
                 <div id="header-model-badge" class="hidden md:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
@@ -175,6 +175,7 @@
                         <div class="border-t border-slate-800 pt-3">
                             <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格 (Template)</label>
                             <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
+                                <option value="auto">✨ 讓 AI 根據內容決定風格</option>
                                 <option value="modern">現代極簡 (Modern Minimalist)</option>
                                 <option value="tech">科技未來 (Tech Future)</option>
                                 <option value="corporate">商務專業 (Corporate Professional)</option>
@@ -203,15 +204,15 @@
 
         <div class="flex-1 min-w-0 flex flex-col gap-4 sm:gap-5 w-full">
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-                <label class="block text-sm font-semibold text-white mb-2 sm:mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令 (支援指定視覺風格)</label>
-                <textarea id="inp-topic" rows="5" placeholder="例如：請幫我生成一份探討「2025 AI 發展趨勢」的專業報告。請使用深藍色科技感風格排版，內文需包含大量數據，請 AI 自行決定每一頁要不要用兩欄式排版或加入圖表元素..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
+                <label class="block text-sm font-semibold text-white mb-2 sm:mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令</label>
+                <textarea id="inp-topic" rows="5" placeholder="例如：請幫我生成一份探討「2025 AI 發展趨勢」的專業報告。內文需包含大量數據，請 AI 自由決定排版..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
             </div>
 
             <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
                 <div class="flex items-center gap-2.5 mb-3 sm:mb-4">
                     <div id="progress-spinner" class="w-4 h-4 sm:w-5 sm:h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
                     <div class="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                        <div id="progress-bar" class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-300 ease-out" style="width: 0%"></div>
+                        <div id="progress-bar" class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-200 ease-out" style="width: 0%"></div>
                     </div>
                     <span id="progress-pct" class="text-[10px] sm:text-xs font-bold text-violet-400 w-8 text-right">0%</span>
                 </div>
@@ -231,7 +232,7 @@
                 </div>
                 <h2 class="text-lg sm:text-xl font-bold text-white mb-2">原生可編輯 PPTX 引擎</h2>
                 <p class="text-slate-500 text-xs sm:text-sm max-w-md leading-relaxed">
-                    本次革命性升級：LLM 設計的排版將被<b>即時解析並轉換為 PPT 原生的文字方塊、形狀與圖片</b>。下載後的簡報將擁有 100% 的可編輯性，不再只是靜態圖片！
+                    本次突破升級：AI 的內容會透過 <b>Hybrid Layout Engine</b> 進行精確尺寸換算，並轉換為 <b>100% 可編輯的原生 PPT 文字方塊與圖片</b>，確保排版完美適配！
                 </p>
             </div>
         </div>
@@ -295,15 +296,16 @@
         c.appendChild(i); c.scrollTop = c.scrollHeight;
     }
 
-    // ★ 修正 1：非同步進度條更新器，強迫瀏覽器重繪畫面 ★
+    // ★ 修正 1：非同步進度條更新器，使用 Promise + RequestAnimationFrame 強迫瀏覽器繪製畫面 ★
     async function updateProgress(pct) {
         const bar = document.getElementById('progress-bar');
         const pctText = document.getElementById('progress-pct');
         if (bar) bar.style.width = Math.min(pct, 100) + '%';
         if (pctText) pctText.textContent = Math.round(Math.min(pct, 100)) + '%';
         
-        // 使用 Promise + setTimeout 強制讓出主執行緒，確保畫面一定會刷新
-        await new Promise(resolve => setTimeout(resolve, 25));
+        // 給予瀏覽器足夠的喘息時間來渲染 CSS 動畫
+        await new Promise(resolve => setTimeout(resolve, 50));
+        await new Promise(r => requestAnimationFrame(r));
     }
 
     function getGeminiApiVersion(modelName) {
@@ -396,7 +398,7 @@
         document.getElementById('logo-preview-wrapper').classList.add('hidden');
     }
 
-    /** LLM 生成結構：要求輸出絕對單純、容易被解析為原生 PPT 的結構 */
+    /** LLM 生成結構：加入極強防禦性宣告，避免陣列遺失導致長度報錯 */
     async function callGeminiForOutline(topic, kbText) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
@@ -405,28 +407,40 @@
         const slideCount = document.getElementById('range-slide-count').value;
         const userBgHex = document.getElementById('slide-bg-hex').value;
         const needImage = document.getElementById('sel-need-image').value === 'YES';
+        const templateChoice = document.getElementById('sel-template').value;
 
         let imgRules = needImage 
             ? "若內容需要配圖輔助，請在該投影片物件中加入 `image_keyword` 屬性，提供一個明確的英文具象名詞，系統會去抓取真實圖片。" 
             : "絕對不要生成任何圖片關鍵字，全憑文字與排版決戰。";
+            
+        let themeRules = templateChoice === 'auto'
+            ? "請根據主題的調性，自行發想適合的配色並在 `presentation_theme` 中回傳。包含 accentColor (強調色), titleColor (標題色), textColor (內文色)。"
+            : `請遵循使用者指定的風格基調，你可以在 \`presentation_theme\` 微調相關的 accentColor 與文字色。`;
 
         const systemPrompt = `你是一位世界頂級的簡報內容策略師。
 請為以下主題生成一份具備極高知識密度的簡報 JSON。
 
-【目標與規範】：
+【目標與規範 - 防崩潰指令】：
 1. 產生 ${slideCount} 張投影片。
 2. 背景底色統一使用：${userBgHex}。
-3. 每一頁請根據內容邏輯，挑選適合的 layout：
+3. ${themeRules}
+4. 每一頁請根據內容邏輯，挑選適合的 layout：
    - "title_only": 適合大標題封面。
    - "text_only": 適合多重點條列。
    - "text_and_image": 適合圖文並茂解說。
    - "columns": 適合左右對比、雙欄數據。
-4. ${imgRules}
-5. 必須嚴格輸出 JSON，且內容不要使用未跳脫的引號，避免解析錯誤。
+5. ${imgRules}
+6. 【極度重要】必須嚴格輸出 JSON。JSON 的 Value 字串內部【絕對禁止使用未跳脫的雙引號 (")】。如果有需要標註，一律改用單引號 (')。
+7. 【極度重要】每張 slide 都必須包含 \`bullet_points\` 陣列。如果你覺得該頁不需要重點清單，請務必給一個空陣列 \`[]\`，絕對不能設為 null 或遺漏這個 key，否則會導致系統解析長度時崩潰！
 
 JSON Schema:
 {
   "presentation_title": "標題",
+  "presentation_theme": {
+    "accentColor": "#38BDF8",
+    "titleColor": "#FFFFFF",
+    "textColor": "#F8FAFC"
+  },
   "slides": [
     { 
       "slide_number": 1, 
@@ -462,13 +476,27 @@ JSON Schema:
                     }),
                     signal: AppState.abortController.signal
                 });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                
+                if (!resp.ok) {
+                    const eData = await resp.json().catch(()=>({}));
+                    throw new Error(eData?.error?.message || `HTTP ${resp.status}`);
+                }
+                
                 const data = await resp.json();
-                let raw = data.candidates[0].content.parts[0].text;
+                let raw = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!raw) throw new Error("API 未回傳有效文字");
+
                 const jsonMatch = raw.match(/\{[\s\S]*\}/);
                 if (jsonMatch) raw = jsonMatch[0];
 
-                let parsedJson = JSON.parse(raw);
+                let parsedJson;
+                try {
+                    parsedJson = JSON.parse(raw);
+                } catch (jsonErr) {
+                    console.error("Malformed JSON:", raw);
+                    throw new Error("AI 生成的 JSON 格式異常，無法解析");
+                }
+
                 addLog(`✓ 成功生成簡報結構`, 'success');
                 return parsedJson;
             } catch (e) {
@@ -509,101 +537,149 @@ JSON Schema:
                 });
             } catch(e) {}
         }
-        addLog(`⚠ 搜尋無果，使用系統佔位符，可於 PPT 中替換`, 'warning');
+        addLog(`⚠ 搜尋無果，使用系統佔位符`, 'warning');
         return null; 
     }
 
-    /** ★ 修正 2：DOM 轉 PPTX 原生物件引擎 ★ 
-     * 將資料結構直接對應到 PptxGenJS 原生 API，達成 100% 可編輯
+    /** * ★ 修正 2：Hybrid Layout Engine (測量 + 原生物件) ★
+     * 1. 將文字塞入隱藏的 HTML 畫布中
+     * 2. 利用瀏覽器引擎測量文字的真實高度與折行狀況
+     * 3. 將座標轉給 PptxGenJS 輸出真正的可編輯文字方塊
      */
-    async function buildNativeSlide(slide, sData, userBg, i, imgB64) {
-        // 全局字體設定
-        const fontFace = 'Arial';
-        const txtColor = '#F8FAFC'; // 淺色字
-        const accColor = '#38BDF8'; // 強調色
+    async function measureAndBuildNativeSlide(slide, sData, userBg, themeConfig) {
+        const stage = document.getElementById('measure-stage');
+        
+        // 防禦性陣列：如果 AI 沒有給，預設為空陣列，防止 .length 報錯
+        const safeBullets = Array.isArray(sData.bullet_points) ? sData.bullet_points : [];
+        
+        const accColor = themeConfig.accentColor || '#38BDF8';
+        const txtColor = themeConfig.textColor || '#F8FAFC';
+        const titColor = themeConfig.titleColor || '#FFFFFF';
 
-        // 防禦性變數宣告，避免 sData.bullet_points 為 undefined 時報錯
-        const bullets = sData.bullet_points || [];
-
+        // 準備一個容器來模擬 16:9 投影片 (1280x720)
+        let innerHtml = '';
+        
+        // ====== 階段 1：根據版型建構測量用的 HTML ======
         if (sData.layout === 'title_only') {
-            // 原生形狀 (裝飾條)
-            slide.addShape('rect', { x: 0, y: 0, w: 0.3, h: '100%', fill: { color: accColor } });
-            
-            // 原生文字方塊 (主標)
-            slide.addText(sData.title || '', { 
-                x: 0.8, y: 1.5, w: 8.5, h: 1.5, 
-                fontSize: 48, bold: true, color: txtColor, fontFace: fontFace 
-            });
-            
-            // 原生文字方塊 (副標)
-            if(sData.subtitle) {
-                slide.addText(sData.subtitle, { 
-                    x: 0.8, y: 3.2, w: 8.5, h: 1.0, 
-                    fontSize: 24, color: '94A3B8', fontFace: fontFace 
-                });
-            }
+            innerHtml = `
+                <div style="position:absolute; left:40px; top:0px; width:40px; height:720px; background-color:${accColor};"></div>
+                <h1 style="position:absolute; left:100px; top:200px; width:1080px; font-size:64px; font-weight:bold; color:${titColor}; m-0 p-0">${sData.title || ''}</h1>
+                <p style="position:absolute; left:100px; top:400px; width:1080px; font-size:32px; color:#94A3B8; m-0 p-0">${sData.subtitle || ''}</p>
+            `;
         } 
-        else if (sData.layout === 'text_and_image' && imgB64) {
+        else if (sData.layout === 'text_and_image' && sData._hasImage) {
             // 圖右文左
-            slide.addText(sData.title || '', { 
-                x: 0.5, y: 0.4, w: 5.0, h: 0.8, 
-                fontSize: 32, bold: true, color: accColor, fontFace: fontFace 
-            });
-            slide.addShape('rect', { x: 0.5, y: 1.2, w: 1.0, h: 0.05, fill: { color: accColor } });
-            
-            if (bullets.length > 0) {
-                slide.addText(bullets.map(b => ({ text: b, options: { bullet: { type: 'number' }, paraSpaceAfter: 10 } })), {
-                    x: 0.5, y: 1.5, w: 5.0, h: 3.8, 
-                    fontSize: 18, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
-                });
-            }
-            
-            // 原生圖片插入 (使用者在 PPT 裡可以隨意移動、裁切)
-            slide.addImage({ data: imgB64, x: 5.8, y: 1.0, w: 3.8, h: 4.0, sizing: { type: 'cover', w: 3.8, h: 4.0 } });
+            innerHtml = `
+                <h2 style="position:absolute; left:60px; top:40px; width:640px; font-size:42px; font-weight:bold; color:${titColor}; m-0 p-0">${sData.title || ''}</h2>
+                <div style="position:absolute; left:60px; top:130px; width:100px; height:6px; background-color:${accColor};"></div>
+                <div id="bullet-container" style="position:absolute; left:60px; top:180px; width:640px; font-size:24px; color:${txtColor}; line-height:1.6;">
+                    ${safeBullets.map(b => `<div style="margin-bottom:16px;">• ${b}</div>`).join('')}
+                </div>
+            `;
+            // 圖片區域 (直接在 PPTX 繪製，這裡不測量)
+            slide.addImage({ data: sData._imgData, x: 5.8, y: 1.0, w: 3.8, h: 4.0, sizing: { type: 'cover', w: 3.8, h: 4.0 } });
         }
         else if (sData.layout === 'columns') {
             // 雙欄排版
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 32, bold: true, color: accColor, fontFace: fontFace, align: 'center' });
+            innerHtml = `
+                <h2 style="position:absolute; left:0px; top:40px; width:1280px; text-align:center; font-size:42px; font-weight:bold; color:${titColor}; m-0 p-0">${sData.title || ''}</h2>
+                <div style="position:absolute; left:590px; top:120px; width:100px; height:6px; background-color:${accColor};"></div>
+            `;
             
-            if (bullets.length > 0) {
-                let half = Math.ceil(bullets.length / 2);
-                let col1 = bullets.slice(0, half);
-                let col2 = bullets.slice(half);
+            let half = Math.ceil(safeBullets.length / 2);
+            let col1 = safeBullets.slice(0, half);
+            let col2 = safeBullets.slice(half);
 
-                if (col1.length > 0) {
-                    slide.addText(col1.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
-                        x: 0.5, y: 1.5, w: 4.3, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fill: {color:'1E293B'}, margin: 15
-                    });
-                }
-                if (col2.length > 0) {
-                    slide.addText(col2.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
-                        x: 5.2, y: 1.5, w: 4.3, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fill: {color:'1E293B'}, margin: 15
-                    });
-                }
+            if (col1.length > 0) {
+                innerHtml += `<div id="col1-container" style="position:absolute; left:60px; top:180px; width:550px; font-size:24px; color:${txtColor}; line-height:1.6; padding:20px; background-color:rgba(255,255,255,0.05); border-radius:12px;">
+                    ${col1.map(b => `<div style="margin-bottom:16px;">• ${b}</div>`).join('')}
+                </div>`;
+            }
+            if (col2.length > 0) {
+                innerHtml += `<div id="col2-container" style="position:absolute; left:670px; top:180px; width:550px; font-size:24px; color:${txtColor}; line-height:1.6; padding:20px; background-color:rgba(255,255,255,0.05); border-radius:12px;">
+                    ${col2.map(b => `<div style="margin-bottom:16px;">• ${b}</div>`).join('')}
+                </div>`;
             }
         }
         else {
             // 預設純文字滿版
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 36, bold: true, color: accColor, fontFace: fontFace });
-            slide.addShape('rect', { x: 0.5, y: 1.25, w: 2.0, h: 0.05, fill: { color: accColor } });
+            innerHtml = `
+                <h2 style="position:absolute; left:60px; top:40px; width:1160px; font-size:48px; font-weight:bold; color:${titColor}; m-0 p-0">${sData.title || ''}</h2>
+                <div style="position:absolute; left:60px; top:140px; width:200px; height:6px; background-color:${accColor};"></div>
+                <div id="bullet-container" style="position:absolute; left:60px; top:200px; width:1160px; font-size:28px; color:${txtColor}; line-height:1.6;">
+                    ${safeBullets.map(b => `<div style="margin-bottom:20px;">• ${b}</div>`).join('')}
+                </div>
+            `;
+        }
+
+        stage.innerHTML = innerHtml;
+        
+        // 讓瀏覽器計算佈局
+        await new Promise(r => setTimeout(r, 50));
+
+        // ====== 階段 2：測量並轉換為 PptxGenJS 原生 API ======
+        // PPT 單位為英吋 (1280px = 10 inch, 128px = 1 inch)
+        const PxToInch = 10 / 1280;
+
+        // 讀取所有第一層元素並轉換
+        const elements = Array.from(stage.children);
+        for (let el of elements) {
+            const rect = el.getBoundingClientRect();
+            const tagName = el.tagName.toLowerCase();
             
-            if (bullets.length > 0) {
-                slide.addText(bullets.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 16 } })), {
-                    x: 0.5, y: 1.6, w: 9.0, h: 3.5, fontSize: 20, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
+            let _x = rect.left * PxToInch;
+            let _y = rect.top * PxToInch;
+            let _w = rect.width * PxToInch;
+            let _h = rect.height * PxToInch;
+
+            // 調整防溢出
+            if (_w > 9.8) _w = 9.8;
+
+            if (tagName === 'div' && !el.id) {
+                // 裝飾線條
+                slide.addShape('rect', { x: _x, y: _y, w: _w, h: _h, fill: { color: accColor.replace('#','') } });
+            } 
+            else if (tagName === 'h1') {
+                slide.addText(el.innerText, { x: _x, y: _y, w: _w, h: _h + 0.5, fontSize: 48, bold: true, color: titColor.replace('#',''), fontFace: 'Arial' });
+            }
+            else if (tagName === 'h2') {
+                let align = el.style.textAlign === 'center' ? 'center' : 'left';
+                slide.addText(el.innerText, { x: _x, y: _y, w: _w, h: _h + 0.5, fontSize: 36, bold: true, align: align, color: titColor.replace('#',''), fontFace: 'Arial' });
+            }
+            else if (tagName === 'p') {
+                slide.addText(el.innerText, { x: _x, y: _y, w: _w, h: _h + 0.5, fontSize: 24, color: '94A3B8', fontFace: 'Arial' });
+            }
+            else if (tagName === 'div' && el.id) {
+                // 如果是含有背景色的雙欄，先畫背景
+                if (el.style.backgroundColor && el.style.backgroundColor !== 'rgba(0, 0, 0, 0)') {
+                    slide.addShape('rect', { x: _x, y: _y, w: _w, h: _h, fill: { color: '1E293B' }, rounding: true });
+                }
+
+                // 取出裡面真正的 Bullet points
+                let textArr = [];
+                let childDivs = el.querySelectorAll('div');
+                childDivs.forEach(cd => {
+                    let cleanText = cd.innerText.replace(/^•\s*/, '');
+                    textArr.push({ text: cleanText, options: { bullet: true, paraSpaceAfter: 12 } });
                 });
+
+                if (textArr.length > 0) {
+                    let fontSize = el.id.includes('col') ? 16 : 20; // 根據容器決定字體大小
+                    // 為了避免截斷，把 h 給寬裕一點
+                    slide.addText(textArr, { x: _x + 0.1, y: _y + 0.1, w: _w - 0.2, h: _h + 1.0, fontSize: fontSize, color: txtColor.replace('#',''), valign: 'top', fontFace: 'Arial', lineSpacingMultiple: 1.2 });
+                }
             }
         }
 
-        // 生成預覽用 HTML (模擬 PPT 畫面)
-        let htmlContent = `
-            <div style="width:100%; height:100%; background-color:${userBg}; position:relative; padding:40px; box-sizing:border-box; text-align:left;">
-                <h2 style="color:${accColor}; font-size:24px; font-weight:bold; margin-bottom:10px;">${sData.title || ''}</h2>
-                <ul style="color:${txtColor}; font-size:12px; line-height:1.5; padding-left:20px;">
-                    ${bullets.map(b => `<li style="margin-bottom:8px;">${b}</li>`).join('')}
-                </ul>
+        // ====== 階段 3：保留一份 HTML 給預覽畫面 ======
+        let previewHtml = `
+            <div style="width:100%; height:100%; background-color:#${userBg}; position:relative; overflow:hidden;">
+                <div style="transform: scale(0.25); transform-origin: top left; width:1280px; height:720px; position:absolute;">
+                    ${stage.innerHTML}
+                </div>
             </div>
         `;
-        AppState.finalSlideHTMLs.push(htmlContent);
+        AppState.finalSlideHTMLs.push(previewHtml);
     }
 
     async function startGeneration() {
@@ -633,20 +709,27 @@ JSON Schema:
             const data = await callGeminiForOutline(topic, kbCombined);
             if (AppState.cancelRequested) throw new Error('CanceledByUser');
             AppState.presentationData = data;
-            await updateProgress(20);
+            await updateProgress(15);
 
             const needImage = document.getElementById('sel-need-image').value === 'YES';
             const maxImages = needImage ? parseInt(document.getElementById('range-image-count').value) : 0;
             let imagesGenerated = 0;
 
             const slides = data.slides || [];
-            
             const pres = new PptxGenJS();
             pres.layout = 'LAYOUT_16x9'; 
             
             const userBg = document.getElementById('slide-bg-hex').value.replace('#', '');
+            
+            // 將 AI 決定的 Theme 覆蓋，若無則使用預設
+            const aiTheme = data.presentation_theme || {};
+            const themeConfig = {
+                accentColor: aiTheme.accentColor || '#38BDF8',
+                titleColor: aiTheme.titleColor || '#FFFFFF',
+                textColor: aiTheme.textColor || '#F8FAFC'
+            };
 
-            // 母片：頁碼與 Logo
+            // 母片設定
             let masterObjects = [
                 { text: { text: "NOVA 120 Pro Native", options: { x: 8.0, y: 5.4, w: 1.8, color: '64748B', fontSize: 10, align: 'right' } } },
                 { text: { text: "第 ", options: { x: 0.5, y: 5.4, w: 0.5, color: '64748B', fontSize: 10 } } },
@@ -668,25 +751,32 @@ JSON Schema:
                 objects: masterObjects
             });
 
+            // 逐頁處理
             for (let i = 0; i < slides.length; i++) {
                 if (AppState.cancelRequested) throw new Error('CanceledByUser');
                 const sData = slides[i];
-                addLog(`正在組合第 ${sData.slide_number} 頁原生元素...`, 'info');
+                addLog(`正在編排第 ${sData.slide_number} 頁...`, 'info');
 
-                const slide = pres.addSlide({ masterName: 'MASTER_PRO' });
-                let imgB64 = null;
-
+                const pptSlide = pres.addSlide({ masterName: 'MASTER_PRO' });
+                
+                // 處理生圖邏輯
+                sData._hasImage = false;
+                sData._imgData = null;
                 if (needImage && sData.layout === 'text_and_image' && imagesGenerated < maxImages) {
                     if (sData.image_keyword) {
-                        imgB64 = await processSlideImage(sData.image_keyword);
+                        const imgB64 = await processSlideImage(sData.image_keyword);
+                        if (imgB64) {
+                            sData._hasImage = true;
+                            sData._imgData = imgB64;
+                            imagesGenerated++;
+                        }
                     }
-                    imagesGenerated++;
                 }
 
-                await buildNativeSlide(slide, sData, userBg, i, imgB64);
+                // 核心轉換：呼叫 Hybrid 引擎
+                await measureAndBuildNativeSlide(pptSlide, sData, userBg, themeConfig);
 
-                // 即時更新進度條並讓瀏覽器重繪
-                await updateProgress(20 + ((i+1)/slides.length)*80);
+                await updateProgress(15 + ((i+1)/slides.length)*85);
             }
 
             AppState.pptxObject = pres;
@@ -704,6 +794,7 @@ JSON Schema:
                 addLog('⛔ 生成已中斷。', 'warning');
             } else {
                 addLog(e.message, 'error');
+                console.error(e);
             }
         } finally {
             AppState.isGenerating = false;
@@ -718,7 +809,7 @@ JSON Schema:
         AppState.finalSlideHTMLs.forEach((html, idx) => {
             const div = document.createElement('div');
             div.className = 'slide-preview-card';
-            div.innerHTML = `<div style="margin-bottom:8px; opacity:0.5;">PAGE ${idx+1}</div>${html}`;
+            div.innerHTML = `<div class="absolute top-1 left-2 text-xs font-bold text-violet-400 z-50">PAGE ${idx+1}</div>${html}`;
             list.appendChild(div);
         });
         document.getElementById('section-preview').classList.remove('hidden');
