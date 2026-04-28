@@ -9,9 +9,19 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <script>
+        // 設定 PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        
         tailwind.config = {
             theme: {
                 extend: {
@@ -32,16 +42,13 @@
         .panel-body.open { max-height: 2000px; opacity: 1; }
         .drop-zone { border: 2px dashed #475569; transition: all 0.25s ease; }
         .drop-zone:hover { border-color: #818cf8; background-color: rgba(99, 102, 241, 0.08); }
-        .layout-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
-        .layout-title_only { background: #1e3a5f; color: #7dd3fc; }
-        .layout-text_only { background: #1a2e1a; color: #86efac; }
-        .layout-text_and_image { background: #2d1b4e; color: #c4b5fd; }
-        .layout-flowchart_only { background: #3b1f0e; color: #fdba74; }
+        .slide-preview-img { width: 100%; border-radius: 8px; border: 1px solid #334155; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
 
-    <div id="mermaid-render-container" style="position:fixed; top:-9999px; left:-9999px; width:2560px; height:1440px; visibility:hidden; pointer-events:none;"></div>
+    <div id="html-render-stage" style="position:fixed; top:-9999px; left:-9999px; width:1280px; height:720px; overflow:hidden; z-index:-10;"></div>
+    <div id="mermaid-render-container" style="position:fixed; top:-9999px; left:-9999px; width:1280px; height:720px; visibility:hidden; pointer-events:none;"></div>
 
     <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70">
         <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
@@ -50,7 +57,7 @@
                     <i class="ph-bold ph-arrow-left"></i><span>返回 NOVA 120</span>
                 </a>
                 <div class="w-px h-5 bg-slate-700"></div>
-                <h1 class="text-sm font-bold text-white truncate">AI 簡報生成器 Pro</h1>
+                <h1 class="text-sm font-bold text-white truncate">AI 簡報生成器 Pro (HTML Engine)</h1>
             </div>
             <div class="flex items-center gap-2">
                 <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
@@ -79,6 +86,33 @@
             </div>
 
             <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+                <button onclick="togglePanel('panel-kb')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50">
+                    <div class="flex items-center gap-2.5">
+                        <i class="ph-fill ph-books text-emerald-400"></i>
+                        <span class="text-sm font-semibold text-white">智慧知識庫 (解析區)</span>
+                    </div>
+                    <i id="panel-kb-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
+                </button>
+                <div id="panel-config" class="panel-body open">
+                    <div class="px-4 pb-4 space-y-4 text-xs">
+                        <div id="kb-drop-zone" class="drop-zone rounded-xl p-4 text-center cursor-pointer bg-slate-950/50" onclick="document.getElementById('kb-file-input').click()">
+                            <i class="ph-bold ph-upload-simple text-slate-500 text-2xl mb-1.5"></i>
+                            <p class="text-slate-400 font-medium">上傳參考檔案</p>
+                            <p class="text-slate-600 mt-1">支援 PDF, Word, Excel, PPTX, TXT</p>
+                        </div>
+                        <input type="file" id="kb-file-input" multiple accept=".txt,.md,.html,.csv,.json,.pdf,.docx,.xlsx,.pptx" class="hidden" onchange="handleKbUpload(this.files)">
+                        
+                        <div>
+                            <label class="block text-slate-400 mb-1.5 font-semibold">網頁 / YouTube 連結 (每行一個)</label>
+                            <textarea id="kb-links-area" rows="2" placeholder="https://..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 outline-none"></textarea>
+                        </div>
+                        
+                        <div id="kb-file-list" class="space-y-1.5"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
                 <button onclick="togglePanel('panel-config')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50">
                     <div class="flex items-center gap-2.5">
                         <i class="ph-fill ph-sliders-horizontal text-amber-400"></i>
@@ -96,7 +130,6 @@
                                 <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (最新快速)</option>
                                 <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro (深度邏輯推薦)</option>
                                 <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速均衡)</option>
-                                <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</option>
                             </select>
                         </div>
 
@@ -108,7 +141,6 @@
                                 <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
                                 <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
                             </select>
-                            <p class="text-slate-500 text-[10px] mt-1">若失敗會自動依序降級調用其他模型</p>
                         </div>
 
                         <div class="border-t border-slate-800 pt-3">
@@ -145,7 +177,7 @@
                         </div>
 
                         <div class="border-t border-slate-800 pt-3">
-                            <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格 (Template)</label>
+                            <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格 (HTML Template)</label>
                             <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="modern">現代極簡 (Modern Minimalist)</option>
                                 <option value="tech">科技未來 (Tech Future)</option>
@@ -170,8 +202,6 @@
                                 <option value="LR">✅ 需要：由左至右 (Left-Right)</option>
                                 <option value="PIE">✅ 需要：環形比例圖 (Pie Chart)</option>
                                 <option value="MINDMAP">✅ 需要：心智圖 (Mindmap)</option>
-                                <option value="TIMELINE">✅ 需要：時間軸 (Timeline)</option>
-                                <option value="SEQUENCE">✅ 需要：交互循序圖 (Sequence)</option>
                             </select>
                         </div>
 
@@ -201,14 +231,19 @@
                 <div id="log-container" class="space-y-1.5 max-h-52 overflow-y-auto text-[11px] no-scrollbar"></div>
             </div>
 
-            <div id="section-preview" class="hidden"><div id="slides-preview-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div></div>
+            <div id="section-preview" class="hidden">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-semibold text-white"><i class="ph-fill ph-stack text-violet-400"></i> HTML 視覺排版預覽</h3>
+                </div>
+                <div id="slides-preview-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
             
             <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-20 text-center">
                 <div class="w-20 h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-5 border border-violet-500/20">
-                    <i class="ph-bold ph-presentation-chart text-violet-400 text-3xl"></i>
+                    <i class="ph-bold ph-code text-violet-400 text-3xl"></i>
                 </div>
-                <h2 class="text-xl font-bold text-white mb-2">準備好 Pro 等級的簡報了嗎？</h2>
-                <p class="text-slate-500 text-sm max-w-sm">左側可精確控制圖文張數與樣式。系統將自動套用無死角滿版排版，生成極具張力的 16:9 專業簡報。</p>
+                <h2 class="text-xl font-bold text-white mb-2">HTML-Based Presentation 引擎</h2>
+                <p class="text-slate-500 text-sm max-w-md">本次升級：LLM 將直接為您撰寫 HTML/CSS 版型。系統會在背景渲染後，以 4K 解析度無損轉印至 PPTX，達到真正的滿版與極致排版自由度。</p>
             </div>
         </div>
     </main>
@@ -218,21 +253,20 @@
     <script>
     const AppState = {
         googleApiKey: '', xaiApiKey: '',
-        kbDocs: [], logoBase64: null, coverBase64: null,
+        kbDocs: [], logoBase64: null, 
         pptxObject: null, presentationData: null,
-        isGenerating: false,
-        cancelRequested: false,       
-        abortController: null         
+        isGenerating: false, cancelRequested: false, abortController: null,
+        finalSlideImages: [] // 儲存 html2canvas 截圖
     };
 
     const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
     const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
 
     const TEMPLATES = {
-        modern: { accent: '64748B', titleColor: 'FFFFFF', textColor: 'E2E8F0', font: 'Arial' },
-        tech: { accent: '0EA5E9', titleColor: '38BDF8', textColor: 'BAE6FD', font: 'Courier New' },
-        corporate: { accent: '2563EB', titleColor: 'FFFFFF', textColor: 'BFDBFE', font: 'Arial' },
-        creative: { accent: 'EC4899', titleColor: 'F9A8D4', textColor: 'FBCFE8', font: 'Verdana' }
+        modern: { accent: '#64748B', titleColor: '#FFFFFF', textColor: '#E2E8F0', font: 'Arial' },
+        tech: { accent: '#0EA5E9', titleColor: '#38BDF8', textColor: '#BAE6FD', font: 'monospace' },
+        corporate: { accent: '#2563EB', titleColor: '#FFFFFF', textColor: '#BFDBFE', font: 'Arial' },
+        creative: { accent: '#EC4899', titleColor: '#F9A8D4', textColor: '#FBCFE8', font: 'Verdana' }
     };
 
     function init() {
@@ -240,15 +274,7 @@
         AppState.xaiApiKey = localStorage.getItem('nova_key_grok') || '';
         document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
         updateHeaderBadge();
-        
-        mermaid.initialize({ 
-            startOnLoad: false, 
-            theme: 'dark', 
-            securityLevel: 'loose',
-            themeVariables: { fontSize: '28px' } 
-        });
-
-        // 初始狀態更新
+        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
         toggleImageCount();
     }
 
@@ -256,7 +282,6 @@
 
     function togglePanel(id) {
         document.getElementById(id).classList.toggle('open');
-        document.getElementById(id + '-icon').classList.toggle('rotate-180');
     }
 
     function showToast(m) {
@@ -270,25 +295,13 @@
         document.getElementById('header-model-name').textContent = s.options[s.selectedIndex].text;
     }
 
-    // 動態顯示/隱藏配圖張數控制器
     function toggleImageCount() {
         const needImg = document.getElementById('sel-need-image').value;
-        const divCount = document.getElementById('div-image-count');
-        if (needImg === 'NO') {
-            divCount.style.display = 'none';
-        } else {
-            divCount.style.display = 'block';
-        }
+        document.getElementById('div-image-count').style.display = needImg === 'NO' ? 'none' : 'block';
     }
 
-    // 更新張數 Label
     function updateImageCountLabel(val) {
-        const label = document.getElementById('image-count-val');
-        if (parseInt(val) === 20) {
-            label.textContent = '自動 (無限制)';
-        } else {
-            label.textContent = val + ' 張';
-        }
+        document.getElementById('image-count-val').textContent = parseInt(val) === 20 ? '自動 (無限制)' : val + ' 張';
     }
 
     function addLog(m, type = 'info') {
@@ -301,22 +314,75 @@
     }
 
     function getGeminiApiVersion(modelName) {
-        if (modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3')) {
-            return 'v1alpha';
-        }
-        return 'v1beta';
+        return (modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3')) ? 'v1alpha' : 'v1beta';
     }
 
     function stopGeneration() {
         if (AppState.isGenerating) {
             AppState.cancelRequested = true;
-            if (AppState.abortController) {
-                AppState.abortController.abort();
-            }
+            if (AppState.abortController) AppState.abortController.abort();
             addLog('⚠️ 使用者要求中斷生成...', 'warning');
             document.getElementById('btn-stop').disabled = true;
-            document.getElementById('btn-stop').querySelector('span').textContent = '正在中止...';
         }
+    }
+
+    // ★ 檔案解析功能實作 ★
+    async function handleKbUpload(files) {
+        for (const file of files) {
+            try {
+                let text = '';
+                const ext = file.name.split('.').pop().toLowerCase();
+                
+                if (['txt', 'md', 'html', 'csv', 'json'].includes(ext)) {
+                    text = await file.text();
+                } else if (ext === 'pdf') {
+                    const arr = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({data: arr}).promise;
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const content = await page.getTextContent();
+                        text += content.items.map(item => item.str).join(' ') + '\n';
+                    }
+                } else if (ext === 'docx') {
+                    const arr = await file.arrayBuffer();
+                    const res = await mammoth.extractRawText({arrayBuffer: arr});
+                    text = res.value;
+                } else if (ext === 'xlsx') {
+                    const arr = await file.arrayBuffer();
+                    const wb = XLSX.read(arr);
+                    wb.SheetNames.forEach(sheetName => {
+                        text += XLSX.utils.sheet_to_txt(wb.Sheets[sheetName]) + '\n';
+                    });
+                } else if (ext === 'pptx') {
+                    // 簡易 PPTX XML 文字提取
+                    const zip = await JSZip.loadAsync(file);
+                    for (const filename of Object.keys(zip.files)) {
+                        if (filename.startsWith('ppt/slides/slide') && filename.endsWith('.xml')) {
+                            const content = await zip.files[filename].async('string');
+                            text += content.replace(/<[^>]+>/g, ' ') + '\n';
+                        }
+                    }
+                }
+
+                if(text) {
+                    AppState.kbDocs.push({ name: file.name, text: text.substring(0, 30000) }); // 限制單檔字數防爆
+                    addKbFileItem(file.name, AppState.kbDocs.length - 1);
+                    showToast(`📚 已載入：${file.name}`);
+                }
+            } catch (e) {
+                console.error(e);
+                showToast(`❌ 無法讀取 ${file.name}`);
+            }
+        }
+    }
+
+    function addKbFileItem(name, index) {
+        const list = document.getElementById('kb-file-list');
+        const item = document.createElement('div');
+        item.className = 'flex items-center justify-between bg-slate-800 rounded px-2 py-1 text-[11px]';
+        item.innerHTML = `<span class="text-slate-300 truncate">${name}</span>
+                          <button onclick="this.parentElement.remove(); AppState.kbDocs[${index}]=null;" class="text-rose-400 ml-2">&times;</button>`;
+        list.appendChild(item);
     }
 
     function handleLogoUpload(e) {
@@ -338,151 +404,125 @@
         document.getElementById('logo-preview-wrapper').classList.add('hidden');
     }
 
-    async function callGeminiForOutline(topic, kb) {
+    /** ★ HTML-Based LLM Prompt 核心 ★ */
+    async function callGeminiForHTMLOutline(topic, kbText) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
         const apiKey = AppState.googleApiKey;
         const userChoice = document.getElementById('sel-text-model').value;
         const slideCount = document.getElementById('range-slide-count').value;
         const flowDir = document.getElementById('sel-flowchart-dir').value;
-        const templateStyle = document.getElementById('sel-template').options[document.getElementById('sel-template').selectedIndex].text;
+        const templateStyleKey = document.getElementById('sel-template').value;
+        const templateObj = TEMPLATES[templateStyleKey];
+        const userBgHex = document.getElementById('slide-bg-hex').value;
         const needImage = document.getElementById('sel-need-image').value === 'YES';
 
-        const FALLBACK_MODELS = [
-            userChoice,
-            'gemini-3.1-pro-preview',
-            'gemini-2.5-pro',
-            'gemini-3-flash-preview',
-            'gemini-2.5-flash'
-        ];
-        const uniqueModels = [...new Set(FALLBACK_MODELS)];
+        let flowRules = flowDir === 'NONE' 
+            ? "絕對不要生成 mermaid_code 與 flowchart。" 
+            : `如果需要表達架構/流程，請使用 mermaid_code (格式: graph ${flowDir} 等)。不要在 HTML 中寫死圖表。`;
 
-        // ★ 動態組合 layoutOptions：若不需要配圖，不允許 AI 使用 text_and_image 版型
-        let layoutOptionsArr = ["title_only", "text_only"];
-        if (needImage) layoutOptionsArr.push("text_and_image");
-        if (flowDir !== 'NONE') layoutOptionsArr.push("flowchart_only");
-        let layoutOptionsStr = '"' + layoutOptionsArr.join('", "') + '"';
+        let imgRules = needImage 
+            ? "若要插入圖片，請在 html_code 中加入 `<img class=\"ai-img-placeholder\" style=\"...\">` 並提供 `image_prompt`。" 
+            : "絕對不要插入圖片，請完全利用 HTML 排版與文字撐滿畫面。";
 
-        let flowchartPrompt = "";
-        if (flowDir === 'NONE') {
-            flowchartPrompt = "【極度重要】使用者已明確要求「不需要流程圖」，因此請絕對不要生成任何 mermaid_code，也不要使用 'flowchart_only' 版型。";
-        } else {
-            switch(flowDir) {
-                case 'PIE': flowchartPrompt = "mermaid_code 必須使用 pie chart 語法，例如: pie title 分布圖 \\n \"A\" : 40 \\n \"B\" : 60"; break;
-                case 'MINDMAP': flowchartPrompt = "mermaid_code 必須使用 mindmap 語法，例如: mindmap \\n root((主題)) \\n   分支1 \\n   分支2"; break;
-                case 'TIMELINE': flowchartPrompt = "mermaid_code 必須使用 timeline 語法，例如: timeline \\n title 發展歷史 \\n 2023 : 事件A \\n 2024 : 事件B"; break;
-                case 'SEQUENCE': flowchartPrompt = "mermaid_code 必須使用 sequenceDiagram 語法，例如: sequenceDiagram \\n A->>B: 請求 \\n B-->>A: 回應"; break;
-                default: flowchartPrompt = `mermaid_code 必須以 graph ${flowDir} 開頭進行繪製。`;
-            }
-        }
+        const systemPrompt = `你是一位世界頂級的網頁設計師與簡報內容策略師。
+請以「HTML/CSS」作為投影片排版語言，為以下主題生成一份具備極高知識密度、精美排版的簡報 JSON。
 
-        let imagePromptInstruction = needImage 
-            ? "6. image_prompt 必須是簡短的英文敘述（AI 繪圖提示詞），具體描述畫面中的核心意象。" 
-            : "6. 使用者不需要配圖，image_prompt 保持為 null 即可，請專注於文字內容。";
-
-        const systemPrompt = `你是一位世界頂級的簡報內容策略師與商業分析師。
-請以 16:9 寬螢幕佈局思維，為以下主題生成一份【具備極高知識密度、深度分析與具體數據】的專業簡報 JSON。
-
-簡報視覺與文案風格：${templateStyle}
-目標投影片張數：${slideCount} 張
-流程圖要求：${flowchartPrompt}
-
-【內容品質要求 - 極度重要】：
-1. 拒絕空泛：內容絕對不可只有「大綱式」或「名詞解釋」。必須包含具體案例、數據預估、優劣勢比較或深度邏輯推演。
-2. 內容飽滿：每張投影片的 \`bullet_points\` 必須提供 3 到 5 點，且每點文字長度必須足夠長（約 15~40 字），以確保寬螢幕排版顯得豐滿充實。
-3. 嚴格輸出純 JSON，不可包含 markdown 標籤（絕對不要輸出 \`\`\`json 標記）。
-4. layout 只能是: ${layoutOptionsStr}。
-5. 若有 flowchart_only，必須包含 mermaid_code。mermaid_code 的節點文字請勿使用括號 ()、方括號 [] 或雙引號 "" 等特殊符號，以免造成渲染錯誤。字串內換行用 '\\n'。
-${imagePromptInstruction}
+【排版與視覺限制 - 極度重要】：
+1. 每張投影片的 \`html_code\` 必須是一個最外層的 <div>，且帶有行內樣式：\`style="width:1280px; height:720px; background-color:${userBgHex}; color:${templateObj.textColor}; font-family:${templateObj.font}; position:relative; overflow:hidden; box-sizing:border-box; padding:60px;"\`。
+2. 你可以使用 Tailwind CSS classes 或 Inline CSS 進行內部排版（例如 flex, grid, absolute positioning）。
+3. 重點強調色 (Accent Color) 為：${templateObj.accent}。標題顏色為：${templateObj.titleColor}。
+4. 排版必須豐富滿版 (Full-bleed 概念)，不可讓右側或下方留白太多。可使用大字體、格狀版型(Grid) 或並排卡片(Cards) 來呈現數據。
+5. ${imgRules}
+6. ${flowRules} (如果產生 mermaid_code，請在 html_code 預留 \`<div class="mermaid-placeholder" style="width:100%; height:400px;"></div>\`)
+7. 回傳純 JSON，不可有 markdown 標籤。
 
 JSON Schema:
 {
   "presentation_title": "標題",
   "slides": [
-    { "slide_number": 1, "layout": "title_only", "title": "...", "subtitle": "...", "bullet_points": ["內容飽滿的一句話...","具體數據佐證的第二句話..."], "image_prompt": "English prompt", "mermaid_code": null }
+    { 
+      "slide_number": 1, 
+      "html_code": "<div style='width:1280px;height:720px;...'><h1 style='color:${templateObj.titleColor};font-size:64px;'>...</h1><div class='flex'>...</div></div>", 
+      "image_prompt": "English prompt for image generation OR null", 
+      "mermaid_code": "graph TD... OR null" 
+    }
   ]
 }`;
+
+        const uniqueModels = [...new Set([userChoice, 'gemini-3.1-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'])];
+        
+        // 組合 KB text
+        let fullContext = topic;
+        const links = document.getElementById('kb-links-area').value.trim();
+        if (kbText || links) {
+            fullContext += `\n\n【參考資料/知識庫】\n${kbText}\n連結：${links}`;
+        }
+
         let lastErr = null;
         for (const modelId of uniqueModels) {
             if (AppState.cancelRequested) throw new Error('CanceledByUser');
             const ver = getGeminiApiVersion(modelId);
             const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${apiKey}`;
             try {
-                addLog(`嘗試呼叫強邏輯引擎 ${modelId} (${ver})...`, 'ai');
+                addLog(`嘗試呼叫前端設計引擎 ${modelId} (${ver})...`, 'ai');
                 const resp = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題指令：" + topic + (kb ? "\n參考資料：" + kb : "") }] }],
-                        generationConfig: { 
-                            responseMimeType: 'application/json', 
-                            temperature: 0.85, 
-                            maxOutputTokens: 8192 
-                        }
+                        contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題與內容：\n" + fullContext }] }],
+                        generationConfig: { responseMimeType: 'application/json', temperature: 0.8, maxOutputTokens: 8192 }
                     }),
                     signal: AppState.abortController.signal
                 });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
                 let raw = data.candidates[0].content.parts[0].text;
-                
                 const jsonMatch = raw.match(/\{[\s\S]*\}/);
                 if (jsonMatch) raw = jsonMatch[0];
 
-                addLog(`✓ 成功使用 ${modelId} 生成深度大綱`, 'success');
+                addLog(`✓ 成功使用 ${modelId} 生成 HTML 架構大綱`, 'success');
                 return JSON.parse(raw);
             } catch (e) {
                 lastErr = e;
                 if (e.name === 'AbortError') throw new Error('CanceledByUser');
-                addLog(`⚠ ${modelId} 失敗: ${e.message}，準備降級切換...`, 'warning');
+                addLog(`⚠ ${modelId} 失敗: ${e.message}，切換備用模型...`, 'warning');
             }
         }
-        throw new Error(`所有文字引擎皆失敗。最後錯誤: ${lastErr.message}`);
+        throw new Error(`所有引擎皆失敗。最後錯誤: ${lastErr.message}`);
     }
 
     async function buildImagePrompt(query) {
         const gKey = AppState.googleApiKey;
-        if (!gKey) return `High quality modern presentation illustration: ${query}`;
+        if (!gKey) return `Professional 4k illustration: ${query}`;
         try {
             const r = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`,
                 {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: `Create a highly detailed, extremely concise English image generation prompt (max 40 words) based on this slide context: "${query}". The image MUST be highly relevant to the text content. Minimalist, professional corporate illustration style, 4k resolution. Return ONLY the prompt.` }] }],
+                        contents: [{ role: 'user', parts: [{ text: `Create a highly detailed English image generation prompt (max 30 words) based on: "${query}". Style: Minimalist corporate illustration, 4k. Return ONLY the prompt.` }] }],
                         generationConfig: { maxOutputTokens: 100, temperature: 0.6 }
                     }),
                     signal: AppState.abortController.signal
                 }
             );
             return (await r.json()).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${query}`;
-        } catch { return `Professional business illustration: ${query}`; }
+        } catch { return `Professional illustration: ${query}`; }
     }
 
     async function generateImage(imagePrompt, slideNum) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        addLog(`為第 ${slideNum} 頁優化繪圖提示詞...`, 'info');
         const finalPrompt = await buildImagePrompt(imagePrompt);
-        
         const preferredModel = document.getElementById('sel-img-model').value;
-        const fallbackQueue = [
-            preferredModel,
-            'grok-imagine-image-pro',
-            'grok-imagine-image',
-            'gemini-3.1-flash-image-preview',
-            'gemini-2.5-flash-image'
-        ];
-        const uniqueModels = [...new Set(fallbackQueue)];
+        const fallbackQueue = [...new Set([preferredModel, 'grok-imagine-image-pro', 'grok-imagine-image', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'])];
 
-        for (const model of uniqueModels) {
+        for (const model of fallbackQueue) {
             if (AppState.cancelRequested) throw new Error('CanceledByUser');
             try {
-                addLog(`🎨 嘗試呼叫配圖引擎 ${model}...`, 'ai');
+                addLog(`🎨 呼叫配圖引擎 ${model}...`, 'ai');
                 if (model.startsWith('grok')) {
-                    if (!AppState.xaiApiKey) {
-                        addLog(`⚠ 缺少 Grok Key，跳過 ${model}`, 'warning');
-                        continue;
-                    }
+                    if (!AppState.xaiApiKey) continue;
                     const r = await fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${AppState.xaiApiKey}`, 'Content-Type': 'application/json' },
@@ -491,10 +531,7 @@ JSON Schema:
                     });
                     if (r.ok) {
                         const item = (await r.json()).data?.[0];
-                        if (item && item.b64_json) {
-                            addLog(`✓ 成功使用 ${model} 生成高品質配圖`, 'success');
-                            return `data:image/png;base64,${item.b64_json}`;
-                        }
+                        if (item && item.b64_json) return `data:image/png;base64,${item.b64_json}`;
                     }
                 } else if (model.startsWith('gemini')) {
                     if (!AppState.googleApiKey) continue;
@@ -506,73 +543,27 @@ JSON Schema:
                     });
                     if (r.ok) {
                         const imgPart = (await r.json()).candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-                        if (imgPart?.inlineData?.data) {
-                            addLog(`✓ 成功使用 ${model} 生成高品質配圖`, 'success');
-                            return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
-                        }
+                        if (imgPart?.inlineData?.data) return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
                     }
                 }
             } catch (e) {
                 if (e.name === 'AbortError') throw new Error('CanceledByUser');
-                addLog(`⚠ ${model} 失敗: ${e.message}`, 'warning');
             }
         }
-        addLog(`⚠ 所有配圖引擎失敗，將觸發版型降級機制`, 'error');
         return null;
     }
 
-    function renderTextOnly(slide, slideData, themeConfig) {
-        slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 9.2, h: 0.8, fontSize: 38, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.4, y: 1.2, w: 2.0, h: 0.05, fill: { color: themeConfig.accent } });
-        
-        if (slideData.bullet_points) {
-            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 15 } })), {
-                x: 0.4, y: 1.5, w: 9.2, h: 3.8, fontSize: 22, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.3
-            });
-        }
-    }
-
-    function renderTextAndImage(slide, slideData, imgB64, themeConfig, slideIndex) {
-        const layoutStyle = slideIndex % 3; 
-        const formattedBullets = slideData.bullet_points ? slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 10 } })) : [];
-
-        if (layoutStyle === 0) {
-            slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 4.8, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 0.4, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
-            slide.addText(formattedBullets, { x: 0.4, y: 1.4, w: 5.2, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
-            
-            if (imgB64) {
-                slide.addImage({ data: imgB64, x: 6.0, y: 0, w: 4.0, h: 5.625, sizing: { type: 'cover', w: 4.0, h: 5.625 } });
-            } else {
-                slide.addShape('rect', { x: 6.0, y: 0, w: 4.0, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
-            }
-        } 
-        else if (layoutStyle === 1) {
-            if (imgB64) {
-                slide.addImage({ data: imgB64, x: 0, y: 0, w: 4.0, h: 5.625, sizing: { type: 'cover', w: 4.0, h: 5.625 } });
-            } else {
-                slide.addShape('rect', { x: 0, y: 0, w: 4.0, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
-            }
-            slide.addText(slideData.title || '', { x: 4.5, y: 0.3, w: 5.0, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 4.5, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
-            slide.addText(formattedBullets, { x: 4.5, y: 1.4, w: 5.2, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
-        }
-        else {
-            if (imgB64) {
-                slide.addImage({ data: imgB64, x: 0, y: 0, w: 10.0, h: 2.2, sizing: { type: 'cover', w: 10.0, h: 2.2 } });
-            } else {
-                slide.addShape('rect', { x: 0, y: 0, w: 10.0, h: 2.2, fill: { color: themeConfig.accent, transparency: 80 } });
-            }
-            slide.addText(slideData.title || '', { x: 0.4, y: 2.4, w: 9.2, h: 0.6, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 0.4, y: 3.1, w: 9.2, h: 0.03, fill: { color: themeConfig.accent, transparency: 50 } });
-            slide.addText(formattedBullets, { x: 0.4, y: 3.25, w: 9.2, h: 2.1, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.1 });
-        }
-    }
-
-    function renderFlowchart(slide, slideData, chartB64, themeConfig) {
-        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 30, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
-        if (chartB64) {
-            slide.addImage({ data: chartB64, x: 0.4, y: 0.9, w: 9.2, h: 4.5 });
+    async function mermaidToSvgBase64(code) {
+        const container = document.getElementById('mermaid-render-container');
+        let safeCode = code.replace(/```mermaid/gi, '').replace(/```/g, '').trim();
+        try {
+            const uniqueId = 'mmr-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+            const { svg } = await mermaid.render(uniqueId, safeCode, container);
+            const base64 = btoa(unescape(encodeURIComponent(svg)));
+            return `data:image/svg+xml;base64,${base64}`;
+        } catch (e) { 
+            console.warn("Mermaid 渲染失敗:", e);
+            return null; 
         }
     }
 
@@ -584,6 +575,7 @@ JSON Schema:
         AppState.isGenerating = true;
         AppState.cancelRequested = false;
         AppState.abortController = new AbortController();
+        AppState.finalSlideImages = [];
 
         document.getElementById('section-empty').classList.add('hidden');
         document.getElementById('section-progress').classList.remove('hidden');
@@ -595,100 +587,88 @@ JSON Schema:
         document.getElementById('btn-generate').classList.add('hidden');
         document.getElementById('btn-stop').classList.remove('hidden');
         document.getElementById('btn-stop').disabled = false;
-        document.getElementById('progress-spinner').classList.add('animate-spin');
-        document.getElementById('progress-spinner').style.border = '';
-        document.getElementById('progress-spinner').style.borderTopColor = 'transparent';
 
         try {
-            const data = await callGeminiForOutline(topic, "");
+            // 合併知識庫文字
+            let kbCombined = AppState.kbDocs.filter(d => d).map(d => `[${d.name}]\n${d.text}`).join('\n\n');
+
+            const data = await callGeminiForHTMLOutline(topic, kbCombined);
             if (AppState.cancelRequested) throw new Error('CanceledByUser');
             AppState.presentationData = data;
             document.getElementById('progress-bar').style.width = '20%';
-            
-            const selectedTemplateKey = document.getElementById('sel-template').value;
-            const themeConfig = TEMPLATES[selectedTemplateKey];
-            const userBg = document.getElementById('slide-bg-hex').value.replace('#', '');
-            
-            // ★ 新增：檢查配圖狀態與上限設定
+
             const needImage = document.getElementById('sel-need-image').value === 'YES';
             const maxImages = needImage ? parseInt(document.getElementById('range-image-count').value) : 0;
             let imagesGenerated = 0;
 
-            const pres = new PptxGenJS();
-            pres.layout = 'LAYOUT_16x9'; 
-
-            let masterObjects = [
-                { text: { text: "NOVA 120 Pro", options: { x: 8.0, y: 5.4, w: 1.8, color: themeConfig.accent, fontSize: 10, align: 'right' } } }
-            ];
-
-            if (AppState.logoBase64) {
-                const pos = document.getElementById('sel-logo-pos').value;
-                let lx = 8.8, ly = 0.2; 
-                if (pos === 'BR') { lx = 8.8; ly = 5.0; }
-                else if (pos === 'TL') { lx = 0.2; ly = 0.2; }
-                else if (pos === 'BL') { lx = 0.2; ly = 5.0; }
-                
-                masterObjects.push({
-                    image: { x: lx, y: ly, w: 1.0, h: 0.5, sizing: { type: 'contain', w: 1.0, h: 0.5 }, data: AppState.logoBase64 }
-                });
-            }
-
-            pres.defineSlideMaster({
-                title: 'MASTER_PRO',
-                background: { color: userBg },
-                objects: masterObjects
-            });
-
             const slides = data.slides || [];
+            const htmlStage = document.getElementById('html-render-stage');
             
+            const pres = new PptxGenJS();
+            pres.layout = 'LAYOUT_WIDE'; // 16:9
+
             for (let i = 0; i < slides.length; i++) {
                 if (AppState.cancelRequested) throw new Error('CanceledByUser');
-
                 const sData = slides[i];
-                addLog(`正在製作第 ${sData.slide_number} 頁: ${sData.title || '封面'}`, 'info');
-                const slide = pres.addSlide({ masterName: 'MASTER_PRO' });
+                addLog(`正在編譯第 ${sData.slide_number} 頁 HTML...`, 'info');
 
-                if (sData.layout === 'title_only') {
-                    slide.addShape('rect', { x: 0, y: 0, w: 0.5, h: '100%', fill: { color: themeConfig.accent } });
-                    slide.addShape('rect', { x: 0.5, y: 4.5, w: 9.5, h: 1.125, fill: { color: themeConfig.accent, transparency: 85 } });
-                    slide.addText(sData.title || '未命名', { x: 1.0, y: 1.8, w: 8.5, h: 1.5, fontSize: 56, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-                    if(sData.subtitle) slide.addText(sData.subtitle, { x: 1.0, y: 3.4, w: 8.0, h: 1.0, fontSize: 26, color: themeConfig.textColor, fontFace: themeConfig.font });
+                // 注入 HTML
+                htmlStage.innerHTML = sData.html_code;
+                const slideDiv = htmlStage.firstElementChild;
                 
-                } else if (sData.layout === 'flowchart_only') {
-                    const b64 = await mermaidToBase64(sData.mermaid_code || "", userBg, sData, false);
-                    
-                    if (b64) {
-                        renderFlowchart(slide, sData, b64, themeConfig);
-                    } else {
-                        addLog(`⚠️ 第 ${sData.slide_number} 頁流程圖最終修復失敗，降級為純文字`, 'warning');
-                        sData.bullet_points = sData.bullet_points || ["(系統提示：圖表解析異常)"];
-                        renderTextOnly(slide, sData, themeConfig);
-                    }
-                
-                } else if (sData.layout === 'text_and_image') {
-                    // ★ 核心變更：檢查是否達到圖片生成上限
-                    if (needImage && imagesGenerated < maxImages) {
-                        const contextForImage = `Slide Title: ${sData.title}\nKey Context: ${sData.bullet_points ? sData.bullet_points.join("; ") : ""}\nAI Suggested Focus: ${sData.image_prompt}`;
-                        const imgB64 = await generateImage(contextForImage, sData.slide_number);
-                        
-                        if (imgB64) {
-                            renderTextAndImage(slide, sData, imgB64, themeConfig, i);
-                            imagesGenerated++;
-                        } else {
-                            addLog(`⚠️ 第 ${sData.slide_number} 頁配圖生成失敗，啟動智能降級排版`, 'warning');
-                            renderTextOnly(slide, sData, themeConfig);
-                        }
-                    } else {
-                        // 若不需要圖片或已達上限，自動切換為純文字版型，省時又保持排版完整
-                        if (imagesGenerated >= maxImages && maxImages !== 20) {
-                            addLog(`ℹ️ 第 ${sData.slide_number} 頁：已達配圖上限設定 (${maxImages}張)，自動降級純文字排版`, 'info');
-                        }
-                        renderTextOnly(slide, sData, themeConfig);
-                    }
-                
-                } else {
-                    renderTextOnly(slide, sData, themeConfig);
+                // 強制加入 Logo (若有)
+                if (AppState.logoBase64) {
+                    const pos = document.getElementById('sel-logo-pos').value;
+                    let style = "position:absolute; width:120px; height:auto; z-index:9999;";
+                    if(pos==='TR') style += "top:30px; right:30px;";
+                    if(pos==='BR') style += "bottom:30px; right:30px;";
+                    if(pos==='TL') style += "top:30px; left:30px;";
+                    if(pos==='BL') style += "bottom:30px; left:30px;";
+                    const logoImg = document.createElement('img');
+                    logoImg.src = AppState.logoBase64;
+                    logoImg.style.cssText = style;
+                    slideDiv.appendChild(logoImg);
                 }
+
+                // 處理生圖
+                if (needImage && sData.image_prompt && imagesGenerated < maxImages) {
+                    const imgHolders = slideDiv.querySelectorAll('.ai-img-placeholder, img');
+                    if (imgHolders.length > 0) {
+                        const imgB64 = await generateImage(sData.image_prompt, sData.slide_number);
+                        if (imgB64) {
+                            imgHolders.forEach(el => { el.src = imgB64; el.style.objectFit = 'cover'; });
+                            imagesGenerated++;
+                        }
+                    }
+                }
+
+                // 處理流程圖
+                if (sData.mermaid_code) {
+                    const mHolders = slideDiv.querySelectorAll('.mermaid-placeholder, div.mermaid');
+                    if (mHolders.length > 0) {
+                        const svgB64 = await mermaidToSvgBase64(sData.mermaid_code);
+                        if (svgB64) {
+                            mHolders.forEach(el => {
+                                const img = document.createElement('img');
+                                img.src = svgB64;
+                                img.style.width = '100%'; img.style.height = '100%'; img.style.objectFit = 'contain';
+                                el.replaceWith(img);
+                            });
+                        }
+                    }
+                }
+
+                // 等待圖片與字體渲染 (給瀏覽器一個呼吸時間)
+                await new Promise(r => setTimeout(r, 200));
+
+                // ★ 核心魔法：使用 html2canvas 將 HTML 轉換為高畫質圖片 ★
+                const canvas = await html2canvas(slideDiv, { scale: 2, useCORS: true, backgroundColor: null });
+                const slideBase64 = canvas.toDataURL('image/png');
+                AppState.finalSlideImages.push(slideBase64);
+
+                // 放入 PPTX (全滿版)
+                const pptSlide = pres.addSlide();
+                pptSlide.addImage({ data: slideBase64, x: 0, y: 0, w: 10, h: 5.625 });
 
                 document.getElementById('progress-bar').style.width = `${20 + ((i+1)/slides.length)*75}%`;
             }
@@ -698,122 +678,34 @@ JSON Schema:
             document.getElementById('progress-bar').style.width = '100%';
             document.getElementById('btn-download').classList.remove('hidden');
             document.getElementById('btn-download').classList.add('flex');
-            
-            document.getElementById('progress-spinner').classList.remove('animate-spin');
-            document.getElementById('progress-spinner').style.border = '2px solid #10b981';
-            
             showToast('✅ 簡報已就緒');
-            renderSlidesPreview(data);
+            
+            renderSlidesPreview();
 
         } catch (e) {
             if (e.name === 'AbortError' || e.message === 'CanceledByUser') {
-                addLog('⛔ 生成已由使用者中斷。', 'warning');
-                showToast('⛔ 生成已中斷');
-                document.getElementById('progress-spinner').classList.remove('animate-spin');
-                document.getElementById('progress-spinner').style.border = '2px solid #f59e0b';
+                addLog('⛔ 生成已中斷。', 'warning');
             } else {
                 addLog(e.message, 'error');
                 console.error(e);
-                showToast('❌ 生成發生錯誤');
-                document.getElementById('progress-spinner').classList.remove('animate-spin');
-                document.getElementById('progress-spinner').style.border = '2px solid #ef4444';
             }
         } finally {
             AppState.isGenerating = false;
             document.getElementById('btn-stop').classList.add('hidden');
-            document.getElementById('btn-stop').querySelector('span').textContent = '停止生成';
             document.getElementById('btn-generate').classList.remove('hidden');
         }
     }
 
-    async function mermaidToBase64(code, bgColorHex, slideData, isRetry = false) {
-        const container = document.getElementById('mermaid-render-container');
-        let safeCode = code.replace(/```mermaid/gi, '').replace(/```/g, '').trim();
-        const timeout = new Promise(r => setTimeout(() => r(null), 10000));
-        
-        const doRender = async () => {
-            try {
-                const uniqueId = 'mmr-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
-                const { svg } = await mermaid.render(uniqueId, safeCode, container);
-                
-                const parser = new DOMParser();
-                const svgDoc = parser.parseFromString(svg, "image/svg+xml");
-                const svgEl = svgDoc.documentElement;
-                
-                let origW = parseFloat(svgEl.getAttribute('width') || 1280);
-                let origH = parseFloat(svgEl.getAttribute('height') || 720);
-                
-                if (!svgEl.getAttribute('viewBox')) {
-                    svgEl.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
-                }
-                
-                const scaleFactor = 3;
-                svgEl.setAttribute('width', (origW * scaleFactor).toString());
-                svgEl.setAttribute('height', (origH * scaleFactor).toString());
-                
-                const modifiedSvg = new XMLSerializer().serializeToString(svgDoc);
-                const svgBlob = new Blob([modifiedSvg], { type: 'image/svg+xml;charset=utf-8' });
-                const url = URL.createObjectURL(svgBlob);
-                
-                return new Promise(res => {
-                    const img = new Image();
-                    img.onload = () => {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = img.width + 100; 
-                        canvas.height = img.height + 100; 
-                        
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = '#' + bgColorHex;
-                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        
-                        ctx.drawImage(img, 50, 50, img.width, img.height);
-                        
-                        URL.revokeObjectURL(url);
-                        res(canvas.toDataURL('image/png'));
-                    };
-                    img.onerror = () => {
-                        URL.revokeObjectURL(url);
-                        res(null);
-                    };
-                    img.src = url;
-                });
-            } catch (e) { 
-                console.warn("Mermaid 語法解析失敗:", e);
-                return null; 
-            }
-        };
-
-        let result = await Promise.race([doRender(), timeout]);
-
-        if (!result && !isRetry && slideData) {
-            addLog(`⚠️ 流程圖語法異常，啟動安全修復機制...`, 'warning');
-            
-            let fallbackCode = "graph TD\n";
-            let safeTitle = (slideData.title || '主題').replace(/["\\[\]()]/g, ' ');
-            fallbackCode += `  Root["${safeTitle}"]\n`;
-            
-            if (slideData.bullet_points && slideData.bullet_points.length > 0) {
-                slideData.bullet_points.forEach((bp, idx) => {
-                    let safeBp = bp.substring(0, 25).replace(/["\\[\]()]/g, ' ');
-                    fallbackCode += `  Root --> Node${idx}["${safeBp}"]\n`;
-                });
-            } else {
-                fallbackCode += `  Root --> Node1["內容生成中"]\n`;
-            }
-            
-            return await mermaidToBase64(fallbackCode, bgColorHex, slideData, true);
-        }
-
-        return result;
-    }
-
-    function renderSlidesPreview(data) {
+    function renderSlidesPreview() {
         const list = document.getElementById('slides-preview-list');
         list.innerHTML = '';
-        data.slides.forEach(s => {
+        AppState.finalSlideImages.forEach((b64, idx) => {
             const div = document.createElement('div');
-            div.className = 'bg-slate-900 border border-slate-800 p-4 rounded-xl';
-            div.innerHTML = `<div class="flex justify-between mb-2"><span class="text-xs font-bold text-violet-400">PAGE ${s.slide_number}</span><span class="layout-badge layout-${s.layout}">${s.layout}</span></div><h4 class="text-sm font-semibold text-slate-200">${s.title}</h4>`;
+            div.className = 'bg-slate-900 border border-slate-800 p-2 rounded-xl text-center';
+            div.innerHTML = `
+                <div class="text-xs font-bold text-violet-400 mb-2 text-left px-2">PAGE ${idx+1}</div>
+                <img src="${b64}" class="slide-preview-img">
+            `;
             list.appendChild(div);
         });
         document.getElementById('section-preview').classList.remove('hidden');
@@ -821,7 +713,7 @@ JSON Schema:
 
     async function downloadPptx() {
         if (!AppState.pptxObject) return;
-        const name = (AppState.presentationData?.presentation_title || 'NOVA_Pro_Slide').replace(/\s/g, '_') + '.pptx';
+        const name = (AppState.presentationData?.presentation_title || 'NOVA_Pro_HTML_Slide').replace(/\s/g, '_') + '.pptx';
         await AppState.pptxObject.writeFile({ fileName: name });
     }
     </script>
