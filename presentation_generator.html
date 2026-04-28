@@ -45,6 +45,9 @@
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
     <div id="html-parse-stage" style="display:none;"></div>
+    
+    <input type="text" id="slide-bg-hex" value="#0F172A" style="display:none;">
+    <select id="sel-img-model" style="display:none;"><option value="grok-imagine-image-pro"></option></select>
 
     <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70 shrink-0">
         <div class="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
@@ -239,13 +242,17 @@
         AppState.xaiApiKey = localStorage.getItem('nova_key_grok') || '';
         AppState.serpApiKey = localStorage.getItem('nova_key_serpapi') || '';
         
-        document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
-        document.getElementById('inp-serpapi-key').value = AppState.serpApiKey;
+        const geminiStatus = document.getElementById('api-gemini-status');
+        if(geminiStatus) geminiStatus.textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
         
-        document.getElementById('inp-serpapi-key').addEventListener('input', (e) => {
-            localStorage.setItem('nova_key_serpapi', e.target.value.trim());
-            AppState.serpApiKey = e.target.value.trim();
-        });
+        const serpInput = document.getElementById('inp-serpapi-key');
+        if(serpInput) {
+            serpInput.value = AppState.serpApiKey;
+            serpInput.addEventListener('input', (e) => {
+                localStorage.setItem('nova_key_serpapi', e.target.value.trim());
+                AppState.serpApiKey = e.target.value.trim();
+            });
+        }
 
         updateHeaderBadge();
         toggleImageCount();
@@ -254,37 +261,43 @@
     document.addEventListener('DOMContentLoaded', init);
 
     function togglePanel(id) {
-        document.getElementById(id).classList.toggle('open');
-        document.getElementById(id + '-icon').classList.toggle('rotate-180');
+        document.getElementById(id)?.classList.toggle('open');
+        document.getElementById(id + '-icon')?.classList.toggle('rotate-180');
     }
 
     function showToast(m) {
         const t = document.getElementById('toast');
+        if(!t) return;
         t.textContent = m; t.classList.remove('opacity-0', 'translate-y-4'); t.classList.add('opacity-100', 'translate-y-0');
         setTimeout(() => { t.classList.add('opacity-0', 'translate-y-4'); t.classList.remove('opacity-100', 'translate-y-0'); }, 2500);
     }
 
     function updateHeaderBadge() {
         const s = document.getElementById('sel-text-model');
-        document.getElementById('header-model-name').textContent = s.options[s.selectedIndex].text;
+        const badge = document.getElementById('header-model-name');
+        if(s && badge) badge.textContent = s.options[s.selectedIndex].text;
     }
 
     function toggleImageCount() {
-        const needImg = document.getElementById('sel-need-image').value;
-        document.getElementById('div-image-count').style.display = needImg === 'NO' ? 'none' : 'block';
+        const needImg = document.getElementById('sel-need-image')?.value || 'NO';
+        const divCount = document.getElementById('div-image-count');
+        if(divCount) divCount.style.display = needImg === 'NO' ? 'none' : 'block';
     }
 
     function updateImageCountLabel(val) {
-        document.getElementById('image-count-val').textContent = parseInt(val) === 20 ? '自動 (無限制)' : val + ' 張';
+        const lbl = document.getElementById('image-count-val');
+        if(lbl) lbl.textContent = parseInt(val) === 20 ? '自動 (無限制)' : val + ' 張';
     }
 
     function addLog(m, type = 'info') {
         const c = document.getElementById('log-container');
+        if(!c) return;
         const i = document.createElement('div');
         const colors = { info: 'text-slate-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300' };
-        i.className = `py-0.5 ${colors[type]}`;
+        i.className = `py-0.5 ${colors[type] || colors.info}`;
         i.textContent = `[${new Date().toLocaleTimeString()}] ${m}`;
-        c.appendChild(i); c.scrollTop = c.scrollHeight;
+        c.appendChild(i); 
+        c.scrollTop = c.scrollHeight;
     }
 
     async function updateProgress(pct) {
@@ -304,7 +317,8 @@
             AppState.cancelRequested = true;
             if (AppState.abortController) AppState.abortController.abort();
             addLog('⚠️ 使用者要求中斷生成...', 'warning');
-            document.getElementById('btn-stop').disabled = true;
+            const btnStop = document.getElementById('btn-stop');
+            if(btnStop) btnStop.disabled = true;
         }
     }
 
@@ -358,6 +372,7 @@
 
     function addKbFileItem(name, index) {
         const list = document.getElementById('kb-file-list');
+        if(!list) return;
         const item = document.createElement('div');
         item.className = 'flex items-center justify-between bg-slate-800 rounded px-2 py-1 text-[11px]';
         item.innerHTML = `<span class="text-slate-300 truncate">${name}</span>
@@ -371,8 +386,10 @@
         const reader = new FileReader();
         reader.onload = (event) => {
             AppState.logoBase64 = event.target.result;
-            document.getElementById('logo-preview').src = AppState.logoBase64;
-            document.getElementById('logo-preview-wrapper').classList.remove('hidden');
+            const preview = document.getElementById('logo-preview');
+            const wrapper = document.getElementById('logo-preview-wrapper');
+            if(preview) preview.src = AppState.logoBase64;
+            if(wrapper) wrapper.classList.remove('hidden');
             showToast('✅ Logo 上傳成功');
         };
         reader.readAsDataURL(file);
@@ -380,19 +397,20 @@
 
     function removeLogo() {
         AppState.logoBase64 = null;
-        document.getElementById('logo-upload').value = '';
-        document.getElementById('logo-preview-wrapper').classList.add('hidden');
+        const upload = document.getElementById('logo-upload');
+        const wrapper = document.getElementById('logo-preview-wrapper');
+        if(upload) upload.value = '';
+        if(wrapper) wrapper.classList.add('hidden');
     }
 
-    /** 修改：讓 AI 決定視覺，並賦予 Google Search Tool 聯網能力 */
     async function callGeminiForOutline(topic, kbText) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
         const apiKey = AppState.googleApiKey;
-        const userChoice = document.getElementById('sel-text-model').value;
-        const slideCount = document.getElementById('range-slide-count').value;
-        const needImage = document.getElementById('sel-need-image').value === 'YES';
-        const needChart = document.getElementById('sel-need-chart').value === 'YES';
+        const userChoice = document.getElementById('sel-text-model')?.value || 'gemini-2.5-pro';
+        const slideCount = document.getElementById('range-slide-count')?.value || '10';
+        const needImage = document.getElementById('sel-need-image')?.value === 'YES';
+        const needChart = document.getElementById('sel-need-chart')?.value === 'YES';
 
         let imgRules = needImage 
             ? "若內容需要配圖輔助，請在該投影片物件中加入 `image_keyword` 屬性，提供一個明確精準的英文名詞以利 SerpApi 搜尋（例：cybersecurity hacker）。" 
@@ -439,7 +457,7 @@ JSON Schema 範例:
         const uniqueModels = [...new Set([userChoice, 'grok-4-1-fast-reasoning', 'gemini-3.1-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'])];
         
         let fullContext = topic;
-        const links = document.getElementById('kb-links-area').value.trim();
+        const links = document.getElementById('kb-links-area')?.value?.trim() || '';
         if (kbText || links) fullContext += `\n\n【參考資料】\n${kbText}\n連結：${links}`;
 
         let lastErr = null;
@@ -453,7 +471,6 @@ JSON Schema 範例:
                 generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 8192 }
             };
 
-            // 【重點功能】開放 AI 的原生聯網工具 (限 Gemini 支援)
             if (modelId.includes('gemini')) {
                 payload.tools = [{ google_search: {} }];
             }
@@ -469,13 +486,12 @@ JSON Schema 範例:
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
                 
-                // 確認是否有呼叫 search tool，有的話我們在前端 log 通知一下
-                const usedTools = data.candidates[0].content.parts.some(p => p.functionCall);
+                const usedTools = data.candidates?.[0]?.content?.parts?.some(p => p.functionCall);
                 if (usedTools) {
                     addLog(`🌐 AI 觸發了即時聯網搜尋取得最新資料...`, 'info');
                 }
 
-                let raw = data.candidates[0].content.parts.find(p => p.text)?.text || '';
+                let raw = data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || '';
                 const jsonMatch = raw.match(/\{[\s\S]*\}/);
                 if (jsonMatch) raw = jsonMatch[0];
 
@@ -488,13 +504,12 @@ JSON Schema 範例:
                 addLog(`⚠ ${modelId} 失敗，切換備用模型...`, 'warning');
             }
         }
-        throw new Error(`所有引擎皆失敗。最後錯誤: ${lastErr.message}`);
+        throw new Error(`所有引擎皆失敗。最後錯誤: ${lastErr?.message || '未知錯誤'}`);
     }
 
-    /** 修改：透過 SerpApi API 抓取真實圖片 */
     async function fetchImageFromSerpApi(keyword) {
         if (!keyword) return null;
-        const apiKey = AppState.serpApiKey;
+        const apiKey = AppState.serpApiKey || document.getElementById('inp-serpapi-key')?.value;
         
         if (!apiKey) {
             addLog(`⚠ 未設定 SerpApi Key，無法自動搜尋「${keyword}」`, 'warning');
@@ -528,7 +543,6 @@ JSON Schema 範例:
         
         if (imgUrl) {
             try {
-                // 使用中繼代理迴避圖片直接下載時的 CORS 問題，轉為 Base64 塞入 PPT
                 const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`;
                 const res = await fetch(proxyUrl);
                 const blob = await res.blob();
@@ -545,7 +559,6 @@ JSON Schema 範例:
         return null; 
     }
 
-    /** DOM 與原生 PPTX 物件建構引擎 */
     async function buildNativeSlide(slide, sData, themeConfig, i, imgB64) {
         const fontFace = 'Arial';
         const bgHex = (themeConfig.bg_color || '#0F172A').replace('#', '');
@@ -556,28 +569,18 @@ JSON Schema 範例:
 
         if (sData.layout === 'title_only') {
             slide.addShape('rect', { x: 0, y: 0, w: 0.3, h: '100%', fill: { color: accColor } });
-            slide.addText(sData.title || '', { 
-                x: 0.8, y: 1.5, w: 8.5, h: 1.5, 
-                fontSize: 48, bold: true, color: txtColor, fontFace: fontFace 
-            });
+            slide.addText(sData.title || '', { x: 0.8, y: 1.5, w: 8.5, h: 1.5, fontSize: 48, bold: true, color: txtColor, fontFace: fontFace });
             if(sData.subtitle) {
-                slide.addText(sData.subtitle, { 
-                    x: 0.8, y: 3.2, w: 8.5, h: 1.0, 
-                    fontSize: 24, color: txtColor, transparency: 30, fontFace: fontFace 
-                });
+                slide.addText(sData.subtitle, { x: 0.8, y: 3.2, w: 8.5, h: 1.0, fontSize: 24, color: txtColor, transparency: 30, fontFace: fontFace });
             }
         } 
         else if (sData.layout === 'text_and_image' && imgB64) {
-            slide.addText(sData.title || '', { 
-                x: 0.5, y: 0.4, w: 5.0, h: 0.8, 
-                fontSize: 32, bold: true, color: accColor, fontFace: fontFace 
-            });
+            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 5.0, h: 0.8, fontSize: 32, bold: true, color: accColor, fontFace: fontFace });
             slide.addShape('rect', { x: 0.5, y: 1.2, w: 1.0, h: 0.05, fill: { color: accColor } });
             
             if (bullets.length > 0) {
                 slide.addText(bullets.map(b => ({ text: b, options: { bullet: { type: 'number' }, paraSpaceAfter: 10 } })), {
-                    x: 0.5, y: 1.5, w: 5.0, h: 3.8, 
-                    fontSize: 18, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
+                    x: 0.5, y: 1.5, w: 5.0, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
                 });
             }
             slide.addImage({ data: imgB64, x: 5.8, y: 1.0, w: 3.8, h: 4.0, sizing: { type: 'cover', w: 3.8, h: 4.0 } });
@@ -614,18 +617,15 @@ JSON Schema 範例:
                 let boxX = startX + j * (widthPerStep + 0.2);
                 let boxW = widthPerStep;
                 
-                // 流程方塊
                 slide.addShape('rect', { x: boxX, y: 2.5, w: boxW, h: 1.2, fill: { color: accColor }, shadow: { type: 'outer', opacity: 0.5 } });
                 slide.addText(steps[j], { x: boxX, y: 2.5, w: boxW, h: 1.2, align: 'center', valign: 'middle', fontSize: 16, color: bgHex, bold: true });
                 
-                // 流程箭頭
                 if (j < stepCount - 1) {
                     slide.addShape('rightArrow', { x: boxX + boxW, y: 2.9, w: 0.2, h: 0.4, fill: { color: txtColor } });
                 }
             }
         }
         else {
-            // 預設純文字滿版
             slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 36, bold: true, color: accColor, fontFace: fontFace });
             slide.addShape('rect', { x: 0.5, y: 1.25, w: 2.0, h: 0.05, fill: { color: accColor } });
             
@@ -649,7 +649,7 @@ JSON Schema 範例:
 
     async function startGeneration() {
         if (!AppState.googleApiKey) { showToast('❌ 請設定 Gemini API Key'); return; }
-        const topic = document.getElementById('inp-topic').value.trim();
+        const topic = document.getElementById('inp-topic')?.value?.trim();
         if (!topic) { showToast('❌ 請輸入主題'); return; }
 
         AppState.isGenerating = true;
@@ -657,16 +657,22 @@ JSON Schema 範例:
         AppState.abortController = new AbortController();
         AppState.finalSlideHTMLs = [];
 
-        document.getElementById('section-empty').classList.add('hidden');
-        document.getElementById('section-progress').classList.remove('hidden');
-        document.getElementById('section-preview').classList.add('hidden');
-        document.getElementById('log-container').innerHTML = '';
-        await updateProgress(5);
-        document.getElementById('btn-download').classList.add('hidden');
+        document.getElementById('section-empty')?.classList.add('hidden');
+        document.getElementById('section-progress')?.classList.remove('hidden');
+        document.getElementById('section-preview')?.classList.add('hidden');
         
-        document.getElementById('btn-generate').classList.add('hidden');
-        document.getElementById('btn-stop').classList.remove('hidden');
-        document.getElementById('btn-stop').disabled = false;
+        const logC = document.getElementById('log-container');
+        if(logC) logC.innerHTML = '';
+        
+        await updateProgress(5);
+        document.getElementById('btn-download')?.classList.add('hidden');
+        document.getElementById('btn-generate')?.classList.add('hidden');
+        
+        const btnStop = document.getElementById('btn-stop');
+        if(btnStop) {
+            btnStop.classList.remove('hidden');
+            btnStop.disabled = false;
+        }
 
         try {
             let kbCombined = AppState.kbDocs.filter(d => d).map(d => `[${d.name}]\n${d.text}`).join('\n\n');
@@ -676,8 +682,9 @@ JSON Schema 範例:
             AppState.presentationData = data;
             await updateProgress(20);
 
-            const needImage = document.getElementById('sel-need-image').value === 'YES';
-            const maxImages = needImage ? parseInt(document.getElementById('range-image-count').value) : 0;
+            const needImage = document.getElementById('sel-need-image')?.value === 'YES';
+            const rangeCount = document.getElementById('range-image-count')?.value || '0';
+            const maxImages = needImage ? parseInt(rangeCount) : 0;
             let imagesGenerated = 0;
 
             const slides = data.slides || [];
@@ -685,11 +692,9 @@ JSON Schema 範例:
             const pres = new PptxGenJS();
             pres.layout = 'LAYOUT_16x9'; 
             
-            // 擷取 AI 給予的色彩配置
             const aiTheme = data.theme || { bg_color: '#0F172A', text_color: '#F8FAFC', accent_color: '#38BDF8' };
-            const aiBgHex = aiTheme.bg_color.replace('#', '');
+            const aiBgHex = (aiTheme.bg_color || '#0F172A').replace('#', '');
 
-            // 母片：頁碼與 Logo
             let masterObjects = [
                 { text: { text: "NOVA 120 Pro Native", options: { x: 8.0, y: 5.4, w: 1.8, color: '64748B', fontSize: 10, align: 'right' } } },
                 { text: { text: "第 ", options: { x: 0.5, y: 5.4, w: 0.5, color: '64748B', fontSize: 10 } } },
@@ -697,7 +702,7 @@ JSON Schema 範例:
             ];
 
             if (AppState.logoBase64) {
-                const pos = document.getElementById('sel-logo-pos').value;
+                const pos = document.getElementById('sel-logo-pos')?.value || 'TR';
                 let lx = 8.8, ly = 0.2; 
                 if (pos === 'BR') { lx = 8.8; ly = 5.0; }
                 else if (pos === 'TL') { lx = 0.2; ly = 0.2; }
@@ -734,8 +739,11 @@ JSON Schema 範例:
             addLog('原生可編輯 PPTX 組裝完成！', 'success');
             await updateProgress(100);
             
-            document.getElementById('btn-download').classList.remove('hidden');
-            document.getElementById('btn-download').classList.add('flex');
+            const btnDl = document.getElementById('btn-download');
+            if(btnDl) {
+                btnDl.classList.remove('hidden');
+                btnDl.classList.add('flex');
+            }
             showToast('✅ 簡報已就緒');
             
             renderSlidesPreview();
@@ -745,16 +753,19 @@ JSON Schema 範例:
                 addLog('⛔ 生成已中斷。', 'warning');
             } else {
                 addLog(e.message, 'error');
+                // 幫助捕捉外部攔截可能顯示的錯誤
+                console.error("NOVA Runtime Error:", e);
             }
         } finally {
             AppState.isGenerating = false;
-            document.getElementById('btn-stop').classList.add('hidden');
-            document.getElementById('btn-generate').classList.remove('hidden');
+            document.getElementById('btn-stop')?.classList.add('hidden');
+            document.getElementById('btn-generate')?.classList.remove('hidden');
         }
     }
 
     function renderSlidesPreview() {
         const list = document.getElementById('slides-preview-list');
+        if(!list) return;
         list.innerHTML = '';
         AppState.finalSlideHTMLs.forEach((html, idx) => {
             const div = document.createElement('div');
@@ -762,7 +773,7 @@ JSON Schema 範例:
             div.innerHTML = `<div style="margin-bottom:8px; opacity:0.5;">PAGE ${idx+1}</div>${html}`;
             list.appendChild(div);
         });
-        document.getElementById('section-preview').classList.remove('hidden');
+        document.getElementById('section-preview')?.classList.remove('hidden');
     }
 
     async function downloadPptx() {
