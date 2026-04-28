@@ -300,6 +300,7 @@
         document.getElementById('logo-preview-wrapper').classList.add('hidden');
     }
 
+    /** 1. 增強 LLM 生成深度的 Prompt 設計 & 流程圖開關邏輯 **/
     async function callGeminiForOutline(topic, kb) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
@@ -347,7 +348,7 @@
 3. 嚴格輸出純 JSON，不可包含 markdown 標籤（絕對不要輸出 \`\`\`json 標記）。
 4. layout 只能是: ${layoutOptions}。
 5. 若有 flowchart_only，必須包含 mermaid_code。mermaid_code 的節點文字請勿使用括號 ()、方括號 [] 或雙引號 "" 等特殊符號，以免造成渲染錯誤。字串內換行用 '\\n'。
-6. image_prompt 必須是簡短的英文敘述（AI 繪圖提示詞），具體描述畫面中的物件、風格、光影。
+6. image_prompt 必須是簡短的英文敘述（AI 繪圖提示詞），具體描述畫面中的核心意象。
 
 JSON Schema:
 {
@@ -394,29 +395,30 @@ JSON Schema:
         throw new Error(`所有文字引擎皆失敗。最後錯誤: ${lastErr.message}`);
     }
 
-    async function buildImagePrompt(query) {
+    /** ★ 修復 2：讓生成的圖片高度貼合投影片內容 ★ */
+    async function buildImagePrompt(contextText) {
         const gKey = AppState.googleApiKey;
-        if (!gKey) return `High quality modern presentation illustration: ${query}`;
+        if (!gKey) return `Professional modern presentation illustration about: ${contextText}`;
         try {
             const r = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`,
                 {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: `Create a highly detailed, extremely concise English image generation prompt (max 40 words) based on this slide context: "${query}". The image MUST be highly relevant to the text content. Minimalist, professional corporate illustration style, 4k resolution. Return ONLY the prompt.` }] }],
-                        generationConfig: { maxOutputTokens: 100, temperature: 0.6 }
+                        contents: [{ role: 'user', parts: [{ text: `Extract the core concept from this slide context and create a HIGHLY SPECIFIC, visually concrete English image generation prompt (max 40 words). Focus on tangible objects, explicit scenes, and actions that PERFECTLY align with the context. DO NOT use abstract words. Style: Professional, minimalist corporate illustration, highly detailed, 4k. Return ONLY the prompt text.\n\nSlide Context:\n${contextText}` }] }],
+                        generationConfig: { maxOutputTokens: 100, temperature: 0.5 }
                     }),
                     signal: AppState.abortController.signal
                 }
             );
-            return (await r.json()).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${query}`;
-        } catch { return `Professional business illustration: ${query}`; }
+            return (await r.json()).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${contextText}`;
+        } catch { return `Professional business illustration: ${contextText}`; }
     }
 
-    async function generateImage(imagePrompt, slideNum) {
+    async function generateImage(contextText, slideNum) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        addLog(`為第 ${slideNum} 頁優化繪圖提示詞...`, 'info');
-        const finalPrompt = await buildImagePrompt(imagePrompt);
+        addLog(`為第 ${slideNum} 頁提取精準繪圖提示詞...`, 'info');
+        const finalPrompt = await buildImagePrompt(contextText);
         
         const preferredModel = document.getElementById('sel-img-model').value;
         const fallbackQueue = [
@@ -446,7 +448,7 @@ JSON Schema:
                     if (r.ok) {
                         const item = (await r.json()).data?.[0];
                         if (item && item.b64_json) {
-                            addLog(`✓ 成功使用 ${model} 生成高品質配圖`, 'success');
+                            addLog(`✓ 成功使用 ${model} 生成精準配圖`, 'success');
                             return `data:image/png;base64,${item.b64_json}`;
                         }
                     }
@@ -461,7 +463,7 @@ JSON Schema:
                     if (r.ok) {
                         const imgPart = (await r.json()).candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
                         if (imgPart?.inlineData?.data) {
-                            addLog(`✓ 成功使用 ${model} 生成高品質配圖`, 'success');
+                            addLog(`✓ 成功使用 ${model} 生成精準配圖`, 'success');
                             return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
                         }
                     }
@@ -471,70 +473,60 @@ JSON Schema:
                 addLog(`⚠ ${model} 失敗: ${e.message}`, 'warning');
             }
         }
-        addLog(`⚠ 所有配圖引擎失敗，將保留空白框架`, 'error');
+        addLog(`⚠ 所有配圖引擎失敗，將觸發版型降級機制`, 'error');
         return null;
     }
 
-    /** 滿版無死角排版系統 (Full-Bleed Dynamic Layout) **/
+    /** ★ 修復 1：滿版無死角排版系統 (16:9 完美適配) ★ **/
+    // 16:9 尺寸 = 10英吋 x 5.625英吋
 
     function renderTextOnly(slide, slideData, themeConfig) {
-        // 大面積滿版文字排版 (撐滿 10英吋 x 5.625英吋)
-        slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 9.2, h: 0.8, fontSize: 36, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.4, y: 1.15, w: 2.0, h: 0.05, fill: { color: themeConfig.accent } });
+        // 大面積滿版文字排版 (撐滿 10 x 5.625)
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 9.2, h: 0.8, fontSize: 38, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+        slide.addShape('rect', { x: 0.4, y: 1.2, w: 2.0, h: 0.05, fill: { color: themeConfig.accent } });
         
         if (slideData.bullet_points) {
-            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
-                x: 0.4, y: 1.4, w: 9.2, h: 3.8, fontSize: 20, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2
+            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 15 } })), {
+                x: 0.4, y: 1.5, w: 9.2, h: 3.8, fontSize: 22, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.3
             });
         }
     }
 
     function renderTextAndImage(slide, slideData, imgB64, themeConfig, slideIndex) {
-        // 利用頁碼的奇偶數或隨機因子來決定當頁的排版風格
+        // 確保動態切換三種不同裁切風格
         const layoutStyle = slideIndex % 3; 
-
-        const formattedBullets = slideData.bullet_points ? slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 10 } })) : [];
+        const formattedBullets = slideData.bullet_points ? slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })) : [];
 
         if (layoutStyle === 0) {
             // 【風格 A：滿版右切 (Half-bleed Right)】
-            slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 5.0, h: 0.8, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 0.4, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
-            slide.addText(formattedBullets, { x: 0.4, y: 1.4, w: 5.2, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+            slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 4.8, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 0.4, y: 1.2, w: 1.0, h: 0.05, fill: { color: themeConfig.accent } });
+            slide.addText(formattedBullets, { x: 0.4, y: 1.5, w: 4.8, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
             
-            if (imgB64) {
-                slide.addImage({ data: imgB64, x: 6.0, y: 0, w: 4.0, h: 5.625, sizing: { type: 'cover', w: 4.0, h: 5.625 } });
-            } else {
-                slide.addShape('rect', { x: 6.0, y: 0, w: 4.0, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
-            }
+            // 圖片無縫貼齊右側邊界
+            slide.addImage({ data: imgB64, x: 5.5, y: 0, w: 4.5, h: 5.625, sizing: { type: 'cover', w: 4.5, h: 5.625 } });
         } 
         else if (layoutStyle === 1) {
             // 【風格 B：滿版左切 (Half-bleed Left)】
-            if (imgB64) {
-                slide.addImage({ data: imgB64, x: 0, y: 0, w: 4.0, h: 5.625, sizing: { type: 'cover', w: 4.0, h: 5.625 } });
-            } else {
-                slide.addShape('rect', { x: 0, y: 0, w: 4.0, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
-            }
-            slide.addText(slideData.title || '', { x: 4.5, y: 0.3, w: 5.0, h: 0.8, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 4.5, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
-            slide.addText(formattedBullets, { x: 4.5, y: 1.4, w: 5.2, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+            slide.addImage({ data: imgB64, x: 0, y: 0, w: 4.5, h: 5.625, sizing: { type: 'cover', w: 4.5, h: 5.625 } });
+            
+            slide.addText(slideData.title || '', { x: 4.9, y: 0.3, w: 4.7, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 4.9, y: 1.2, w: 1.0, h: 0.05, fill: { color: themeConfig.accent } });
+            slide.addText(formattedBullets, { x: 4.9, y: 1.5, w: 4.7, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
         }
         else {
-            // 【風格 C：頂部滿版 (Top-bleed)】
-            if (imgB64) {
-                slide.addImage({ data: imgB64, x: 0, y: 0, w: 10.0, h: 2.2, sizing: { type: 'cover', w: 10.0, h: 2.2 } });
-            } else {
-                slide.addShape('rect', { x: 0, y: 0, w: 10.0, h: 2.2, fill: { color: themeConfig.accent, transparency: 80 } });
-            }
-            slide.addText(slideData.title || '', { x: 0.4, y: 2.5, w: 9.2, h: 0.6, fontSize: 30, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 0.4, y: 3.15, w: 9.2, h: 0.03, fill: { color: themeConfig.accent, transparency: 50 } });
-            slide.addText(formattedBullets, { x: 0.4, y: 3.3, w: 9.2, h: 2.0, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.1 });
+            // 【風格 C：頂部滿版橫切 (Top-bleed)】
+            slide.addImage({ data: imgB64, x: 0, y: 0, w: 10.0, h: 2.2, sizing: { type: 'cover', w: 10.0, h: 2.2 } });
+            
+            slide.addText(slideData.title || '', { x: 0.4, y: 2.4, w: 9.2, h: 0.6, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 0.4, y: 3.1, w: 9.2, h: 0.03, fill: { color: themeConfig.accent, transparency: 50 } });
+            slide.addText(formattedBullets, { x: 0.4, y: 3.25, w: 9.2, h: 2.1, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.1 });
         }
     }
 
     function renderFlowchart(slide, slideData, chartB64, themeConfig) {
-        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 28, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 30, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
         if (chartB64) {
-            // 圖表顯示區滿版
             slide.addImage({ data: chartB64, x: 0.4, y: 0.9, w: 9.2, h: 4.5 });
         }
     }
@@ -573,7 +565,7 @@ JSON Schema:
             const userBg = document.getElementById('slide-bg-hex').value.replace('#', '');
 
             const pres = new PptxGenJS();
-            pres.layout = 'LAYOUT_WIDE'; // 16:9
+            pres.layout = 'LAYOUT_16x9'; // 精確設定為 16:9 (10 x 5.625) 避免底層排版錯誤
 
             // Logo Master Slide 配置
             let masterObjects = [
@@ -620,23 +612,22 @@ JSON Schema:
                     if (b64) {
                         renderFlowchart(slide, sData, b64, themeConfig);
                     } else {
-                        addLog(`⚠️ 第 ${sData.slide_number} 頁流程圖最終修復失敗，已轉換為純文字滿版排版`, 'warning');
-                        // 降級為純文字滿版版型
+                        addLog(`⚠️ 第 ${sData.slide_number} 頁流程圖最終修復失敗，啟動智能降級排版`, 'warning');
+                        // 降級為純文字滿版版型，避免右側空白
                         renderTextOnly(slide, sData, themeConfig);
                     }
                 
                 } else if (sData.layout === 'text_and_image') {
-                    // 結合 Title + Bullet points 提供給配圖模型
-                    const contextForImage = `Slide Title: ${sData.title}\nKeywords: ${sData.bullet_points ? sData.bullet_points.join(", ") : ""}\nSuggested Focus: ${sData.image_prompt}`;
+                    // 結合 Title + Bullet points 提供給配圖模型，大幅提升關聯度
+                    const contextForImage = `Slide Title: ${sData.title}\nKey Context: ${sData.bullet_points ? sData.bullet_points.join("; ") : ""}\nAI Suggested Focus: ${sData.image_prompt}`;
                     
                     const imgB64 = await generateImage(contextForImage, sData.slide_number);
                     
                     if (imgB64) {
-                        // 傳入 i 讓排版引擎動態切換裁切形狀
                         renderTextAndImage(slide, sData, imgB64, themeConfig, i);
                     } else {
-                        addLog(`⚠️ 第 ${sData.slide_number} 頁配圖生成失敗，自動轉換為純文字滿版排版`, 'warning');
-                        // 降級為純文字滿版版型
+                        addLog(`⚠️ 第 ${sData.slide_number} 頁配圖生成失敗，啟動智能降級排版`, 'warning');
+                        // ★ 核心修復：圖片失敗時降級為純文字滿版版型，完美消除右方空白 ★
                         renderTextOnly(slide, sData, themeConfig);
                     }
                 
