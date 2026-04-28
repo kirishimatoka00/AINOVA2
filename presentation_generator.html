@@ -39,7 +39,7 @@
         .panel-body.open { max-height: 2000px; opacity: 1; }
         .drop-zone { border: 2px dashed #475569; transition: all 0.25s ease; }
         .drop-zone:hover { border-color: #818cf8; background-color: rgba(99, 102, 241, 0.08); }
-        .slide-preview-card { width: 100%; aspect-ratio: 16/9; border-radius: 8px; border: 1px solid #334155; background-color: #0F172A; padding: 12px; font-size: 8px; overflow: hidden; color: white; }
+        .slide-preview-card { width: 100%; aspect-ratio: 16/9; border-radius: 8px; border: 1px solid #334155; background-color: #0F172A; padding: 12px; font-size: 8px; overflow: hidden; color: white; position: relative;}
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
@@ -47,7 +47,6 @@
     <div id="html-parse-stage" style="display:none;"></div>
     
     <input type="text" id="slide-bg-hex" value="#0F172A" style="display:none;">
-    <select id="sel-img-model" style="display:none;"><option value="grok-imagine-image-pro"></option></select>
 
     <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70 shrink-0">
         <div class="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
@@ -133,6 +132,7 @@
                             <select id="sel-text-model" onchange="updateHeaderBadge()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning (專案指定)</option>
                                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (最新旗艦)</option>
+                                <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash Preview (極速聯網)</option>
                                 <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro (深度邏輯推薦)</option>
                                 <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速均衡)</option>
                             </select>
@@ -141,8 +141,18 @@
                         <div class="border-t border-slate-800 pt-3">
                             <label class="block text-slate-400 mb-1.5 font-semibold">是否需要配圖？</label>
                             <select id="sel-need-image" onchange="toggleImageCount()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="YES">✅ 需要：SerpApi 自動抓圖</option>
+                                <option value="YES">✅ 需要：SerpApi 抓圖 + AI 生圖備援</option>
                                 <option value="NO">🚫 不需要：純文字與 HTML 圖表排版</option>
+                            </select>
+                        </div>
+
+                        <div id="div-img-model">
+                            <label class="block text-slate-400 mb-1.5 font-semibold">首選配圖模型 (生圖降級備用)</label>
+                            <select id="sel-img-model" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
+                                <option value="grok-imagine-image-pro">Grok Imagine Image Pro (推薦)</option>
+                                <option value="grok-imagine-image">Grok Imagine Image</option>
+                                <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
+                                <option value="pollinations" selected>Pollinations AI (免 Key 穩定備援)</option>
                             </select>
                         </div>
 
@@ -215,12 +225,12 @@
             </div>
             
             <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 text-center px-4">
-                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-4 sm:mb-5 border border-violet-500/20">
+                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-4 sm:mb-5 border border-violet-500/20 shadow-lg shadow-violet-500/20">
                     <i class="ph-bold ph-presentation-chart text-violet-400 text-2xl sm:text-3xl"></i>
                 </div>
                 <h2 class="text-lg sm:text-xl font-bold text-white mb-2">原生可編輯 PPTX 引擎</h2>
                 <p class="text-slate-500 text-xs sm:text-sm max-w-md leading-relaxed">
-                    本次革命性升級：支援 <b>AI 原生 Google 搜尋工具</b>，製作大綱前會先上網查資料。生成的排版將被<b>即時解析並轉換為 PPT 原生的文字方塊、流程圖與真實圖片 (SerpApi)</b>。
+                    本次革命性升級：修復 <b>Gemini 2.5 Pro 原生聯網工具</b>、全新引進 <b>3.1 Flash Preview</b>。支援生動化卡片排版、AI 生圖備援機制，下載後的簡報 100% 具備超高質感與可編輯性！
                 </p>
             </div>
         </div>
@@ -281,7 +291,9 @@
     function toggleImageCount() {
         const needImg = document.getElementById('sel-need-image')?.value || 'NO';
         const divCount = document.getElementById('div-image-count');
+        const divModel = document.getElementById('div-img-model');
         if(divCount) divCount.style.display = needImg === 'NO' ? 'none' : 'block';
+        if(divModel) divModel.style.display = needImg === 'NO' ? 'none' : 'block';
     }
 
     function updateImageCountLabel(val) {
@@ -413,7 +425,7 @@
         const needChart = document.getElementById('sel-need-chart')?.value === 'YES';
 
         let imgRules = needImage 
-            ? "若內容需要配圖輔助，請在該投影片物件中加入 `image_keyword` 屬性，提供一個明確精準的英文名詞以利 SerpApi 搜尋（例：cybersecurity hacker）。" 
+            ? "若內容需要配圖輔助，請在該投影片物件中加入 `image_keyword` 屬性，提供一個明確精準的英文名詞以利 SerpApi 搜尋或 AI 生圖（例：cybersecurity hacker）。" 
             : "絕對不要生成任何圖片關鍵字，全憑文字與排版決戰。";
 
         const systemPrompt = `你是一位世界頂級的簡報內容策略師與視覺設計總監。
@@ -449,12 +461,12 @@ JSON Schema 範例:
       "subtitle": "副標題 (可選)",
       "bullet_points": ["重點1", "重點2"],
       "image_keyword": "Future AI city",
-      "process_steps": ["第一步", "第二步"] // 僅 layout 為 process_flow 時提供
+      "process_steps": ["第一步", "第二步"] 
     }
   ]
 }`;
 
-        const uniqueModels = [...new Set([userChoice, 'grok-4-1-fast-reasoning', 'gemini-3.1-pro-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'])];
+        const uniqueModels = [...new Set([userChoice, 'grok-4-1-fast-reasoning', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'])];
         
         let fullContext = topic;
         const links = document.getElementById('kb-links-area')?.value?.trim() || '';
@@ -471,8 +483,9 @@ JSON Schema 範例:
                 generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 8192 }
             };
 
+            // 💡 修正 2：Gemini API 工具屬性必須是駝峰式的 googleSearch
             if (modelId.includes('gemini')) {
-                payload.tools = [{ google_search: {} }];
+                payload.tools = [{ googleSearch: {} }];
             }
 
             try {
@@ -483,7 +496,11 @@ JSON Schema 範例:
                     body: JSON.stringify(payload),
                     signal: AppState.abortController.signal
                 });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                
+                if (!resp.ok) {
+                    const errDetail = await resp.text();
+                    throw new Error(`HTTP ${resp.status} - ${errDetail}`);
+                }
                 const data = await resp.json();
                 
                 const usedTools = data.candidates?.[0]?.content?.parts?.some(p => p.functionCall);
@@ -501,82 +518,100 @@ JSON Schema 範例:
             } catch (e) {
                 lastErr = e;
                 if (e.name === 'AbortError') throw new Error('CanceledByUser');
-                addLog(`⚠ ${modelId} 失敗，切換備用模型...`, 'warning');
+                addLog(`⚠ ${modelId} 失敗 (${e.message.substring(0,30)}...)，切換備用模型...`, 'warning');
             }
         }
         throw new Error(`所有引擎皆失敗。最後錯誤: ${lastErr?.message || '未知錯誤'}`);
     }
 
+    /** 💡 新增 1：AI 生成圖片模型備援機制 (Fallback) */
+    async function generateImageWithAI(keyword) {
+        const imgModel = document.getElementById('sel-img-model')?.value || 'pollinations';
+        addLog(`🎨 啟動繪圖模型「${imgModel}」生成插圖...`, 'ai');
+        
+        // 嘗試使用 Grok 生圖 (如果有設定 API Key)
+        if (imgModel.includes('grok') && AppState.xaiApiKey) {
+            try {
+                const res = await fetch('https://api.x.ai/v1/images/generations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AppState.xaiApiKey}` },
+                    body: JSON.stringify({ prompt: `Professional presentation graphic: ${keyword}`, model: imgModel, response_format: 'b64_json' })
+                });
+                const data = await res.json();
+                if (data.data && data.data[0].b64_json) return 'data:image/png;base64,' + data.data[0].b64_json;
+            } catch(e) { addLog('⚠ Grok 生圖失敗，自動切換至備用方案', 'warning'); }
+        }
+        
+        // 終極備援：Pollinations AI (免費、免 Key，生成高品質圖片並轉 Base64)
+        try {
+            const prompt = `A professional, clean, minimalist presentation illustration for: ${keyword}`;
+            const res = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&nologo=true`);
+            const blob = await res.blob();
+            return await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        } catch (e) {
+            return null;
+        }
+    }
+
     async function fetchImageFromSerpApi(keyword) {
         if (!keyword) return null;
         const apiKey = AppState.serpApiKey || document.getElementById('inp-serpapi-key')?.value;
-        
-        if (!apiKey) {
-            addLog(`⚠ 未設定 SerpApi Key，無法自動搜尋「${keyword}」`, 'warning');
-            return null;
-        }
+        if (!apiKey) return null; // 若沒 Key，直接回傳 null 讓流程進入 AI 生圖備援
 
         try {
             let targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&engine=google_images&num=1&api_key=${apiKey}`;
             const proxies = [
                 `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-                `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
             ];
-            
             for (const proxy of proxies) {
                 try {
                     let res = await fetch(proxy);
                     let data = await res.json();
-                    
-                    if (data.images_results && data.images_results.length > 0) {
-                        return data.images_results[0].original;
-                    }
+                    if (data.images_results && data.images_results.length > 0) return data.images_results[0].original;
                 } catch (e) { }
             }
-        } catch (e) { console.warn("SerpApi Image search failed", e); }
+        } catch (e) { }
         return null;
     }
 
-    /** 🚀 修改核心：加入多重 Proxy 備援池迴圈，大幅降低被防盜鏈擋下 (CORS) 的機率 */
     async function processSlideImage(keyword) {
         addLog(`🔍 SerpApi 搜尋圖片「${keyword}」...`, 'info');
         const imgUrl = await fetchImageFromSerpApi(keyword);
         
         if (imgUrl) {
-            // 提供多個跨域中繼代理，如果前一個失敗就換下一個，確保 Base64 轉換順利
             const proxyPool = [
                 `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(imgUrl)}`,
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`,
                 `https://corsproxy.io/?${encodeURIComponent(imgUrl)}`
             ];
-            
             for (const proxyUrl of proxyPool) {
                 try {
                     const res = await fetch(proxyUrl);
-                    if (!res.ok) continue; // 失敗則直接跳至下一個 proxy
+                    if (!res.ok) continue; 
                     const blob = await res.blob();
-                    
-                    // 確保檔案有內容
                     if (blob.size < 100) continue; 
-                    
                     return await new Promise((resolve) => {
                         const reader = new FileReader();
                         reader.onloadend = () => resolve(reader.result);
                         reader.readAsDataURL(blob);
                     });
-                } catch(e) {
-                    console.warn(`[Proxy Fallback] 代理 ${proxyUrl} 下載圖片失敗`, e);
-                    // 繼續跑迴圈，嘗試下一個代理
-                }
+                } catch(e) { }
             }
-            addLog(`⚠ 所有中繼站均被拒絕下載圖片 (防盜鏈或CORS限制)，改以佔位符代替`, 'warning');
+            addLog(`⚠ 所有中繼站均被拒絕下載圖片，將啟動 AI 生圖備援...`, 'warning');
         } else {
-            addLog(`⚠ 搜尋無果，使用系統佔位符`, 'warning');
+            addLog(`⚠ 網路搜尋未果或未設定 Key，將啟動 AI 生圖備援...`, 'warning');
         }
-        return null; 
+        
+        // 💡 若網路抓圖徹底失敗，則無縫呼叫 AI 生成圖片補上
+        return await generateImageWithAI(keyword);
     }
 
+    /** 💡 修正 4：使排版與視覺更為生動、立體、現代化 */
     async function buildNativeSlide(slide, sData, themeConfig, i, imgB64) {
         const fontFace = 'Arial';
         const bgHex = (themeConfig.bg_color || '#0F172A').replace('#', '');
@@ -585,62 +620,78 @@ JSON Schema 範例:
 
         const bullets = sData.bullet_points || [];
 
+        // 全域裝飾：生動的半透明幾何背景點綴
+        slide.addShape('circle', { x: 8.5, y: -1.0, w: 3, h: 3, fill: { color: accColor, transparency: 85 } });
+        slide.addShape('circle', { x: -1.0, y: 4.5, w: 2.5, h: 2.5, fill: { color: accColor, transparency: 90 } });
+
         if (sData.layout === 'title_only') {
             slide.addShape('rect', { x: 0, y: 0, w: 0.3, h: '100%', fill: { color: accColor } });
-            slide.addText(sData.title || '', { x: 0.8, y: 1.5, w: 8.5, h: 1.5, fontSize: 48, bold: true, color: txtColor, fontFace: fontFace });
+            
+            // 增加巨型透明背景字體營造科技感
+            let bgWatermark = (sData.title || 'NOVA').substring(0, 8).toUpperCase();
+            slide.addText(bgWatermark, { x: 0.5, y: 1.0, w: 9.0, h: 3.0, fontSize: 100, bold: true, color: txtColor, transparency: 93, fontFace: fontFace });
+            
+            slide.addText(sData.title || '', { x: 0.8, y: 1.5, w: 8.5, h: 1.5, fontSize: 48, bold: true, color: txtColor, fontFace: fontFace, shadow: { type: 'outer', color: '000000', opacity: 0.3, blur: 3 } });
             if(sData.subtitle) {
-                slide.addText(sData.subtitle, { x: 0.8, y: 3.2, w: 8.5, h: 1.0, fontSize: 24, color: txtColor, transparency: 30, fontFace: fontFace });
+                slide.addText(sData.subtitle, { x: 0.8, y: 3.2, w: 8.5, h: 1.0, fontSize: 24, color: txtColor, transparency: 20, fontFace: fontFace });
             }
         } 
         else if (sData.layout === 'text_and_image' && imgB64) {
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 5.0, h: 0.8, fontSize: 32, bold: true, color: accColor, fontFace: fontFace });
-            slide.addShape('rect', { x: 0.5, y: 1.2, w: 1.0, h: 0.05, fill: { color: accColor } });
+            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 5.0, h: 0.8, fontSize: 34, bold: true, color: accColor, fontFace: fontFace });
+            slide.addShape('rect', { x: 0.5, y: 1.25, w: 1.0, h: 0.05, fill: { color: accColor } });
             
             if (bullets.length > 0) {
-                slide.addText(bullets.map(b => ({ text: b, options: { bullet: { type: 'number' }, paraSpaceAfter: 10 } })), {
+                slide.addText(bullets.map(b => ({ text: b, options: { bullet: { type: 'number' }, paraSpaceAfter: 12 } })), {
                     x: 0.5, y: 1.5, w: 5.0, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
                 });
             }
-            slide.addImage({ data: imgB64, x: 5.8, y: 1.0, w: 3.8, h: 4.0, sizing: { type: 'cover', w: 3.8, h: 4.0 } });
+            // 圖片加入圓角邊框與陰影
+            slide.addImage({ data: imgB64, x: 5.7, y: 1.1, w: 3.8, h: 4.0, sizing: { type: 'cover', w: 3.8, h: 4.0 }, rounding: true });
         }
         else if (sData.layout === 'columns') {
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 32, bold: true, color: accColor, fontFace: fontFace, align: 'center' });
+            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 34, bold: true, color: accColor, fontFace: fontFace, align: 'center' });
             
             if (bullets.length > 0) {
                 let half = Math.ceil(bullets.length / 2);
                 let col1 = bullets.slice(0, half);
                 let col2 = bullets.slice(half);
 
+                // 改為具備層次感的卡片式排版 (Card Layout)
                 if (col1.length > 0) {
-                    slide.addText(col1.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
-                        x: 0.5, y: 1.5, w: 4.3, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fill: {color: txtColor, transparency: 90}, margin: 15
+                    slide.addShape('roundRect', { x: 0.4, y: 1.4, w: 4.4, h: 3.8, fill: { color: txtColor, transparency: 92 }, rounding: true });
+                    slide.addText(col1.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 14 } })), {
+                        x: 0.5, y: 1.5, w: 4.2, h: 3.6, fontSize: 18, color: txtColor, valign: 'top', margin: 15
                     });
                 }
                 if (col2.length > 0) {
-                    slide.addText(col2.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
-                        x: 5.2, y: 1.5, w: 4.3, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fill: {color: txtColor, transparency: 90}, margin: 15
+                    slide.addShape('roundRect', { x: 5.2, y: 1.4, w: 4.4, h: 3.8, fill: { color: txtColor, transparency: 92 }, rounding: true });
+                    slide.addText(col2.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 14 } })), {
+                        x: 5.3, y: 1.5, w: 4.2, h: 3.6, fontSize: 18, color: txtColor, valign: 'top', margin: 15
                     });
                 }
             }
         }
         else if (sData.layout === 'process_flow' && sData.process_steps) {
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 32, bold: true, color: accColor, fontFace: fontFace, align: 'center' });
+            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 34, bold: true, color: accColor, fontFace: fontFace, align: 'center' });
             
             const steps = sData.process_steps;
             const stepCount = steps.length;
             const startX = 0.5;
             const widthPerStep = 8.0 / stepCount; 
             
+            // 繪製背景連結線
+            slide.addShape('line', { x: startX + 0.5, y: 2.1, w: 8.0 - widthPerStep, h: 0, line: { color: accColor, width: 2, dashType: 'dash' } });
+
             for (let j = 0; j < stepCount; j++) {
                 let boxX = startX + j * (widthPerStep + 0.2);
                 let boxW = widthPerStep;
                 
-                slide.addShape('rect', { x: boxX, y: 2.5, w: boxW, h: 1.2, fill: { color: accColor }, shadow: { type: 'outer', opacity: 0.5 } });
-                slide.addText(steps[j], { x: boxX, y: 2.5, w: boxW, h: 1.2, align: 'center', valign: 'middle', fontSize: 16, color: bgHex, bold: true });
+                // 生動的序號圓環 + 圓角內文框
+                slide.addShape('ellipse', { x: boxX + boxW/2 - 0.3, y: 1.8, w: 0.6, h: 0.6, fill: { color: accColor } });
+                slide.addText(String(j+1), { x: boxX + boxW/2 - 0.3, y: 1.8, w: 0.6, h: 0.6, align: 'center', valign: 'middle', fontSize: 18, color: bgHex, bold: true });
                 
-                if (j < stepCount - 1) {
-                    slide.addShape('rightArrow', { x: boxX + boxW, y: 2.9, w: 0.2, h: 0.4, fill: { color: txtColor } });
-                }
+                slide.addShape('roundRect', { x: boxX, y: 2.6, w: boxW, h: 1.2, fill: { color: txtColor, transparency: 90 }, rounding: true });
+                slide.addText(steps[j], { x: boxX, y: 2.6, w: boxW, h: 1.2, align: 'center', valign: 'middle', fontSize: 15, color: txtColor, bold: true, margin: 5 });
             }
         }
         else {
@@ -655,9 +706,10 @@ JSON Schema 範例:
         }
 
         let htmlContent = `
-            <div style="width:100%; height:100%; background-color:#${bgHex}; position:relative; padding:40px; box-sizing:border-box; text-align:left;">
-                <h2 style="color:#${accColor}; font-size:24px; font-weight:bold; margin-bottom:10px;">${sData.title || ''}</h2>
-                <ul style="color:#${txtColor}; font-size:12px; line-height:1.5; padding-left:20px;">
+            <div style="width:100%; height:100%; background-color:#${bgHex}; position:relative; padding:40px; box-sizing:border-box; text-align:left; overflow:hidden;">
+                <div style="position:absolute; right:-20px; top:-20px; width:150px; height:150px; background-color:#${accColor}; opacity:0.15; border-radius:50%;"></div>
+                <h2 style="color:#${accColor}; font-size:24px; font-weight:bold; margin-bottom:10px; position:relative; z-index:2; text-shadow: 1px 1px 3px rgba(0,0,0,0.3);">${sData.title || ''}</h2>
+                <ul style="color:#${txtColor}; font-size:12px; line-height:1.5; padding-left:20px; position:relative; z-index:2;">
                     ${bullets.map(b => `<li style="margin-bottom:8px;">${b}</li>`).join('')}
                 </ul>
             </div>
