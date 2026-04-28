@@ -41,7 +41,7 @@
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
 
-    <div id="mermaid-render-container" style="position:fixed; top:-9999px; left:-9999px; width:1280px; height:720px; visibility:hidden; pointer-events:none;"></div>
+    <div id="mermaid-render-container" style="position:fixed; top:-9999px; left:-9999px; width:2560px; height:1440px; visibility:hidden; pointer-events:none;"></div>
 
     <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70">
         <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
@@ -187,8 +187,8 @@
         kbDocs: [], logoBase64: null, coverBase64: null,
         pptxObject: null, presentationData: null,
         isGenerating: false,
-        cancelRequested: false,       // 中斷旗標
-        abortController: null         // Fetch 請求控制器
+        cancelRequested: false,       
+        abortController: null         
     };
 
     const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
@@ -206,7 +206,14 @@
         AppState.xaiApiKey = localStorage.getItem('nova_key_grok') || '';
         document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
         updateHeaderBadge();
-        mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+        
+        // 放大字體設定，確保高解析度圖表中的文字也同樣清晰
+        mermaid.initialize({ 
+            startOnLoad: false, 
+            theme: 'dark', 
+            securityLevel: 'loose',
+            themeVariables: { fontSize: '28px' } 
+        });
     }
 
     document.addEventListener('DOMContentLoaded', init);
@@ -243,7 +250,6 @@
         return 'v1beta';
     }
 
-    // 中斷功能
     function stopGeneration() {
         if (AppState.isGenerating) {
             AppState.cancelRequested = true;
@@ -292,8 +298,9 @@
 1. 嚴格輸出純 JSON，不可包含 markdown 標籤（不要有 \`\`\`json）。
 2. layout 只能是: "title_only", "text_only", "text_and_image", "flowchart_only"。
 3. flowchart_only 必須包含 mermaid_code。
-4. 針對 16:9 寬螢幕設計內容，bullet_points 應精簡但具備橫向擴展潛力，每點不超過 25 字。
-5. image_prompt 必須是簡短的英文敘述（AI 繪圖提示詞），不可為空。
+4. mermaid_code 的節點文字請勿使用括號 ()、方括號 [] 或雙引號 "" 等特殊符號，以免造成渲染錯誤。
+5. 針對 16:9 寬螢幕設計內容，bullet_points 應精簡但具備橫向擴展潛力，每點不超過 25 字。
+6. image_prompt 必須是簡短的英文敘述（AI 繪圖提示詞），不可為空。
 
 JSON Schema:
 {
@@ -320,9 +327,13 @@ JSON Schema:
                 });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
-                const raw = data.candidates[0].content.parts[0].text;
+                let raw = data.candidates[0].content.parts[0].text;
+                
+                const jsonMatch = raw.match(/\{[\s\S]*\}/);
+                if (jsonMatch) raw = jsonMatch[0];
+
                 addLog(`✓ 成功使用 ${modelId} 生成大綱`, 'success');
-                return JSON.parse(raw.replace(/```json/g, '').replace(/```/g, '').trim());
+                return JSON.parse(raw);
             } catch (e) {
                 lastErr = e;
                 if (e.name === 'AbortError') throw new Error('CanceledByUser');
@@ -413,33 +424,44 @@ JSON Schema:
         return null;
     }
 
+    // ★ 優化版面利用：盡可能將所有 bounding box 推至 16:9 (10 x 5.625 inch) 極限 ★
+
     function renderTextOnly(slide, slideData, themeConfig) {
-        slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.5, y: 1.2, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
+        // Title bounds 擴大
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 9.2, h: 0.8, fontSize: 36, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+        slide.addShape('rect', { x: 0.4, y: 1.15, w: 2.0, h: 0.05, fill: { color: themeConfig.accent } });
         if (slideData.bullet_points) {
-            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 10 } })), {
-                x: 0.5, y: 1.6, w: 9.0, h: 3.5, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font
+            // Bullets bounds 擴大 (w: 9.2, h: 3.8)
+            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
+                x: 0.4, y: 1.4, w: 9.2, h: 3.8, fontSize: 20, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font
             });
         }
     }
 
     function renderTextAndImage(slide, slideData, imgB64, themeConfig) {
-        slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 28, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.5, y: 1.15, w: 1.0, h: 0.04, fill: { color: themeConfig.accent } });
-        slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 8 } })), {
-            x: 0.5, y: 1.4, w: 5.0, h: 3.5, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font
+        // Title bounds 擴大
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 9.2, h: 0.8, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+        slide.addShape('rect', { x: 0.4, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
+        
+        // 左側文字區擴張
+        slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 10 } })), {
+            x: 0.4, y: 1.4, w: 5.2, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font
         });
+
+        // 右側圖片區極大化
         if (imgB64) {
-            slide.addImage({ data: imgB64, x: 5.8, y: 1.1, w: 3.7, h: 3.8, rounding: true });
+            slide.addImage({ data: imgB64, x: 5.8, y: 1.1, w: 3.8, h: 4.1, rounding: true });
         } else {
-            slide.addShape('rect', { x: 5.8, y: 1.1, w: 3.7, h: 3.8, fill: { color: themeConfig.accent, transparency: 80 } });
+            slide.addShape('rect', { x: 5.8, y: 1.1, w: 3.8, h: 4.1, fill: { color: themeConfig.accent, transparency: 80 } });
         }
     }
 
     function renderFlowchart(slide, slideData, chartB64, themeConfig) {
-        slide.addText(slideData.title || '', { x: 0.5, y: 0.3, w: 9.0, h: 0.6, fontSize: 24, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
+        // Title bounds 擴大
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 28, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
         if (chartB64) {
-            slide.addImage({ data: chartB64, x: 0.5, y: 1.0, w: 9.0, h: 4.2 });
+            // 圖表顯示區滿版 (w: 9.2, h: 4.5)
+            slide.addImage({ data: chartB64, x: 0.4, y: 0.9, w: 9.2, h: 4.5 });
         }
     }
 
@@ -459,7 +481,6 @@ JSON Schema:
         document.getElementById('progress-bar').style.width = '5%';
         document.getElementById('btn-download').classList.add('hidden');
         
-        // UI 按鈕切換
         document.getElementById('btn-generate').classList.add('hidden');
         document.getElementById('btn-stop').classList.remove('hidden');
         document.getElementById('btn-stop').disabled = false;
@@ -478,13 +499,14 @@ JSON Schema:
             const userBg = document.getElementById('slide-bg-hex').value.replace('#', '');
 
             const pres = new PptxGenJS();
-            pres.layout = 'LAYOUT_WIDE';
+            pres.layout = 'LAYOUT_WIDE'; // 16:9
 
+            // Master Slide 調整到底部角落
             pres.defineSlideMaster({
                 title: 'MASTER_PRO',
                 background: { color: userBg },
                 objects: [
-                    { text: { text: "NOVA 120 Pro", options: { x: 8.5, y: 5.3, w: 1.5, color: themeConfig.accent, fontSize: 10, align: 'right' } } }
+                    { text: { text: "NOVA 120 Pro", options: { x: 8.0, y: 5.4, w: 1.8, color: themeConfig.accent, fontSize: 10, align: 'right' } } }
                 ]
             });
 
@@ -499,12 +521,19 @@ JSON Schema:
 
                 if (sData.layout === 'title_only') {
                     slide.addShape('rect', { x: 0, y: 0, w: 0.5, h: '100%', fill: { color: themeConfig.accent } });
-                    slide.addText(sData.title || '未命名', { x: 0.8, y: 1.5, w: 8.5, h: 1.5, fontSize: 44, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-                    if(sData.subtitle) slide.addText(sData.subtitle, { x: 0.8, y: 3.2, w: 8.0, h: 1.0, fontSize: 24, color: themeConfig.textColor, fontFace: themeConfig.font });
+                    slide.addText(sData.title || '未命名', { x: 0.5, y: 1.5, w: 9.0, h: 1.5, fontSize: 48, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+                    if(sData.subtitle) slide.addText(sData.subtitle, { x: 0.5, y: 3.2, w: 8.5, h: 1.0, fontSize: 26, color: themeConfig.textColor, fontFace: themeConfig.font });
                 
-                } else if (sData.layout === 'flowchart_only' && sData.mermaid_code) {
-                    const b64 = await mermaidToBase64(sData.mermaid_code, userBg);
-                    renderFlowchart(slide, sData, b64, themeConfig);
+                } else if (sData.layout === 'flowchart_only') {
+                    const b64 = await mermaidToBase64(sData.mermaid_code || "", userBg, sData, false);
+                    
+                    if (b64) {
+                        renderFlowchart(slide, sData, b64, themeConfig);
+                    } else {
+                        addLog(`⚠️ 第 ${sData.slide_number} 頁流程圖最終修復失敗，降級為純文字`, 'warning');
+                        sData.bullet_points = sData.bullet_points || ["(系統提示：圖表解析異常)"];
+                        renderTextOnly(slide, sData, themeConfig);
+                    }
                 
                 } else if (sData.layout === 'text_and_image') {
                     const imgB64 = await generateImage(sData.image_prompt, sData.slide_number);
@@ -544,40 +573,67 @@ JSON Schema:
             }
         } finally {
             AppState.isGenerating = false;
-            // UI 恢復
             document.getElementById('btn-stop').classList.add('hidden');
             document.getElementById('btn-stop').querySelector('span').textContent = '停止生成';
             document.getElementById('btn-generate').classList.remove('hidden');
         }
     }
 
-    async function mermaidToBase64(code, bgColorHex) {
+    /** * 保證絕對生成機制 + 4K 強制升頻 (Upscale) 渲染器
+     * 解決「流程圖解析度太差」痛點
+     */
+    async function mermaidToBase64(code, bgColorHex, slideData, isRetry = false) {
         const container = document.getElementById('mermaid-render-container');
-        // 加上超時機制，避免 Promise 永遠 pending
+        
+        let safeCode = code.replace(/```mermaid/gi, '').replace(/```/g, '').trim();
         const timeout = new Promise(r => setTimeout(() => r(null), 10000));
         
         const doRender = async () => {
             try {
-                const { svg } = await mermaid.render('mmr-' + Date.now(), code, container);
-                const canvas = document.createElement('canvas');
-                canvas.width = 1920; canvas.height = 1080; 
-                const ctx = canvas.getContext('2d');
-                const img = new Image();
-                const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+                const uniqueId = 'mmr-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
+                const { svg } = await mermaid.render(uniqueId, safeCode, container);
+                
+                // 為了達到極高解析度，我們需要從 SVG 字串中剝離死板的 width/height
+                // 並將其放大 3 倍，以 4K 級別渲染至 Canvas
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(svg, "image/svg+xml");
+                const svgEl = svgDoc.documentElement;
+                
+                let origW = parseFloat(svgEl.getAttribute('width') || 1280);
+                let origH = parseFloat(svgEl.getAttribute('height') || 720);
+                
+                if (!svgEl.getAttribute('viewBox')) {
+                    svgEl.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
+                }
+                
+                // 強制放大 3 倍解析度
+                const scaleFactor = 3;
+                svgEl.setAttribute('width', (origW * scaleFactor).toString());
+                svgEl.setAttribute('height', (origH * scaleFactor).toString());
+                
+                const modifiedSvg = new XMLSerializer().serializeToString(svgDoc);
+                const svgBlob = new Blob([modifiedSvg], { type: 'image/svg+xml;charset=utf-8' });
                 const url = URL.createObjectURL(svgBlob);
                 
                 return new Promise(res => {
+                    const img = new Image();
                     img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        // 畫布隨放大的 SVG 延伸
+                        canvas.width = img.width + 100; 
+                        canvas.height = img.height + 100; 
+                        
+                        const ctx = canvas.getContext('2d');
                         ctx.fillStyle = '#' + bgColorHex;
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
-                        const scale = Math.min((canvas.width * 0.9) / img.width, (canvas.height * 0.9) / img.height);
-                        const dw = img.width * scale;
-                        const dh = img.height * scale;
-                        ctx.drawImage(img, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+                        
+                        // 居中繪製高解析度圖片
+                        ctx.drawImage(img, 50, 50, img.width, img.height);
+                        
                         URL.revokeObjectURL(url);
+                        // 匯出為無損 PNG 以保證文字與線條邊緣清晰
                         res(canvas.toDataURL('image/png'));
                     };
-                    // 修正卡死核心：當 SVG 語法無法載入成 Image 時，直接放棄繪製
                     img.onerror = () => {
                         URL.revokeObjectURL(url);
                         res(null);
@@ -585,11 +641,34 @@ JSON Schema:
                     img.src = url;
                 });
             } catch (e) { 
+                console.warn("Mermaid 語法解析失敗:", e);
                 return null; 
             }
         };
 
-        return Promise.race([doRender(), timeout]);
+        let result = await Promise.race([doRender(), timeout]);
+
+        // 終極保底機制 (Auto-Reconstruct Fallback)
+        if (!result && !isRetry && slideData) {
+            addLog(`⚠️ 流程圖語法異常，啟動安全修復機制...`, 'warning');
+            
+            let fallbackCode = "graph TD\n";
+            let safeTitle = (slideData.title || '主題').replace(/["\\[\]()]/g, ' ');
+            fallbackCode += `  Root["${safeTitle}"]\n`;
+            
+            if (slideData.bullet_points && slideData.bullet_points.length > 0) {
+                slideData.bullet_points.forEach((bp, idx) => {
+                    let safeBp = bp.substring(0, 25).replace(/["\\[\]()]/g, ' ');
+                    fallbackCode += `  Root --> Node${idx}["${safeBp}"]\n`;
+                });
+            } else {
+                fallbackCode += `  Root --> Node1["內容生成中"]\n`;
+            }
+            
+            return await mermaidToBase64(fallbackCode, bgColorHex, slideData, true);
+        }
+
+        return result;
     }
 
     function renderSlidesPreview(data) {
