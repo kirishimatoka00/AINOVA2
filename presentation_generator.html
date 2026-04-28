@@ -300,7 +300,6 @@
         document.getElementById('logo-preview-wrapper').classList.add('hidden');
     }
 
-    /** 1. 增強 LLM 生成深度的 Prompt 設計 & 流程圖開關邏輯 **/
     async function callGeminiForOutline(topic, kb) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
@@ -404,7 +403,7 @@ JSON Schema:
                 {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: `Create a highly detailed, extremely concise English image generation prompt (max 40 words) for a presentation slide about: "${query}". Minimalist, professional corporate illustration style, 4k resolution.` }] }],
+                        contents: [{ role: 'user', parts: [{ text: `Create a highly detailed, extremely concise English image generation prompt (max 40 words) based on this slide context: "${query}". The image MUST be highly relevant to the text content. Minimalist, professional corporate illustration style, 4k resolution. Return ONLY the prompt.` }] }],
                         generationConfig: { maxOutputTokens: 100, temperature: 0.6 }
                     }),
                     signal: AppState.abortController.signal
@@ -479,31 +478,33 @@ JSON Schema:
     /** 滿版無死角排版系統 (Full-Bleed Dynamic Layout) **/
 
     function renderTextOnly(slide, slideData, themeConfig) {
-        slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 1.0, fontSize: 40, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.5, y: 1.45, w: 2.5, h: 0.06, fill: { color: themeConfig.accent } });
+        // 大面積滿版文字排版 (撐滿 10英吋 x 5.625英吋)
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 9.2, h: 0.8, fontSize: 36, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+        slide.addShape('rect', { x: 0.4, y: 1.15, w: 2.0, h: 0.05, fill: { color: themeConfig.accent } });
         
         if (slideData.bullet_points) {
-            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 15 } })), {
-                x: 0.5, y: 1.8, w: 9.0, h: 3.5, fontSize: 22, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.3
+            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
+                x: 0.4, y: 1.4, w: 9.2, h: 3.8, fontSize: 20, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2
             });
         }
     }
 
     function renderTextAndImage(slide, slideData, imgB64, themeConfig, slideIndex) {
+        // 利用頁碼的奇偶數或隨機因子來決定當頁的排版風格
         const layoutStyle = slideIndex % 3; 
 
-        const formattedBullets = slideData.bullet_points ? slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })) : [];
+        const formattedBullets = slideData.bullet_points ? slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 10 } })) : [];
 
         if (layoutStyle === 0) {
             // 【風格 A：滿版右切 (Half-bleed Right)】
-            slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 4.5, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 0.5, y: 1.25, w: 1.0, h: 0.05, fill: { color: themeConfig.accent } });
-            slide.addText(formattedBullets, { x: 0.5, y: 1.5, w: 4.5, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+            slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 5.0, h: 0.8, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 0.4, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
+            slide.addText(formattedBullets, { x: 0.4, y: 1.4, w: 5.2, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
             
             if (imgB64) {
-                slide.addImage({ data: imgB64, x: 5.5, y: 0, w: 4.5, h: 5.625, sizing: { type: 'cover', w: 4.5, h: 5.625 } });
+                slide.addImage({ data: imgB64, x: 6.0, y: 0, w: 4.0, h: 5.625, sizing: { type: 'cover', w: 4.0, h: 5.625 } });
             } else {
-                slide.addShape('rect', { x: 5.5, y: 0, w: 4.5, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
+                slide.addShape('rect', { x: 6.0, y: 0, w: 4.0, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
             }
         } 
         else if (layoutStyle === 1) {
@@ -513,25 +514,25 @@ JSON Schema:
             } else {
                 slide.addShape('rect', { x: 0, y: 0, w: 4.0, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
             }
-            slide.addText(slideData.title || '', { x: 4.5, y: 0.4, w: 5.0, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 4.5, y: 1.25, w: 1.0, h: 0.05, fill: { color: themeConfig.accent } });
-            slide.addText(formattedBullets, { x: 4.5, y: 1.5, w: 5.0, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+            slide.addText(slideData.title || '', { x: 4.5, y: 0.3, w: 5.0, h: 0.8, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 4.5, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
+            slide.addText(formattedBullets, { x: 4.5, y: 1.4, w: 5.2, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
         }
         else {
             // 【風格 C：頂部滿版 (Top-bleed)】
             if (imgB64) {
-                slide.addImage({ data: imgB64, x: 0, y: 0, w: 10.0, h: 2.5, sizing: { type: 'cover', w: 10.0, h: 2.5 } });
+                slide.addImage({ data: imgB64, x: 0, y: 0, w: 10.0, h: 2.2, sizing: { type: 'cover', w: 10.0, h: 2.2 } });
             } else {
-                slide.addShape('rect', { x: 0, y: 0, w: 10.0, h: 2.5, fill: { color: themeConfig.accent, transparency: 80 } });
+                slide.addShape('rect', { x: 0, y: 0, w: 10.0, h: 2.2, fill: { color: themeConfig.accent, transparency: 80 } });
             }
-            slide.addText(slideData.title || '', { x: 0.5, y: 2.7, w: 9.0, h: 0.6, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-            slide.addShape('rect', { x: 0.5, y: 3.35, w: 9.0, h: 0.03, fill: { color: themeConfig.accent, transparency: 50 } });
-            slide.addText(formattedBullets, { x: 0.5, y: 3.5, w: 9.0, h: 1.9, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.1 });
+            slide.addText(slideData.title || '', { x: 0.4, y: 2.5, w: 9.2, h: 0.6, fontSize: 30, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 0.4, y: 3.15, w: 9.2, h: 0.03, fill: { color: themeConfig.accent, transparency: 50 } });
+            slide.addText(formattedBullets, { x: 0.4, y: 3.3, w: 9.2, h: 2.0, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.1 });
         }
     }
 
     function renderFlowchart(slide, slideData, chartB64, themeConfig) {
-        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 30, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 28, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
         if (chartB64) {
             // 圖表顯示區滿版
             slide.addImage({ data: chartB64, x: 0.4, y: 0.9, w: 9.2, h: 4.5 });
@@ -619,15 +620,25 @@ JSON Schema:
                     if (b64) {
                         renderFlowchart(slide, sData, b64, themeConfig);
                     } else {
-                        addLog(`⚠️ 第 ${sData.slide_number} 頁流程圖最終修復失敗，降級為純文字`, 'warning');
-                        sData.bullet_points = sData.bullet_points || ["(系統提示：圖表解析異常)"];
+                        addLog(`⚠️ 第 ${sData.slide_number} 頁流程圖最終修復失敗，已轉換為純文字滿版排版`, 'warning');
+                        // 降級為純文字滿版版型
                         renderTextOnly(slide, sData, themeConfig);
                     }
                 
                 } else if (sData.layout === 'text_and_image') {
-                    const imgB64 = await generateImage(sData.image_prompt, sData.slide_number);
-                    // 傳入 i 讓排版引擎動態切換裁切形狀
-                    renderTextAndImage(slide, sData, imgB64, themeConfig, i);
+                    // 結合 Title + Bullet points 提供給配圖模型
+                    const contextForImage = `Slide Title: ${sData.title}\nKeywords: ${sData.bullet_points ? sData.bullet_points.join(", ") : ""}\nSuggested Focus: ${sData.image_prompt}`;
+                    
+                    const imgB64 = await generateImage(contextForImage, sData.slide_number);
+                    
+                    if (imgB64) {
+                        // 傳入 i 讓排版引擎動態切換裁切形狀
+                        renderTextAndImage(slide, sData, imgB64, themeConfig, i);
+                    } else {
+                        addLog(`⚠️ 第 ${sData.slide_number} 頁配圖生成失敗，自動轉換為純文字滿版排版`, 'warning');
+                        // 降級為純文字滿版版型
+                        renderTextOnly(slide, sData, themeConfig);
+                    }
                 
                 } else {
                     renderTextOnly(slide, sData, themeConfig);
