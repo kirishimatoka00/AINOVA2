@@ -62,6 +62,9 @@
                 <button id="btn-generate" onclick="startGeneration()" class="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-lg">
                     <i class="ph-bold ph-sparkle"></i><span>開始生成</span>
                 </button>
+                <button id="btn-stop" onclick="stopGeneration()" class="hidden items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-lg">
+                    <i class="ph-bold ph-stop"></i><span>停止生成</span>
+                </button>
             </div>
         </div>
     </header>
@@ -132,6 +135,9 @@
                                 <option value="TD">由上至下 (Top-Down)</option>
                                 <option value="LR">由左至右 (Left-Right)</option>
                                 <option value="PIE">環形比例圖 (Pie Chart)</option>
+                                <option value="MINDMAP">心智圖 (Mindmap)</option>
+                                <option value="TIMELINE">時間軸 (Timeline)</option>
+                                <option value="SEQUENCE">交互循序圖 (Sequence)</option>
                             </select>
                         </div>
 
@@ -158,7 +164,7 @@
                     <div class="flex-1 bg-slate-800 rounded-full h-1.5"><div id="progress-bar" class="h-1.5 bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all" style="width: 0%"></div></div>
                     <span id="progress-pct" class="text-xs font-bold text-violet-400">0%</span>
                 </div>
-                <div id="log-container" class="space-y-1.5 max-h-52 overflow-y-auto text-[11px]"></div>
+                <div id="log-container" class="space-y-1.5 max-h-52 overflow-y-auto text-[11px] no-scrollbar"></div>
             </div>
 
             <div id="section-preview" class="hidden"><div id="slides-preview-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div></div>
@@ -181,12 +187,13 @@
         kbDocs: [], logoBase64: null, coverBase64: null,
         pptxObject: null, presentationData: null,
         isGenerating: false,
+        cancelRequested: false,       // 中斷旗標
+        abortController: null         // Fetch 請求控制器
     };
 
     const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
     const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
 
-    // 定義視覺風格
     const TEMPLATES = {
         modern: { accent: '64748B', titleColor: 'FFFFFF', textColor: 'E2E8F0', font: 'Arial' },
         tech: { accent: '0EA5E9', titleColor: '38BDF8', textColor: 'BAE6FD', font: 'Courier New' },
@@ -229,23 +236,35 @@
         c.appendChild(i); c.scrollTop = c.scrollHeight;
     }
 
-    /** 1. 修正的模型版本判定 (精確處理 v1alpha 與 v1beta) **/
     function getGeminiApiVersion(modelName) {
-        // 含 preview, exp, gemini-3 的模型必須強制走 v1alpha
         if (modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3')) {
             return 'v1alpha';
         }
         return 'v1beta';
     }
 
+    // 中斷功能
+    function stopGeneration() {
+        if (AppState.isGenerating) {
+            AppState.cancelRequested = true;
+            if (AppState.abortController) {
+                AppState.abortController.abort();
+            }
+            addLog('⚠️ 使用者要求中斷生成...', 'warning');
+            document.getElementById('btn-stop').disabled = true;
+            document.getElementById('btn-stop').querySelector('span').textContent = '正在中止...';
+        }
+    }
+
     async function callGeminiForOutline(topic, kb) {
+        if (AppState.cancelRequested) throw new Error('CanceledByUser');
+
         const apiKey = AppState.googleApiKey;
         const userChoice = document.getElementById('sel-text-model').value;
         const slideCount = document.getElementById('range-slide-count').value;
         const flowDir = document.getElementById('sel-flowchart-dir').value;
         const templateStyle = document.getElementById('sel-template').options[document.getElementById('sel-template').selectedIndex].text;
 
-        // 確保優先使用指定模型，並設置安全的降級順序
         const FALLBACK_MODELS = [
             userChoice,
             'gemini-3.1-pro-preview',
@@ -255,10 +274,14 @@
         ];
         const uniqueModels = [...new Set(FALLBACK_MODELS)];
 
-        // 判斷流程圖語法提示
-        let flowchartPrompt = flowDir === 'PIE' 
-            ? "mermaid_code 必須使用 pie chart 語法，例如: pie title 分布圖 \\n \"A\" : 40 \\n \"B\" : 60"
-            : `mermaid_code 必須以 graph ${flowDir} 開頭進行繪製。`;
+        let flowchartPrompt = "";
+        switch(flowDir) {
+            case 'PIE': flowchartPrompt = "mermaid_code 必須使用 pie chart 語法，例如: pie title 分布圖 \\n \"A\" : 40 \\n \"B\" : 60"; break;
+            case 'MINDMAP': flowchartPrompt = "mermaid_code 必須使用 mindmap 語法，例如: mindmap \\n root((主題)) \\n   分支1 \\n   分支2"; break;
+            case 'TIMELINE': flowchartPrompt = "mermaid_code 必須使用 timeline 語法，例如: timeline \\n title 發展歷史 \\n 2023 : 事件A \\n 2024 : 事件B"; break;
+            case 'SEQUENCE': flowchartPrompt = "mermaid_code 必須使用 sequenceDiagram 語法，例如: sequenceDiagram \\n A->>B: 請求 \\n B-->>A: 回應"; break;
+            default: flowchartPrompt = `mermaid_code 必須以 graph ${flowDir} 開頭進行繪製。`;
+        }
 
         const systemPrompt = `你是一位世界級簡報設計師。
 請以 16:9 寬螢幕佈局思維生成簡報 JSON。
@@ -281,6 +304,7 @@ JSON Schema:
 }`;
         let lastErr = null;
         for (const modelId of uniqueModels) {
+            if (AppState.cancelRequested) throw new Error('CanceledByUser');
             const ver = getGeminiApiVersion(modelId);
             const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${apiKey}`;
             try {
@@ -291,7 +315,8 @@ JSON Schema:
                     body: JSON.stringify({
                         contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題：" + topic + (kb ? "\n知識庫：" + kb : "") }] }],
                         generationConfig: { responseMimeType: 'application/json', temperature: 0.7 }
-                    })
+                    }),
+                    signal: AppState.abortController.signal
                 });
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                 const data = await resp.json();
@@ -300,13 +325,13 @@ JSON Schema:
                 return JSON.parse(raw.replace(/```json/g, '').replace(/```/g, '').trim());
             } catch (e) {
                 lastErr = e;
+                if (e.name === 'AbortError') throw new Error('CanceledByUser');
                 addLog(`⚠ ${modelId} 失敗: ${e.message}，準備降級切換...`, 'warning');
             }
         }
         throw new Error(`所有文字引擎皆失敗。最後錯誤: ${lastErr.message}`);
     }
 
-    /** 2. 獨立的生圖處理邏輯 (結合使用者指定與降級) **/
     async function buildImagePrompt(query) {
         const gKey = AppState.googleApiKey;
         if (!gKey) return `Professional modern presentation illustration: ${query}`;
@@ -318,7 +343,8 @@ JSON Schema:
                     body: JSON.stringify({
                         contents: [{ role: 'user', parts: [{ text: `Create a concise English image generation prompt (max 40 words) for a presentation slide about: "${query}". Minimalist, professional business illustration style.` }] }],
                         generationConfig: { maxOutputTokens: 100, temperature: 0.5 }
-                    })
+                    }),
+                    signal: AppState.abortController.signal
                 }
             );
             return (await r.json()).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${query}`;
@@ -326,6 +352,7 @@ JSON Schema:
     }
 
     async function generateImage(imagePrompt, slideNum) {
+        if (AppState.cancelRequested) throw new Error('CanceledByUser');
         addLog(`為第 ${slideNum} 頁優化繪圖提示詞...`, 'info');
         const finalPrompt = await buildImagePrompt(imagePrompt);
         
@@ -340,6 +367,7 @@ JSON Schema:
         const uniqueModels = [...new Set(fallbackQueue)];
 
         for (const model of uniqueModels) {
+            if (AppState.cancelRequested) throw new Error('CanceledByUser');
             try {
                 addLog(`🎨 嘗試呼叫配圖引擎 ${model}...`, 'ai');
                 if (model.startsWith('grok')) {
@@ -350,7 +378,8 @@ JSON Schema:
                     const r = await fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
                         method: 'POST',
                         headers: { 'Authorization': `Bearer ${AppState.xaiApiKey}`, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ model: model, prompt: finalPrompt, response_format: 'b64_json' })
+                        body: JSON.stringify({ model: model, prompt: finalPrompt, response_format: 'b64_json' }),
+                        signal: AppState.abortController.signal
                     });
                     if (r.ok) {
                         const item = (await r.json()).data?.[0];
@@ -364,7 +393,8 @@ JSON Schema:
                     const ver = model.includes('preview') ? 'v1alpha' : 'v1beta';
                     const r = await fetch(`https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${AppState.googleApiKey}`, {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: finalPrompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } })
+                        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: finalPrompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } }),
+                        signal: AppState.abortController.signal
                     });
                     if (r.ok) {
                         const imgPart = (await r.json()).candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
@@ -375,6 +405,7 @@ JSON Schema:
                     }
                 }
             } catch (e) {
+                if (e.name === 'AbortError') throw new Error('CanceledByUser');
                 addLog(`⚠ ${model} 失敗: ${e.message}`, 'warning');
             }
         }
@@ -382,11 +413,9 @@ JSON Schema:
         return null;
     }
 
-    /** 16:9 座標系統 (單位：英吋，標準為 10 x 5.625) 結合自訂 Template **/
     function renderTextOnly(slide, slideData, themeConfig) {
         slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
         slide.addShape('rect', { x: 0.5, y: 1.2, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
-        
         if (slideData.bullet_points) {
             slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 10 } })), {
                 x: 0.5, y: 1.6, w: 9.0, h: 3.5, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font
@@ -397,13 +426,9 @@ JSON Schema:
     function renderTextAndImage(slide, slideData, imgB64, themeConfig) {
         slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 28, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
         slide.addShape('rect', { x: 0.5, y: 1.15, w: 1.0, h: 0.04, fill: { color: themeConfig.accent } });
-        
-        // 左側文字 (佔 55%)
         slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 8 } })), {
             x: 0.5, y: 1.4, w: 5.0, h: 3.5, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font
         });
-
-        // 右側圖片 (佔 40%)
         if (imgB64) {
             slide.addImage({ data: imgB64, x: 5.8, y: 1.1, w: 3.7, h: 3.8, rounding: true });
         } else {
@@ -418,35 +443,43 @@ JSON Schema:
         }
     }
 
-    /** 核心組裝流程 **/
     async function startGeneration() {
         if (!AppState.googleApiKey) { showToast('❌ 請設定 Gemini API Key'); return; }
         const topic = document.getElementById('inp-topic').value.trim();
         if (!topic) { showToast('❌ 請輸入主題'); return; }
 
         AppState.isGenerating = true;
+        AppState.cancelRequested = false;
+        AppState.abortController = new AbortController();
+
         document.getElementById('section-empty').classList.add('hidden');
         document.getElementById('section-progress').classList.remove('hidden');
         document.getElementById('section-preview').classList.add('hidden');
         document.getElementById('log-container').innerHTML = '';
         document.getElementById('progress-bar').style.width = '5%';
         document.getElementById('btn-download').classList.add('hidden');
+        
+        // UI 按鈕切換
+        document.getElementById('btn-generate').classList.add('hidden');
+        document.getElementById('btn-stop').classList.remove('hidden');
+        document.getElementById('btn-stop').disabled = false;
+        document.getElementById('progress-spinner').classList.add('animate-spin');
+        document.getElementById('progress-spinner').style.border = '';
+        document.getElementById('progress-spinner').style.borderTopColor = 'transparent';
 
         try {
-            // 1. 生成大綱
             const data = await callGeminiForOutline(topic, "");
+            if (AppState.cancelRequested) throw new Error('CanceledByUser');
             AppState.presentationData = data;
             document.getElementById('progress-bar').style.width = '20%';
             
-            // 取得 Template 與底色設定
             const selectedTemplateKey = document.getElementById('sel-template').value;
             const themeConfig = TEMPLATES[selectedTemplateKey];
             const userBg = document.getElementById('slide-bg-hex').value.replace('#', '');
 
             const pres = new PptxGenJS();
-            pres.layout = 'LAYOUT_WIDE'; // 16:9 寬螢幕
+            pres.layout = 'LAYOUT_WIDE';
 
-            // 寫入 Master Slide
             pres.defineSlideMaster({
                 title: 'MASTER_PRO',
                 background: { color: userBg },
@@ -457,14 +490,14 @@ JSON Schema:
 
             const slides = data.slides || [];
             
-            // 2. 逐頁生成素材與組裝
             for (let i = 0; i < slides.length; i++) {
+                if (AppState.cancelRequested) throw new Error('CanceledByUser');
+
                 const sData = slides[i];
                 addLog(`正在製作第 ${sData.slide_number} 頁: ${sData.title || '封面'}`, 'info');
                 const slide = pres.addSlide({ masterName: 'MASTER_PRO' });
 
                 if (sData.layout === 'title_only') {
-                    // 封面特製
                     slide.addShape('rect', { x: 0, y: 0, w: 0.5, h: '100%', fill: { color: themeConfig.accent } });
                     slide.addText(sData.title || '未命名', { x: 0.8, y: 1.5, w: 8.5, h: 1.5, fontSize: 44, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
                     if(sData.subtitle) slide.addText(sData.subtitle, { x: 0.8, y: 3.2, w: 8.0, h: 1.0, fontSize: 24, color: themeConfig.textColor, fontFace: themeConfig.font });
@@ -474,7 +507,6 @@ JSON Schema:
                     renderFlowchart(slide, sData, b64, themeConfig);
                 
                 } else if (sData.layout === 'text_and_image') {
-                    // 觸發 AI 配圖
                     const imgB64 = await generateImage(sData.image_prompt, sData.slide_number);
                     renderTextAndImage(slide, sData, imgB64, themeConfig);
                 
@@ -490,43 +522,74 @@ JSON Schema:
             document.getElementById('progress-bar').style.width = '100%';
             document.getElementById('btn-download').classList.remove('hidden');
             document.getElementById('btn-download').classList.add('flex');
+            
+            document.getElementById('progress-spinner').classList.remove('animate-spin');
+            document.getElementById('progress-spinner').style.border = '2px solid #10b981';
+            
             showToast('✅ 簡報已就緒');
             renderSlidesPreview(data);
 
         } catch (e) {
-            addLog(e.message, 'error');
-            console.error(e);
-            showToast('❌ 生成發生錯誤');
+            if (e.name === 'AbortError' || e.message === 'CanceledByUser') {
+                addLog('⛔ 生成已由使用者中斷。', 'warning');
+                showToast('⛔ 生成已中斷');
+                document.getElementById('progress-spinner').classList.remove('animate-spin');
+                document.getElementById('progress-spinner').style.border = '2px solid #f59e0b';
+            } else {
+                addLog(e.message, 'error');
+                console.error(e);
+                showToast('❌ 生成發生錯誤');
+                document.getElementById('progress-spinner').classList.remove('animate-spin');
+                document.getElementById('progress-spinner').style.border = '2px solid #ef4444';
+            }
         } finally {
             AppState.isGenerating = false;
+            // UI 恢復
+            document.getElementById('btn-stop').classList.add('hidden');
+            document.getElementById('btn-stop').querySelector('span').textContent = '停止生成';
+            document.getElementById('btn-generate').classList.remove('hidden');
         }
     }
 
     async function mermaidToBase64(code, bgColorHex) {
         const container = document.getElementById('mermaid-render-container');
-        try {
-            const { svg } = await mermaid.render('mmr-' + Date.now(), code, container);
-            const canvas = document.createElement('canvas');
-            canvas.width = 1920; canvas.height = 1080; 
-            const ctx = canvas.getContext('2d');
-            const img = new Image();
-            const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
-            const url = URL.createObjectURL(svgBlob);
-            return new Promise(res => {
-                img.onload = () => {
-                    ctx.fillStyle = '#' + bgColorHex;
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    // 留一點邊距，等比繪製
-                    const scale = Math.min((canvas.width * 0.9) / img.width, (canvas.height * 0.9) / img.height);
-                    const dw = img.width * scale;
-                    const dh = img.height * scale;
-                    ctx.drawImage(img, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
-                    URL.revokeObjectURL(url);
-                    res(canvas.toDataURL('image/png'));
-                };
-                img.src = url;
-            });
-        } catch (e) { return null; }
+        // 加上超時機制，避免 Promise 永遠 pending
+        const timeout = new Promise(r => setTimeout(() => r(null), 10000));
+        
+        const doRender = async () => {
+            try {
+                const { svg } = await mermaid.render('mmr-' + Date.now(), code, container);
+                const canvas = document.createElement('canvas');
+                canvas.width = 1920; canvas.height = 1080; 
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(svgBlob);
+                
+                return new Promise(res => {
+                    img.onload = () => {
+                        ctx.fillStyle = '#' + bgColorHex;
+                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                        const scale = Math.min((canvas.width * 0.9) / img.width, (canvas.height * 0.9) / img.height);
+                        const dw = img.width * scale;
+                        const dh = img.height * scale;
+                        ctx.drawImage(img, (canvas.width - dw) / 2, (canvas.height - dh) / 2, dw, dh);
+                        URL.revokeObjectURL(url);
+                        res(canvas.toDataURL('image/png'));
+                    };
+                    // 修正卡死核心：當 SVG 語法無法載入成 Image 時，直接放棄繪製
+                    img.onerror = () => {
+                        URL.revokeObjectURL(url);
+                        res(null);
+                    };
+                    img.src = url;
+                });
+            } catch (e) { 
+                return null; 
+            }
+        };
+
+        return Promise.race([doRender(), timeout]);
     }
 
     function renderSlidesPreview(data) {
