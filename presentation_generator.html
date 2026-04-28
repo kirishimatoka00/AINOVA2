@@ -18,13 +18,11 @@
 
     <script>
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-        
         tailwind.config = {
             theme: {
                 extend: {
                     fontFamily: { sans: ['Plus Jakarta Sans', 'Noto Sans TC', 'sans-serif'] },
                     colors: { slate: { 925: '#0f172a' } },
-                    animation: { 'shimmer': 'shimmer 2s linear infinite', 'fade-in': 'fadeIn 0.4s ease-out' }
                 }
             }
         }
@@ -39,13 +37,12 @@
         .panel-body.open { max-height: 2000px; opacity: 1; }
         .drop-zone { border: 2px dashed #475569; transition: all 0.25s ease; }
         .drop-zone:hover { border-color: #818cf8; background-color: rgba(99, 102, 241, 0.08); }
-        .slide-preview-card { width: 100%; aspect-ratio: 16/9; border-radius: 8px; border: 1px solid #334155; background-color: #0F172A; padding: 12px; font-size: 8px; overflow: hidden; color: white; position: relative;}
+        .slide-preview-card { width: 100%; aspect-ratio: 16/9; border-radius: 12px; border: 1px solid #334155; background-color: #0F172A; overflow: hidden; position: relative; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);}
+        .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-    <div id="html-parse-stage" style="display:none;"></div>
-    
     <input type="text" id="slide-bg-hex" value="#0F172A" style="display:none;">
 
     <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70 shrink-0">
@@ -55,11 +52,11 @@
                     <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
                 </a>
                 <div class="w-px h-5 bg-slate-700 hidden sm:block"></div>
-                <h1 class="text-xs sm:text-sm font-bold text-white truncate">AI 簡報生成器 Pro (Native PPT)</h1>
+                <h1 class="text-xs sm:text-sm font-bold text-white truncate">AI 簡報生成器 Pro (Native 3.1)</h1>
             </div>
             <div class="flex items-center gap-1.5 sm:gap-2">
                 <div id="header-model-badge" class="hidden md:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
-                    <i class="ph-fill ph-cpu text-violet-400"></i><span id="header-model-name">檢測中</span>
+                    <i class="ph-fill ph-cpu text-violet-400"></i><span id="header-model-name">Gemini 3.1 Flash</span>
                 </div>
                 <button id="btn-download" onclick="downloadPptx()" class="hidden items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shadow-lg">
                     <i class="ph-bold ph-download-simple"></i><span class="hidden sm:inline">下載 PPTX</span>
@@ -84,35 +81,9 @@
                         API Key: <span id="api-gemini-status">...</span>
                     </div>
                 </div>
-                <div class="flex items-center gap-3 mt-1" title="為啟用 SerpApi 圖片搜尋，請填入 SerpApi Key">
+                <div class="flex items-center gap-3 mt-1">
                     <i class="ph-fill ph-magnifying-glass text-emerald-400 text-lg"></i>
-                    <input type="password" id="inp-serpapi-key" placeholder="請輸入 SerpApi Key" class="flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-[11px] text-slate-200 outline-none focus:border-emerald-500">
-                </div>
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-kb')" class="w-full flex items-center justify-between p-3 sm:p-4 hover:bg-slate-800/50">
-                    <div class="flex items-center gap-2">
-                        <i class="ph-fill ph-books text-emerald-400 text-lg"></i>
-                        <span class="text-sm font-semibold text-white">智慧知識庫 (解析區)</span>
-                    </div>
-                    <i id="panel-kb-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
-                </button>
-                <div id="panel-kb" class="panel-body open">
-                    <div class="px-3 sm:px-4 pb-4 space-y-3 sm:space-y-4 text-xs">
-                        <div id="kb-drop-zone" class="drop-zone rounded-xl p-3 text-center cursor-pointer bg-slate-950/50" onclick="document.getElementById('kb-file-input').click()">
-                            <i class="ph-bold ph-upload-simple text-slate-500 text-xl sm:text-2xl mb-1"></i>
-                            <p class="text-slate-400 font-medium">上傳參考檔案</p>
-                            <p class="text-slate-600 mt-1 text-[10px] sm:text-xs">PDF, Word, Excel, PPTX, TXT</p>
-                        </div>
-                        <input type="file" id="kb-file-input" multiple accept=".txt,.md,.html,.csv,.json,.pdf,.docx,.xlsx,.pptx" class="hidden" onchange="handleKbUpload(this.files)">
-                        
-                        <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">網頁 / YouTube 連結 (每行一個)</label>
-                            <textarea id="kb-links-area" rows="2" placeholder="https://..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 outline-none"></textarea>
-                        </div>
-                        <div id="kb-file-list" class="space-y-1.5"></div>
-                    </div>
+                    <input type="password" id="inp-serpapi-key" placeholder="SerpApi Key (圖片網址擷取用)" class="flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-[11px] text-slate-200 outline-none focus:border-emerald-500">
                 </div>
             </div>
 
@@ -120,80 +91,39 @@
                 <button onclick="togglePanel('panel-config')" class="w-full flex items-center justify-between p-3 sm:p-4 hover:bg-slate-800/50">
                     <div class="flex items-center gap-2">
                         <i class="ph-fill ph-sliders-horizontal text-amber-400 text-lg"></i>
-                        <span class="text-sm font-semibold text-white">進階細節指定</span>
+                        <span class="text-sm font-semibold text-white">模型與偏好</span>
                     </div>
                     <i id="panel-config-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
                 </button>
                 <div id="panel-config" class="panel-body open">
                     <div class="px-3 sm:px-4 pb-4 space-y-4 text-xs">
-                        
                         <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">首選文字模型 (LLM)</label>
+                            <label class="block text-slate-400 mb-1.5 font-semibold">首選文字模型 (推薦 3.1 Flash)</label>
                             <select id="sel-text-model" onchange="updateHeaderBadge()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning (專案指定)</option>
-                                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (最新旗艦)</option>
-                                <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash Preview (極速聯網)</option>
-                                <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro (深度邏輯推薦)</option>
-                                <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速均衡)</option>
+                                <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash Preview (最新速效)</option>
+                                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (最強邏輯)</option>
+                                <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Experimental</option>
+                                <option value="gemini-1.5-pro">Gemini 1.5 Pro (穩定商務)</option>
                             </select>
                         </div>
-
-                        <div class="border-t border-slate-800 pt-3">
-                            <label class="block text-slate-400 mb-1.5 font-semibold">是否需要配圖？</label>
-                            <select id="sel-need-image" onchange="toggleImageCount()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="YES">✅ 需要：SerpApi 抓圖 + AI 生圖備援</option>
-                                <option value="NO">🚫 不需要：純文字與 HTML 圖表排版</option>
-                            </select>
-                        </div>
-
-                        <div id="div-img-model">
-                            <label class="block text-slate-400 mb-1.5 font-semibold">首選配圖模型 (生圖降級備用)</label>
+                        <div>
+                            <label class="block text-slate-400 mb-1.5 font-semibold">備援生圖引擎</label>
                             <select id="sel-img-model" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="grok-imagine-image-pro">Grok Imagine Image Pro (推薦)</option>
-                                <option value="grok-imagine-image">Grok Imagine Image</option>
-                                <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
-                                <option value="pollinations" selected>Pollinations AI (免 Key 穩定備援)</option>
+                                <option value="pollinations">Pollinations AI (免 Key 高速插圖)</option>
+                                <option value="grok-imagine-image-pro">Grok Imagine (需填 xAI Key)</option>
                             </select>
                         </div>
-
-                        <div id="div-image-count" class="pb-2">
-                            <label class="block text-slate-400 mb-1.5 font-semibold flex justify-between">
-                                <span>配圖張數上限</span><span id="image-count-val" class="text-amber-400 font-bold">自動 (無限制)</span>
-                            </label>
-                            <input type="range" id="range-image-count" min="1" max="20" value="20" oninput="updateImageCountLabel(this.value)" class="w-full">
-                        </div>
-
-                        <div class="border-t border-slate-800 pt-3">
-                            <label class="block text-slate-400 mb-1.5 font-semibold">是否需流程圖表？</label>
-                            <select id="sel-need-chart" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="YES">✅ 需要：AI 將視情況建立流程圖表結構</option>
-                                <option value="NO" selected>🚫 不需要：常規文字版面為主</option>
-                            </select>
-                        </div>
-
-                        <div class="border-t border-slate-800 pt-3">
-                            <label class="block text-slate-400 mb-1.5 font-semibold">簡報 Logo / 浮水印</label>
-                            <div class="flex items-center gap-2">
-                                <button onclick="document.getElementById('logo-upload').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-2 py-2 text-slate-300 transition-colors">上傳</button>
-                                <select id="sel-logo-pos" class="bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 outline-none">
-                                    <option value="TR">右上角</option>
-                                    <option value="BR">右下角</option>
-                                    <option value="TL">左上角</option>
-                                    <option value="BL">左下角</option>
-                                </select>
-                                <input type="file" id="logo-upload" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
-                            </div>
-                            <div id="logo-preview-wrapper" class="hidden mt-2 relative inline-block">
-                                <img id="logo-preview" class="h-8 sm:h-10 object-contain bg-white/10 rounded p-1">
-                                <button onclick="removeLogo()" class="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">&times;</button>
-                            </div>
-                        </div>
-
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold flex justify-between">
                                 <span>投影片張數</span><span id="slide-count-val" class="text-amber-400 font-bold">10 張</span>
                             </label>
-                            <input type="range" id="range-slide-count" min="5" max="20" value="10" oninput="document.getElementById('slide-count-val').textContent = this.value + ' 張'" class="w-full">
+                            <input type="range" id="range-slide-count" min="5" max="25" value="10" oninput="document.getElementById('slide-count-val').textContent = this.value + ' 張'" class="w-full">
+                        </div>
+                        <div class="pt-2 border-t border-slate-800">
+                             <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+                                 <input type="checkbox" id="chk-need-chart" checked class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-violet-500 focus:ring-0">
+                                 <span>允許 AI 自主建立流程圖佈局</span>
+                             </label>
                         </div>
                     </div>
                 </div>
@@ -202,8 +132,8 @@
 
         <div class="flex-1 min-w-0 flex flex-col gap-4 sm:gap-5 w-full">
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-                <label class="block text-sm font-semibold text-white mb-2 sm:mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令 (AI 支援自主連網搜尋資料)</label>
-                <textarea id="inp-topic" rows="5" placeholder="例如：請幫我連網搜尋「2026 AI 發展趨勢」並製作一份專業報告。內文需包含最新數據，並請 AI 自行決定風格與是否加入圖表元素..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
+                <label class="block text-sm font-semibold text-white mb-2 sm:mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 請輸入簡報主題或詳細指令</label>
+                <textarea id="inp-topic" rows="5" placeholder="例如：請幫我搜尋「2026 智慧交通趨勢」並製作一份報告。要有數據分析與流程圖..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
             </div>
 
             <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
@@ -219,18 +149,18 @@
 
             <div id="section-preview" class="hidden">
                 <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-white"><i class="ph-fill ph-stack text-violet-400"></i> 投影片生成預覽 (Native PPT Elements)</h3>
+                    <h3 class="text-sm font-semibold text-white"><i class="ph-fill ph-stack text-violet-400"></i> 即時渲染預覽 (HTML Rendering)</h3>
                 </div>
-                <div id="slides-preview-list" class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4"></div>
+                <div id="slides-preview-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
             </div>
             
             <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 text-center px-4">
-                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-4 sm:mb-5 border border-violet-500/20 shadow-lg shadow-violet-500/20">
+                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-4 sm:mb-5 border border-violet-500/20 shadow-xl">
                     <i class="ph-bold ph-presentation-chart text-violet-400 text-2xl sm:text-3xl"></i>
                 </div>
-                <h2 class="text-lg sm:text-xl font-bold text-white mb-2">原生可編輯 PPTX 引擎</h2>
+                <h2 class="text-lg sm:text-xl font-bold text-white mb-2">NOVA Native 3.1 引擎</h2>
                 <p class="text-slate-500 text-xs sm:text-sm max-w-md leading-relaxed">
-                    本次革命性升級：修復 <b>Gemini 2.5 Pro 原生聯網工具</b>、全新引進 <b>3.1 Flash Preview</b>。支援生動化卡片排版、AI 生圖備援機制，下載後的簡報 100% 具備超高質感與可編輯性！
+                    已修復 Gemini 2.5 Pro 連線協議。支援 <b>SerpApi 網址直連技術</b> 與 <b>Pollinations AI 高速插畫</b>。現在可以生成具備毛玻璃質感與動態流動感的專業投影片。
                 </p>
             </div>
         </div>
@@ -243,7 +173,7 @@
         googleApiKey: '', serpApiKey: '', xaiApiKey: '',
         kbDocs: [], logoBase64: null, 
         pptxObject: null, presentationData: null,
-        isGenerating: false, cancelRequested: false, abortController: null,
+        isGenerating: false, abortController: null,
         finalSlideHTMLs: [] 
     };
 
@@ -251,23 +181,14 @@
         AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
         AppState.xaiApiKey = localStorage.getItem('nova_key_grok') || '';
         AppState.serpApiKey = localStorage.getItem('nova_key_serpapi') || '';
-        
-        const geminiStatus = document.getElementById('api-gemini-status');
-        if(geminiStatus) geminiStatus.textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
-        
-        const serpInput = document.getElementById('inp-serpapi-key');
-        if(serpInput) {
-            serpInput.value = AppState.serpApiKey;
-            serpInput.addEventListener('input', (e) => {
-                localStorage.setItem('nova_key_serpapi', e.target.value.trim());
-                AppState.serpApiKey = e.target.value.trim();
-            });
-        }
-
+        document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
+        if(AppState.serpApiKey) document.getElementById('inp-serpapi-key').value = AppState.serpApiKey;
+        document.getElementById('inp-serpapi-key').oninput = (e) => {
+            AppState.serpApiKey = e.target.value.trim();
+            localStorage.setItem('nova_key_serpapi', AppState.serpApiKey);
+        };
         updateHeaderBadge();
-        toggleImageCount();
     }
-
     document.addEventListener('DOMContentLoaded', init);
 
     function togglePanel(id) {
@@ -277,7 +198,6 @@
 
     function showToast(m) {
         const t = document.getElementById('toast');
-        if(!t) return;
         t.textContent = m; t.classList.remove('opacity-0', 'translate-y-4'); t.classList.add('opacity-100', 'translate-y-0');
         setTimeout(() => { t.classList.add('opacity-0', 'translate-y-4'); t.classList.remove('opacity-100', 'translate-y-0'); }, 2500);
     }
@@ -288,28 +208,14 @@
         if(s && badge) badge.textContent = s.options[s.selectedIndex].text;
     }
 
-    function toggleImageCount() {
-        const needImg = document.getElementById('sel-need-image')?.value || 'NO';
-        const divCount = document.getElementById('div-image-count');
-        const divModel = document.getElementById('div-img-model');
-        if(divCount) divCount.style.display = needImg === 'NO' ? 'none' : 'block';
-        if(divModel) divModel.style.display = needImg === 'NO' ? 'none' : 'block';
-    }
-
-    function updateImageCountLabel(val) {
-        const lbl = document.getElementById('image-count-val');
-        if(lbl) lbl.textContent = parseInt(val) === 20 ? '自動 (無限制)' : val + ' 張';
-    }
-
     function addLog(m, type = 'info') {
         const c = document.getElementById('log-container');
         if(!c) return;
         const i = document.createElement('div');
         const colors = { info: 'text-slate-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300' };
         i.className = `py-0.5 ${colors[type] || colors.info}`;
-        i.textContent = `[${new Date().toLocaleTimeString()}] ${m}`;
-        c.appendChild(i); 
-        c.scrollTop = c.scrollHeight;
+        i.innerHTML = `[${new Date().toLocaleTimeString()}] ${m}`;
+        c.appendChild(i); c.scrollTop = c.scrollHeight;
     }
 
     async function updateProgress(pct) {
@@ -317,538 +223,246 @@
         const pctText = document.getElementById('progress-pct');
         if (bar) bar.style.width = Math.min(pct, 100) + '%';
         if (pctText) pctText.textContent = Math.round(Math.min(pct, 100)) + '%';
-        await new Promise(resolve => setTimeout(resolve, 25));
+        await new Promise(r => setTimeout(r, 25));
     }
 
-    function getGeminiApiVersion(modelName) {
-        return (modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3')) ? 'v1alpha' : 'v1beta';
-    }
-
-    function stopGeneration() {
-        if (AppState.isGenerating) {
-            AppState.cancelRequested = true;
-            if (AppState.abortController) AppState.abortController.abort();
-            addLog('⚠️ 使用者要求中斷生成...', 'warning');
-            const btnStop = document.getElementById('btn-stop');
-            if(btnStop) btnStop.disabled = true;
-        }
-    }
-
-    async function handleKbUpload(files) {
-        for (const file of files) {
-            try {
-                let text = '';
-                const ext = file.name.split('.').pop().toLowerCase();
-                
-                if (['txt', 'md', 'html', 'csv', 'json'].includes(ext)) {
-                    text = await file.text();
-                } else if (ext === 'pdf') {
-                    const arr = await file.arrayBuffer();
-                    const pdf = await pdfjsLib.getDocument({data: arr}).promise;
-                    for (let i = 1; i <= pdf.numPages; i++) {
-                        const page = await pdf.getPage(i);
-                        const content = await page.getTextContent();
-                        text += content.items.map(item => item.str).join(' ') + '\n';
-                    }
-                } else if (ext === 'docx') {
-                    const arr = await file.arrayBuffer();
-                    const res = await mammoth.extractRawText({arrayBuffer: arr});
-                    text = res.value;
-                } else if (ext === 'xlsx') {
-                    const arr = await file.arrayBuffer();
-                    const wb = XLSX.read(arr);
-                    wb.SheetNames.forEach(sheetName => {
-                        text += XLSX.utils.sheet_to_txt(wb.Sheets[sheetName]) + '\n';
-                    });
-                } else if (ext === 'pptx') {
-                    const zip = await JSZip.loadAsync(file);
-                    for (const filename of Object.keys(zip.files)) {
-                        if (filename.startsWith('ppt/slides/slide') && filename.endsWith('.xml')) {
-                            const content = await zip.files[filename].async('string');
-                            text += content.replace(/<[^>]+>/g, ' ') + '\n';
-                        }
-                    }
-                }
-
-                if(text) {
-                    AppState.kbDocs.push({ name: file.name, text: text.substring(0, 30000) });
-                    addKbFileItem(file.name, AppState.kbDocs.length - 1);
-                    showToast(`📚 已載入：${file.name}`);
-                }
-            } catch (e) {
-                console.error(e);
-                showToast(`❌ 無法讀取 ${file.name}`);
-            }
-        }
-    }
-
-    function addKbFileItem(name, index) {
-        const list = document.getElementById('kb-file-list');
-        if(!list) return;
-        const item = document.createElement('div');
-        item.className = 'flex items-center justify-between bg-slate-800 rounded px-2 py-1 text-[11px]';
-        item.innerHTML = `<span class="text-slate-300 truncate">${name}</span>
-                          <button onclick="this.parentElement.remove(); AppState.kbDocs[${index}]=null;" class="text-rose-400 ml-2">&times;</button>`;
-        list.appendChild(item);
-    }
-
-    function handleLogoUpload(e) {
-        const file = e.target.files[0];
-        if(!file) return;
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            AppState.logoBase64 = event.target.result;
-            const preview = document.getElementById('logo-preview');
-            const wrapper = document.getElementById('logo-preview-wrapper');
-            if(preview) preview.src = AppState.logoBase64;
-            if(wrapper) wrapper.classList.remove('hidden');
-            showToast('✅ Logo 上傳成功');
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function removeLogo() {
-        AppState.logoBase64 = null;
-        const upload = document.getElementById('logo-upload');
-        const wrapper = document.getElementById('logo-preview-wrapper');
-        if(upload) upload.value = '';
-        if(wrapper) wrapper.classList.add('hidden');
-    }
-
+    /** 核心修復：參考 index.html 使用 v1beta 搭配正確的系統指令格式 */
     async function callGeminiForOutline(topic, kbText) {
-        if (AppState.cancelRequested) throw new Error('CanceledByUser');
-
         const apiKey = AppState.googleApiKey;
-        const userChoice = document.getElementById('sel-text-model')?.value || 'gemini-2.5-pro';
-        const slideCount = document.getElementById('range-slide-count')?.value || '10';
-        const needImage = document.getElementById('sel-need-image')?.value === 'YES';
-        const needChart = document.getElementById('sel-need-chart')?.value === 'YES';
+        const modelId = document.getElementById('sel-text-model').value;
+        const count = document.getElementById('range-slide-count').value;
+        const needChart = document.getElementById('chk-need-chart').checked;
 
-        let imgRules = needImage 
-            ? "若內容需要配圖輔助，請在該投影片物件中加入 `image_keyword` 屬性，提供一個明確精準的英文名詞以利 SerpApi 搜尋或 AI 生圖（例：cybersecurity hacker）。" 
-            : "絕對不要生成任何圖片關鍵字，全憑文字與排版決戰。";
+        // 系統指令：不再併入內容，改為獨立欄位
+        const systemInstruction = `你是一位視覺與內容雙修的簡報專家。
+你的任務是根據主題，產生包含視覺風格定義的 JSON 大綱。
+規範：
+1. 產生 ${count} 張投影片。
+2. 視覺決定權：根據主題調性決定最適合的視覺風格（背景色 bg_color、文字色 text_color、強調色 accent_color），色碼務必使用 HEX。
+3. 版位選擇：每一頁從 ["title_only", "text_only", "text_and_image", "columns", "process_flow"] 中挑選。
+4. 圖片關鍵字：必須提供精準的英文名詞在 image_keyword 屬性中。
+5. 必須嚴格輸出 JSON。`;
 
-        const systemPrompt = `你是一位世界頂級的簡報內容策略師與視覺設計總監。
-若使用者要求的內容需要最新資訊，請主動利用搜尋工具查詢後再行規劃。
-請為以下主題生成一份具備極高知識密度的簡報 JSON。
+        const payload = {
+            system_instruction: { parts: [{ text: systemInstruction }] },
+            contents: [{ role: 'user', parts: [{ text: `主題：${topic}\n\n參考內容：${kbText}` }] }],
+            generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 10000 },
+            tools: [{ googleSearch: {} }] // 駝峰式寫法修復
+        };
 
-【目標與規範】：
-1. 產生 ${slideCount} 張投影片。
-2. 你擁有 100% 視覺決定權：請根據主題調性決定最適合的視覺風格（包含背景色 bg_color、主文字色 text_color、強調色 accent_color），色碼務必使用 HEX 格式。
-3. 每一頁請根據內容邏輯，挑選適合的 layout：
-   - "title_only": 適合大標題封面。
-   - "text_only": 適合多重點條列。
-   - "text_and_image": 適合圖文並茂解說。
-   - "columns": 適合左右對比、雙欄數據。
-   ${needChart ? '- "process_flow": 適合流程圖、時間軸或步驟拆解。若選用此佈局，請額外提供 `process_steps` 字串陣列（3~5個步驟）。' : ''}
-4. ${imgRules}
-5. 必須嚴格輸出 JSON 格式，內容切勿使用未跳脫的引號。
-
-JSON Schema 範例:
-{
-  "presentation_title": "標題",
-  "theme": {
-    "bg_color": "#0F172A",
-    "text_color": "#F8FAFC",
-    "accent_color": "#38BDF8",
-    "style_description": "深色科技風"
-  },
-  "slides": [
-    { 
-      "slide_number": 1, 
-      "layout": "title_only",
-      "title": "主標題",
-      "subtitle": "副標題 (可選)",
-      "bullet_points": ["重點1", "重點2"],
-      "image_keyword": "Future AI city",
-      "process_steps": ["第一步", "第二步"] 
-    }
-  ]
-}`;
-
-        const uniqueModels = [...new Set([userChoice, 'grok-4-1-fast-reasoning', 'gemini-3.1-pro-preview', 'gemini-3.1-flash-preview', 'gemini-2.5-pro', 'gemini-2.5-flash'])];
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
         
-        let fullContext = topic;
-        const links = document.getElementById('kb-links-area')?.value?.trim() || '';
-        if (kbText || links) fullContext += `\n\n【參考資料】\n${kbText}\n連結：${links}`;
-
-        let lastErr = null;
-        for (const modelId of uniqueModels) {
-            if (AppState.cancelRequested) throw new Error('CanceledByUser');
-            const ver = getGeminiApiVersion(modelId);
-            const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId.replace('grok-4-1-fast-reasoning', 'gemini-2.5-pro')}:generateContent?key=${apiKey}`;
-            
-            let payload = {
-                contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題與內容：\n" + fullContext }] }],
-                generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 8192 }
-            };
-
-            // 💡 修正 2：Gemini API 工具屬性必須是駝峰式的 googleSearch
-            if (modelId.includes('gemini')) {
-                payload.tools = [{ googleSearch: {} }];
-            }
-
-            try {
-                addLog(`呼叫邏輯引擎 ${modelId} (支援聯網分析)...`, 'ai');
-                const resp = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                    signal: AppState.abortController.signal
-                });
-                
-                if (!resp.ok) {
-                    const errDetail = await resp.text();
-                    throw new Error(`HTTP ${resp.status} - ${errDetail}`);
-                }
-                const data = await resp.json();
-                
-                const usedTools = data.candidates?.[0]?.content?.parts?.some(p => p.functionCall);
-                if (usedTools) {
-                    addLog(`🌐 AI 觸發了即時聯網搜尋取得最新資料...`, 'info');
-                }
-
-                let raw = data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || '';
-                const jsonMatch = raw.match(/\{[\s\S]*\}/);
-                if (jsonMatch) raw = jsonMatch[0];
-
-                let parsedJson = JSON.parse(raw);
-                addLog(`✓ 成功生成簡報結構 (風格: ${parsedJson.theme?.style_description || '預設'})`, 'success');
-                return parsedJson;
-            } catch (e) {
-                lastErr = e;
-                if (e.name === 'AbortError') throw new Error('CanceledByUser');
-                addLog(`⚠ ${modelId} 失敗 (${e.message.substring(0,30)}...)，切換備用模型...`, 'warning');
-            }
-        }
-        throw new Error(`所有引擎皆失敗。最後錯誤: ${lastErr?.message || '未知錯誤'}`);
-    }
-
-    /** 💡 新增 1：AI 生成圖片模型備援機制 (Fallback) */
-    async function generateImageWithAI(keyword) {
-        const imgModel = document.getElementById('sel-img-model')?.value || 'pollinations';
-        addLog(`🎨 啟動繪圖模型「${imgModel}」生成插圖...`, 'ai');
-        
-        // 嘗試使用 Grok 生圖 (如果有設定 API Key)
-        if (imgModel.includes('grok') && AppState.xaiApiKey) {
-            try {
-                const res = await fetch('https://api.x.ai/v1/images/generations', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${AppState.xaiApiKey}` },
-                    body: JSON.stringify({ prompt: `Professional presentation graphic: ${keyword}`, model: imgModel, response_format: 'b64_json' })
-                });
-                const data = await res.json();
-                if (data.data && data.data[0].b64_json) return 'data:image/png;base64,' + data.data[0].b64_json;
-            } catch(e) { addLog('⚠ Grok 生圖失敗，自動切換至備用方案', 'warning'); }
-        }
-        
-        // 終極備援：Pollinations AI (免費、免 Key，生成高品質圖片並轉 Base64)
         try {
-            const prompt = `A professional, clean, minimalist presentation illustration for: ${keyword}`;
-            const res = await fetch(`https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=600&nologo=true`);
-            const blob = await res.blob();
-            return await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(blob);
+            addLog(`正在連線邏輯引擎 ${modelId}...`, 'ai');
+            const resp = await fetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+                signal: AppState.abortController.signal
             });
+            if (!resp.ok) throw new Error(await resp.text());
+            const data = await resp.json();
+            let raw = data.candidates[0].content.parts[0].text;
+            addLog(`✓ 成功取得簡報邏輯`, 'success');
+            return JSON.parse(raw);
         } catch (e) {
-            return null;
+            addLog(`❌ 連線失敗: ${e.message.substring(0, 100)}`, 'error');
+            throw e;
         }
     }
 
-    async function fetchImageFromSerpApi(keyword) {
-        if (!keyword) return null;
-        const apiKey = AppState.serpApiKey || document.getElementById('inp-serpapi-key')?.value;
-        if (!apiKey) return null; // 若沒 Key，直接回傳 null 讓流程進入 AI 生圖備援
+    /** 圖片擷取備援系統：SerpApi 網址擷取 -> AI 繪圖插畫 */
+    async function getImageUrl(keyword) {
+        if (!AppState.serpApiKey) {
+            addLog(`⚠ 未設定 SerpApi，自動切換至 AI 生成插畫備援`, 'warning');
+            return `https://image.pollinations.ai/prompt/Professional%20presentation%20illustration%20for%20${encodeURIComponent(keyword)}?width=800&height=600&nologo=true&seed=${Math.random()}`;
+        }
 
         try {
-            let targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&engine=google_images&num=1&api_key=${apiKey}`;
-            const proxies = [
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
-            ];
-            for (const proxy of proxies) {
-                try {
-                    let res = await fetch(proxy);
-                    let data = await res.json();
-                    if (data.images_results && data.images_results.length > 0) return data.images_results[0].original;
-                } catch (e) { }
+            addLog(`🔍 SerpApi 檢索中: ${keyword}...`, 'info');
+            const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&engine=google_images&num=1&api_key=${AppState.serpApiKey}`;
+            // 使用跨域代理獲取 JSON
+            const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+            const data = await res.json();
+            if (data.images_results?.[0]?.original) {
+                return data.images_results[0].original;
             }
-        } catch (e) { }
-        return null;
-    }
-
-    async function processSlideImage(keyword) {
-        addLog(`🔍 SerpApi 搜尋圖片「${keyword}」...`, 'info');
-        const imgUrl = await fetchImageFromSerpApi(keyword);
-        
-        if (imgUrl) {
-            const proxyPool = [
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(imgUrl)}`,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`,
-                `https://corsproxy.io/?${encodeURIComponent(imgUrl)}`
-            ];
-            for (const proxyUrl of proxyPool) {
-                try {
-                    const res = await fetch(proxyUrl);
-                    if (!res.ok) continue; 
-                    const blob = await res.blob();
-                    if (blob.size < 100) continue; 
-                    return await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result);
-                        reader.readAsDataURL(blob);
-                    });
-                } catch(e) { }
-            }
-            addLog(`⚠ 所有中繼站均被拒絕下載圖片，將啟動 AI 生圖備援...`, 'warning');
-        } else {
-            addLog(`⚠ 網路搜尋未果或未設定 Key，將啟動 AI 生圖備援...`, 'warning');
+        } catch (e) {
+            addLog(`⚠ 網路搜圖異常，改用 AI 生成補位`, 'warning');
         }
-        
-        // 💡 若網路抓圖徹底失敗，則無縫呼叫 AI 生成圖片補上
-        return await generateImageWithAI(keyword);
+        return `https://image.pollinations.ai/prompt/Business%20concept%20illustration%20about%20${encodeURIComponent(keyword)}?width=800&height=600&nologo=true&seed=${Math.random()}`;
     }
 
-    /** 💡 修正 4：使排版與視覺更為生動、立體、現代化 */
-    async function buildNativeSlide(slide, sData, themeConfig, i, imgB64) {
-        const fontFace = 'Arial';
-        const bgHex = (themeConfig.bg_color || '#0F172A').replace('#', '');
-        const txtColor = (themeConfig.text_color || '#F8FAFC').replace('#', '');
-        const accColor = (themeConfig.accent_color || '#38BDF8').replace('#', '');
-
+    /** 視覺生動化：建構具備動態感與質感的 HTML */
+    function buildDynamicHTML(sData, theme, imgUrl) {
+        const bg = theme.bg_color || '#0F172A';
+        const txt = theme.text_color || '#F8FAFC';
+        const acc = theme.accent_color || '#6366f1';
         const bullets = sData.bullet_points || [];
 
-        // 全域裝飾：生動的半透明幾何背景點綴
-        slide.addShape('circle', { x: 8.5, y: -1.0, w: 3, h: 3, fill: { color: accColor, transparency: 85 } });
-        slide.addShape('circle', { x: -1.0, y: 4.5, w: 2.5, h: 2.5, fill: { color: accColor, transparency: 90 } });
+        // 裝飾光暈
+        const blob = `<div style="position:absolute; width:300px; height:300px; background:${acc}; opacity:0.1; filter:blur(60px); border-radius:50%; top:-100px; right:-100px; pointer-events:none;"></div>`;
 
+        let content = '';
         if (sData.layout === 'title_only') {
-            slide.addShape('rect', { x: 0, y: 0, w: 0.3, h: '100%', fill: { color: accColor } });
-            
-            // 增加巨型透明背景字體營造科技感
-            let bgWatermark = (sData.title || 'NOVA').substring(0, 8).toUpperCase();
-            slide.addText(bgWatermark, { x: 0.5, y: 1.0, w: 9.0, h: 3.0, fontSize: 100, bold: true, color: txtColor, transparency: 93, fontFace: fontFace });
-            
-            slide.addText(sData.title || '', { x: 0.8, y: 1.5, w: 8.5, h: 1.5, fontSize: 48, bold: true, color: txtColor, fontFace: fontFace, shadow: { type: 'outer', color: '000000', opacity: 0.3, blur: 3 } });
-            if(sData.subtitle) {
-                slide.addText(sData.subtitle, { x: 0.8, y: 3.2, w: 8.5, h: 1.0, fontSize: 24, color: txtColor, transparency: 20, fontFace: fontFace });
-            }
+            content = `
+                <div class="flex flex-col items-center justify-center h-full text-center p-12">
+                    <div style="font-size:120px; font-weight:800; opacity:0.05; position:absolute; line-height:1;">${(sData.title || 'NOVA').substring(0,6).toUpperCase()}</div>
+                    <h2 style="color:${acc}; font-size:42px; font-weight:800; line-height:1.2; z-index:1;">${sData.title || ''}</h2>
+                    <p style="color:${txt}; opacity:0.6; font-size:18px; margin-top:20px;">${sData.subtitle || ''}</p>
+                    <div style="width:80px; height:4px; background:${acc}; margin-top:40px; border-radius:2px;"></div>
+                </div>`;
         } 
-        else if (sData.layout === 'text_and_image' && imgB64) {
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 5.0, h: 0.8, fontSize: 34, bold: true, color: accColor, fontFace: fontFace });
-            slide.addShape('rect', { x: 0.5, y: 1.25, w: 1.0, h: 0.05, fill: { color: accColor } });
-            
-            if (bullets.length > 0) {
-                slide.addText(bullets.map(b => ({ text: b, options: { bullet: { type: 'number' }, paraSpaceAfter: 12 } })), {
-                    x: 0.5, y: 1.5, w: 5.0, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
-                });
-            }
-            // 圖片加入圓角邊框與陰影
-            slide.addImage({ data: imgB64, x: 5.7, y: 1.1, w: 3.8, h: 4.0, sizing: { type: 'cover', w: 3.8, h: 4.0 }, rounding: true });
+        else if (sData.layout === 'text_and_image') {
+            content = `
+                <div class="grid grid-cols-2 h-full gap-8 p-10">
+                    <div class="flex flex-col justify-center">
+                        <h2 style="color:${acc}; font-size:28px; font-weight:bold; margin-bottom:20px;">${sData.title || ''}</h2>
+                        <ul class="space-y-3" style="color:${txt}; font-size:13px; opacity:0.8;">
+                            ${bullets.map(b => `<li class="flex gap-2"><span style="color:${acc}">▶</span> ${b}</li>`).join('')}
+                        </ul>
+                    </div>
+                    <div class="flex items-center">
+                        <div style="width:100%; height:80%; border-radius:20px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); box-shadow: 20px 20px 60px rgba(0,0,0,0.5);">
+                            <img src="${imgUrl}" class="w-full h-full object-cover">
+                        </div>
+                    </div>
+                </div>`;
         }
         else if (sData.layout === 'columns') {
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 34, bold: true, color: accColor, fontFace: fontFace, align: 'center' });
-            
-            if (bullets.length > 0) {
-                let half = Math.ceil(bullets.length / 2);
-                let col1 = bullets.slice(0, half);
-                let col2 = bullets.slice(half);
-
-                // 改為具備層次感的卡片式排版 (Card Layout)
-                if (col1.length > 0) {
-                    slide.addShape('roundRect', { x: 0.4, y: 1.4, w: 4.4, h: 3.8, fill: { color: txtColor, transparency: 92 }, rounding: true });
-                    slide.addText(col1.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 14 } })), {
-                        x: 0.5, y: 1.5, w: 4.2, h: 3.6, fontSize: 18, color: txtColor, valign: 'top', margin: 15
-                    });
-                }
-                if (col2.length > 0) {
-                    slide.addShape('roundRect', { x: 5.2, y: 1.4, w: 4.4, h: 3.8, fill: { color: txtColor, transparency: 92 }, rounding: true });
-                    slide.addText(col2.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 14 } })), {
-                        x: 5.3, y: 1.5, w: 4.2, h: 3.6, fontSize: 18, color: txtColor, valign: 'top', margin: 15
-                    });
-                }
-            }
+            const half = Math.ceil(bullets.length / 2);
+            content = `
+                <div class="p-10 h-full">
+                    <h2 style="color:${acc}; font-size:26px; font-weight:bold; margin-bottom:25px;">${sData.title || ''}</h2>
+                    <div class="grid grid-cols-2 gap-6 h-[70%]">
+                        <div class="glass-card p-5" style="border-top: 3px solid ${acc};">
+                            <ul class="space-y-3" style="color:${txt}; font-size:12px;">
+                                ${bullets.slice(0,half).map(b => `<li>• ${b}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="glass-card p-5" style="border-top: 3px solid ${acc};">
+                            <ul class="space-y-3" style="color:${txt}; font-size:12px;">
+                                ${bullets.slice(half).map(b => `<li>• ${b}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                </div>`;
         }
-        else if (sData.layout === 'process_flow' && sData.process_steps) {
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 34, bold: true, color: accColor, fontFace: fontFace, align: 'center' });
-            
-            const steps = sData.process_steps;
-            const stepCount = steps.length;
-            const startX = 0.5;
-            const widthPerStep = 8.0 / stepCount; 
-            
-            // 繪製背景連結線
-            slide.addShape('line', { x: startX + 0.5, y: 2.1, w: 8.0 - widthPerStep, h: 0, line: { color: accColor, width: 2, dashType: 'dash' } });
-
-            for (let j = 0; j < stepCount; j++) {
-                let boxX = startX + j * (widthPerStep + 0.2);
-                let boxW = widthPerStep;
-                
-                // 生動的序號圓環 + 圓角內文框
-                slide.addShape('ellipse', { x: boxX + boxW/2 - 0.3, y: 1.8, w: 0.6, h: 0.6, fill: { color: accColor } });
-                slide.addText(String(j+1), { x: boxX + boxW/2 - 0.3, y: 1.8, w: 0.6, h: 0.6, align: 'center', valign: 'middle', fontSize: 18, color: bgHex, bold: true });
-                
-                slide.addShape('roundRect', { x: boxX, y: 2.6, w: boxW, h: 1.2, fill: { color: txtColor, transparency: 90 }, rounding: true });
-                slide.addText(steps[j], { x: boxX, y: 2.6, w: boxW, h: 1.2, align: 'center', valign: 'middle', fontSize: 15, color: txtColor, bold: true, margin: 5 });
-            }
+        else if (sData.layout === 'process_flow') {
+            const steps = sData.process_steps || bullets;
+            content = `
+                <div class="p-10 h-full">
+                    <h2 style="color:${acc}; font-size:26px; font-weight:bold; margin-bottom:40px; text-center w-full">${sData.title || ''}</h2>
+                    <div class="flex items-center justify-between gap-4 mt-10">
+                        ${steps.map((s, idx) => `
+                            <div class="flex-1 flex flex-col items-center text-center">
+                                <div style="width:50px; height:50px; border-radius:50%; background:${acc}; color:#000; font-weight:bold; display:flex; align-items:center; justify-center; font-size:20px; margin-bottom:15px; box-shadow: 0 0 20px ${acc}55;">${idx+1}</div>
+                                <div class="glass-card p-3 w-full" style="font-size:11px; font-weight:bold; color:${txt}">${s}</div>
+                            </div>
+                            ${idx < steps.length - 1 ? `<div style="color:${acc}; font-size:24px;">→</div>` : ''}
+                        `).join('')}
+                    </div>
+                </div>`;
         }
         else {
-            slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 36, bold: true, color: accColor, fontFace: fontFace });
-            slide.addShape('rect', { x: 0.5, y: 1.25, w: 2.0, h: 0.05, fill: { color: accColor } });
-            
-            if (bullets.length > 0) {
-                slide.addText(bullets.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 16 } })), {
-                    x: 0.5, y: 1.6, w: 9.0, h: 3.5, fontSize: 20, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
-                });
-            }
+            content = `
+                <div class="p-10 flex flex-col h-full">
+                    <h2 style="color:${acc}; font-size:32px; font-weight:bold; margin-bottom:30px; display:flex; align-items:center; gap-3">
+                        <span style="width:12px; height:32px; background:${acc}; border-radius:2px;"></span>${sData.title || ''}
+                    </h2>
+                    <ul class="space-y-4" style="color:${txt}; font-size:16px; opacity:0.8;">
+                        ${bullets.map(b => `<li>• ${b}</li>`).join('')}
+                    </ul>
+                </div>`;
         }
 
-        let htmlContent = `
-            <div style="width:100%; height:100%; background-color:#${bgHex}; position:relative; padding:40px; box-sizing:border-box; text-align:left; overflow:hidden;">
-                <div style="position:absolute; right:-20px; top:-20px; width:150px; height:150px; background-color:#${accColor}; opacity:0.15; border-radius:50%;"></div>
-                <h2 style="color:#${accColor}; font-size:24px; font-weight:bold; margin-bottom:10px; position:relative; z-index:2; text-shadow: 1px 1px 3px rgba(0,0,0,0.3);">${sData.title || ''}</h2>
-                <ul style="color:#${txtColor}; font-size:12px; line-height:1.5; padding-left:20px; position:relative; z-index:2;">
-                    ${bullets.map(b => `<li style="margin-bottom:8px;">${b}</li>`).join('')}
-                </ul>
-            </div>
-        `;
-        AppState.finalSlideHTMLs.push(htmlContent);
+        return `<div style="width:100%; height:100%; background:${bg}; position:relative; overflow:hidden;">${blob}${content}</div>`;
     }
 
     async function startGeneration() {
         if (!AppState.googleApiKey) { showToast('❌ 請設定 Gemini API Key'); return; }
-        const topic = document.getElementById('inp-topic')?.value?.trim();
+        const topic = document.getElementById('inp-topic').value.trim();
         if (!topic) { showToast('❌ 請輸入主題'); return; }
 
         AppState.isGenerating = true;
-        AppState.cancelRequested = false;
         AppState.abortController = new AbortController();
         AppState.finalSlideHTMLs = [];
 
-        document.getElementById('section-empty')?.classList.add('hidden');
-        document.getElementById('section-progress')?.classList.remove('hidden');
-        document.getElementById('section-preview')?.classList.add('hidden');
-        
-        const logC = document.getElementById('log-container');
-        if(logC) logC.innerHTML = '';
-        
+        document.getElementById('section-empty').classList.add('hidden');
+        document.getElementById('section-progress').classList.remove('hidden');
+        document.getElementById('section-preview').classList.add('hidden');
+        document.getElementById('log-container').innerHTML = '';
         await updateProgress(5);
-        document.getElementById('btn-download')?.classList.add('hidden');
-        document.getElementById('btn-generate')?.classList.add('hidden');
-        
-        const btnStop = document.getElementById('btn-stop');
-        if(btnStop) {
-            btnStop.classList.remove('hidden');
-            btnStop.disabled = false;
-        }
 
         try {
-            let kbCombined = AppState.kbDocs.filter(d => d).map(d => `[${d.name}]\n${d.text}`).join('\n\n');
-
-            const data = await callGeminiForOutline(topic, kbCombined);
-            if (AppState.cancelRequested) throw new Error('CanceledByUser');
+            const data = await callGeminiForOutline(topic, "");
             AppState.presentationData = data;
-            await updateProgress(20);
+            const theme = data.theme || { bg_color: '#0F172A', text_color: '#F8FAFC', accent_color: '#6366f1' };
 
-            const needImage = document.getElementById('sel-need-image')?.value === 'YES';
-            const rangeCount = document.getElementById('range-image-count')?.value || '0';
-            const maxImages = needImage ? parseInt(rangeCount) : 0;
-            let imagesGenerated = 0;
+            const pres = new PptxGenJS();
+            pres.layout = 'LAYOUT_16x9';
 
             const slides = data.slides || [];
-            
-            const pres = new PptxGenJS();
-            pres.layout = 'LAYOUT_16x9'; 
-            
-            const aiTheme = data.theme || { bg_color: '#0F172A', text_color: '#F8FAFC', accent_color: '#38BDF8' };
-            const aiBgHex = (aiTheme.bg_color || '#0F172A').replace('#', '');
-
-            let masterObjects = [
-                { text: { text: "NOVA 120 Pro Native", options: { x: 8.0, y: 5.4, w: 1.8, color: '64748B', fontSize: 10, align: 'right' } } },
-                { text: { text: "第 ", options: { x: 0.5, y: 5.4, w: 0.5, color: '64748B', fontSize: 10 } } },
-                { slideNumber: { x: 0.7, y: 5.4, color: '64748B', fontSize: 10 } }
-            ];
-
-            if (AppState.logoBase64) {
-                const pos = document.getElementById('sel-logo-pos')?.value || 'TR';
-                let lx = 8.8, ly = 0.2; 
-                if (pos === 'BR') { lx = 8.8; ly = 5.0; }
-                else if (pos === 'TL') { lx = 0.2; ly = 0.2; }
-                else if (pos === 'BL') { lx = 0.2; ly = 5.0; }
-                masterObjects.push({ image: { x: lx, y: ly, w: 1.0, h: 0.5, sizing: { type: 'contain', w: 1.0, h: 0.5 }, data: AppState.logoBase64 } });
-            }
-
-            pres.defineSlideMaster({
-                title: 'MASTER_PRO',
-                background: { color: aiBgHex },
-                objects: masterObjects
-            });
-
             for (let i = 0; i < slides.length; i++) {
-                if (AppState.cancelRequested) throw new Error('CanceledByUser');
                 const sData = slides[i];
-                addLog(`正在組合第 ${sData.slide_number} 頁原生元素...`, 'info');
+                addLog(`組合第 ${i+1} 頁視覺與圖片擷取...`, 'info');
+                
+                let imgUrl = sData.image_keyword ? await getImageUrl(sData.image_keyword) : null;
+                const html = buildDynamicHTML(sData, theme, imgUrl);
+                AppState.finalSlideHTMLs.push(html);
 
-                const slide = pres.addSlide({ masterName: 'MASTER_PRO' });
-                let imgB64 = null;
-
-                if (needImage && sData.layout === 'text_and_image' && imagesGenerated < maxImages) {
-                    if (sData.image_keyword) {
-                        imgB64 = await processSlideImage(sData.image_keyword);
-                    }
-                    imagesGenerated++;
+                // 同時建構原生 PPT 頁面
+                const slide = pres.addSlide();
+                slide.background = { color: theme.bg_color.replace('#','') };
+                
+                // 簡易版原生元素映射
+                if (sData.layout === 'text_and_image' && imgUrl) {
+                    slide.addText(sData.title, { x: 0.5, y: 0.5, w: 4.5, fontSize: 32, bold: true, color: theme.accent_color.replace('#','') });
+                    slide.addText((sData.bullet_points||[]).join('\n'), { x: 0.5, y: 1.5, w: 4.5, fontSize: 16, color: theme.text_color.replace('#','') });
+                    // 直接以 URL (path) 模式引入圖片，這在導出成檔案時是由 PptxGenJS 處理，不需 Base64
+                    slide.addImage({ path: imgUrl, x: 5.5, y: 0.5, w: 4.0, h: 4.5, sizing: { type: 'cover', w: 4.0, h: 4.5 } });
+                } else {
+                    slide.addText(sData.title, { x: 0.5, y: 0.5, w: 9.0, fontSize: 36, bold: true, color: theme.accent_color.replace('#','') });
+                    slide.addText((sData.bullet_points||[]).join('\n'), { x: 0.5, y: 1.5, w: 9.0, fontSize: 18, color: theme.text_color.replace('#','') });
                 }
 
-                await buildNativeSlide(slide, sData, aiTheme, i, imgB64);
                 await updateProgress(20 + ((i+1)/slides.length)*80);
             }
 
             AppState.pptxObject = pres;
-            addLog('原生可編輯 PPTX 組裝完成！', 'success');
-            await updateProgress(100);
-            
-            const btnDl = document.getElementById('btn-download');
-            if(btnDl) {
-                btnDl.classList.remove('hidden');
-                btnDl.classList.add('flex');
-            }
-            showToast('✅ 簡報已就緒');
-            
             renderSlidesPreview();
-
+            document.getElementById('btn-download').classList.remove('hidden');
+            document.getElementById('btn-download').classList.add('flex');
+            showToast('✅ 簡報生成完畢');
         } catch (e) {
-            if (e.name === 'AbortError' || e.message === 'CanceledByUser') {
-                addLog('⛔ 生成已中斷。', 'warning');
-            } else {
-                addLog(e.message, 'error');
-                console.error("NOVA Runtime Error:", e);
-            }
+            addLog(`發生嚴重錯誤: ${e.message}`, 'error');
         } finally {
             AppState.isGenerating = false;
-            document.getElementById('btn-stop')?.classList.add('hidden');
-            document.getElementById('btn-generate')?.classList.remove('hidden');
+            document.getElementById('btn-stop').classList.add('hidden');
+            document.getElementById('btn-generate').classList.remove('hidden');
         }
     }
 
     function renderSlidesPreview() {
         const list = document.getElementById('slides-preview-list');
-        if(!list) return;
         list.innerHTML = '';
         AppState.finalSlideHTMLs.forEach((html, idx) => {
             const div = document.createElement('div');
             div.className = 'slide-preview-card';
-            div.innerHTML = `<div style="margin-bottom:8px; opacity:0.5;">PAGE ${idx+1}</div>${html}`;
+            div.innerHTML = `<div style="position:absolute; top:8px; right:12px; font-size:10px; opacity:0.3; z-index:10;">PAGE ${idx+1}</div>${html}`;
             list.appendChild(div);
         });
-        document.getElementById('section-preview')?.classList.remove('hidden');
+        document.getElementById('section-preview').classList.remove('hidden');
     }
 
     async function downloadPptx() {
-        if (!AppState.pptxObject) return;
-        const name = (AppState.presentationData?.presentation_title || 'NOVA_Native_Slide').replace(/\s/g, '_') + '.pptx';
+        const name = (AppState.presentationData?.presentation_title || 'NOVA_Smart_Slide').replace(/\s/g, '_') + '.pptx';
         await AppState.pptxObject.writeFile({ fileName: name });
+    }
+
+    function stopGeneration() {
+        AppState.abortController?.abort();
+        AppState.isGenerating = false;
     }
     </script>
 </body>
