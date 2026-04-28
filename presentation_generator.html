@@ -519,8 +519,9 @@ JSON Schema 範例:
         try {
             let targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&engine=google_images&num=1&api_key=${apiKey}`;
             const proxies = [
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+                `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
             ];
             
             for (const proxy of proxies) {
@@ -537,25 +538,42 @@ JSON Schema 範例:
         return null;
     }
 
+    /** 🚀 修改核心：加入多重 Proxy 備援池迴圈，大幅降低被防盜鏈擋下 (CORS) 的機率 */
     async function processSlideImage(keyword) {
         addLog(`🔍 SerpApi 搜尋圖片「${keyword}」...`, 'info');
         const imgUrl = await fetchImageFromSerpApi(keyword);
         
         if (imgUrl) {
-            try {
-                const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`;
-                const res = await fetch(proxyUrl);
-                const blob = await res.blob();
-                return await new Promise(resolve => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.readAsDataURL(blob);
-                });
-            } catch(e) {
-                addLog(`⚠ 下載圖片遭拒絕 (CORS)，改以佔位符代替`, 'warning');
+            // 提供多個跨域中繼代理，如果前一個失敗就換下一個，確保 Base64 轉換順利
+            const proxyPool = [
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(imgUrl)}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(imgUrl)}`,
+                `https://corsproxy.io/?${encodeURIComponent(imgUrl)}`
+            ];
+            
+            for (const proxyUrl of proxyPool) {
+                try {
+                    const res = await fetch(proxyUrl);
+                    if (!res.ok) continue; // 失敗則直接跳至下一個 proxy
+                    const blob = await res.blob();
+                    
+                    // 確保檔案有內容
+                    if (blob.size < 100) continue; 
+                    
+                    return await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => resolve(reader.result);
+                        reader.readAsDataURL(blob);
+                    });
+                } catch(e) {
+                    console.warn(`[Proxy Fallback] 代理 ${proxyUrl} 下載圖片失敗`, e);
+                    // 繼續跑迴圈，嘗試下一個代理
+                }
             }
+            addLog(`⚠ 所有中繼站均被拒絕下載圖片 (防盜鏈或CORS限制)，改以佔位符代替`, 'warning');
+        } else {
+            addLog(`⚠ 搜尋無果，使用系統佔位符`, 'warning');
         }
-        addLog(`⚠ 搜尋無果，使用系統佔位符`, 'warning');
         return null; 
     }
 
@@ -753,7 +771,6 @@ JSON Schema 範例:
                 addLog('⛔ 生成已中斷。', 'warning');
             } else {
                 addLog(e.message, 'error');
-                // 幫助捕捉外部攔截可能顯示的錯誤
                 console.error("NOVA Runtime Error:", e);
             }
         } finally {
