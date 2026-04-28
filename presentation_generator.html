@@ -1,24 +1,16 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <!-- ===== 基本 Meta 設定 ===== -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI 簡報生成器 · NOVA 120</title>
 
-    <!-- ===== CDN 依賴庫引入 ===== -->
-    <!-- Tailwind CSS：快速樣式框架 -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Phosphor Icons：圖示庫，與主程式保持一致 -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- PptxGenJS：核心 PPTX 生成庫 -->
     <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-    <!-- Mermaid.js：用於渲染流程圖 -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
-    <!-- Google Fonts：使用 Noto Sans TC 確保中文顯示，Plus Jakarta Sans 作為英文標題 -->
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 
-    <!-- ===== Tailwind 自訂主題設定 ===== -->
     <script>
         tailwind.config = {
             theme: {
@@ -39,9 +31,7 @@
         }
     </script>
 
-    <!-- ===== 全域自訂 CSS ===== -->
     <style>
-        /* 根元素深色背景，與主程式 Nova 120 一致 */
         :root { background-color: #020617; color-scheme: dark; }
         html, body {
             background-color: #020617;
@@ -49,14 +39,12 @@
             font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif;
         }
 
-        /* 自訂滾動條樣式 */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 動畫 Keyframe 定義 */
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes shimmer {
@@ -64,14 +52,12 @@
             100% { background-position: 200% 0; }
         }
 
-        /* 漸層骨架屏動畫效果（用於生成中的骨架預覽） */
         .shimmer-bg {
             background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
             background-size: 200% 100%;
             animation: shimmer 1.8s linear infinite;
         }
 
-        /* 面板收折動畫 */
         .panel-body {
             overflow: hidden;
             max-height: 0;
@@ -83,20 +69,15 @@
             opacity: 1;
         }
 
-        /* 投影片預覽卡片 */
-        .slide-card {
-            animation: fadeIn 0.4s ease-out both;
-        }
+        .slide-card { animation: fadeIn 0.4s ease-out both; }
         .slide-card:nth-child(1) { animation-delay: 0.05s; }
         .slide-card:nth-child(2) { animation-delay: 0.10s; }
         .slide-card:nth-child(3) { animation-delay: 0.15s; }
         .slide-card:nth-child(4) { animation-delay: 0.20s; }
         .slide-card:nth-child(5) { animation-delay: 0.25s; }
 
-        /* 進度日誌項目 */
         .log-item { animation: slideUp 0.3s ease-out both; }
 
-        /* 拖曳上傳區域 */
         .drop-zone {
             border: 2px dashed #475569;
             transition: all 0.25s ease;
@@ -106,83 +87,51 @@
             background-color: rgba(99, 102, 241, 0.08);
         }
 
-        /* 自訂 range 滑桿 */
         input[type="range"] { accent-color: #818cf8; }
 
-        /* 高亮選中的 layout badge */
         .layout-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
         .layout-title_only    { background: #1e3a5f; color: #7dd3fc; }
         .layout-text_only     { background: #1a2e1a; color: #86efac; }
         .layout-text_and_image{ background: #2d1b4e; color: #c4b5fd; }
         .layout-flowchart_only{ background: #3b1f0e; color: #fdba74; }
 
-        /* 導覽回主程式的返回按鈕 hover 效果 */
         .back-btn { transition: all 0.2s ease; }
         .back-btn:hover { transform: translateX(-3px); }
-
-        /* Mermaid 隱藏渲染容器 */
-        #mermaid-render-container { position: absolute; left: -9999px; top: -9999px; }
     </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen">
 
-    <!-- ===== 隱藏的 Mermaid 渲染容器 =====
-         ★ 使用 opacity:0 + position:fixed 而非 left:-9999px ★
-         原因：Chrome/Safari 對 off-screen 元素會懶渲染節流，
-               導致 mermaid.render() 要等待 layout 完成而卡頓。
-               改為視口內但完全不可見，瀏覽器立即處理 DOM/layout。 -->
     <div id="mermaid-render-container"
-         style="position:fixed;top:0;left:0;width:1px;height:1px;
-                opacity:0;overflow:hidden;pointer-events:none;z-index:-1;"></div>
+         style="position:fixed; top:-9999px; left:-9999px; width:1280px; height:720px; 
+                visibility:hidden; overflow:hidden; pointer-events:none; z-index:-1;"></div>
 
-    <!-- ===== 頂部導航列 ===== -->
     <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70">
         <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-            <!-- 左側：返回按鈕 + 標題 -->
             <div class="flex items-center gap-3 min-w-0">
-                <a href="./index.html"
-                   class="back-btn flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium shrink-0">
+                <a href="./index.html" class="back-btn flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium shrink-0">
                     <i class="ph-bold ph-arrow-left"></i>
                     <span class="hidden sm:inline">返回 NOVA 120</span>
                 </a>
                 <div class="w-px h-5 bg-slate-700 shrink-0"></div>
                 <div class="flex items-center gap-2 min-w-0">
-                    <!-- 品牌漸層圖示 -->
-                    <div class="w-7 h-7 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600
-                                rounded-lg flex items-center justify-center shadow-lg shadow-violet-500/30 shrink-0">
+                    <div class="w-7 h-7 bg-gradient-to-br from-violet-500 via-purple-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-violet-500/30 shrink-0">
                         <i class="ph-bold ph-presentation-chart text-white text-sm"></i>
                     </div>
                     <h1 class="text-sm font-bold text-white truncate">AI 簡報生成器</h1>
-                    <span class="hidden sm:inline text-[10px] font-semibold text-violet-400
-                                 bg-violet-400/10 border border-violet-400/20 px-1.5 py-0.5 rounded-full shrink-0">
-                        NOVA 120 Pro
-                    </span>
+                    <span class="hidden sm:inline text-[10px] font-semibold text-violet-400 bg-violet-400/10 border border-violet-400/20 px-1.5 py-0.5 rounded-full shrink-0">NOVA 120 Pro</span>
                 </div>
             </div>
 
-            <!-- 右側：狀態指示 + 主要操作按鈕 -->
             <div class="flex items-center gap-2 shrink-0">
-                <!-- 目前模型顯示 -->
-                <div id="header-model-badge"
-                     class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400
-                            bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
+                <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
                     <i class="ph-fill ph-cpu text-violet-400"></i>
                     <span id="header-model-name">未設定</span>
                 </div>
-                <!-- 下載按鈕（生成完成後才顯示） -->
-                <button id="btn-download" onclick="downloadPptx()"
-                        class="hidden items-center gap-2 bg-emerald-500 hover:bg-emerald-400
-                               text-white text-xs font-bold px-3 py-2 rounded-xl transition-all
-                               active:scale-95 shadow-lg shadow-emerald-500/30">
+                <button id="btn-download" onclick="downloadPptx()" class="hidden items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all active:scale-95 shadow-lg shadow-emerald-500/30">
                     <i class="ph-bold ph-download-simple"></i>
                     <span>下載 PPTX</span>
                 </button>
-                <!-- 生成按鈕 -->
-                <button id="btn-generate" onclick="startGeneration()"
-                        class="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600
-                               hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold
-                               px-3 py-2 rounded-xl transition-all active:scale-95
-                               shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
+                <button id="btn-generate" onclick="startGeneration()" class="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all active:scale-95 shadow-lg shadow-violet-500/30 disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="ph-bold ph-sparkle"></i>
                     <span>開始生成</span>
                 </button>
@@ -190,15 +139,9 @@
         </div>
     </header>
 
-    <!-- ===== 主要版面：左側設定 + 右側工作區 ===== -->
     <main class="max-w-7xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-5">
 
-        <!-- ==================== 左側設定面板 ==================== -->
         <aside class="lg:w-80 xl:w-96 flex flex-col gap-4 shrink-0">
-
-            <!-- ── 面板 1：API 設定 ── -->
-            <!-- ── API 狀態列（取代原設定面板，直接繼承 index.html 的設定） ── -->
-            <!-- 所有 API Key 與 Proxy URL 直接從 localStorage 讀取，與 NOVA 120 共用 -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
                 <div class="w-7 h-7 bg-blue-500/15 rounded-lg flex items-center justify-center shrink-0">
                     <i class="ph-fill ph-key text-blue-400 text-sm"></i>
@@ -210,90 +153,56 @@
                         ／ Grok：<span id="api-grok-status" class="font-bold">檢測中…</span>
                     </p>
                 </div>
-                <!-- 前往 NOVA 120 設定頁面 -->
-                <a href="./index.html" title="在 NOVA 120 設定 API Key"
-                   class="shrink-0 flex items-center gap-1 text-xs text-slate-400 hover:text-white
-                          bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl border border-slate-700
-                          transition-colors">
+                <a href="./index.html" class="shrink-0 flex items-center gap-1 text-xs text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl border border-slate-700 transition-colors">
                     <i class="ph-bold ph-gear text-xs"></i>
                     <span class="hidden sm:inline">設定</span>
                 </a>
             </div>
 
-            <!-- ── 面板 2：知識庫上傳（模擬 RAG）── -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-kb')"
-                        class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
+                <button onclick="togglePanel('panel-kb')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
                     <div class="flex items-center gap-2.5">
                         <div class="w-7 h-7 bg-emerald-500/15 rounded-lg flex items-center justify-center">
                             <i class="ph-fill ph-books text-emerald-400 text-sm"></i>
                         </div>
                         <span class="text-sm font-semibold text-white">知識庫</span>
-                        <span id="kb-count-badge"
-                              class="text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                                     bg-slate-700 text-slate-400">0 份文件</span>
+                        <span id="kb-count-badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400">0 份文件</span>
                     </div>
                     <i id="panel-kb-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform rotate-180"></i>
                 </button>
                 <div id="panel-kb" class="panel-body">
                     <div class="px-4 pb-4 space-y-3 text-xs">
-                        <!-- 拖曳上傳區域 -->
-                        <div id="kb-drop-zone"
-                             class="drop-zone rounded-xl p-4 text-center cursor-pointer
-                                    bg-slate-950/50"
-                             onclick="document.getElementById('kb-file-input').click()"
-                             ondragover="onDragOver(event, 'kb-drop-zone')"
-                             ondragleave="onDragLeave('kb-drop-zone')"
-                             ondrop="onDropKb(event)">
+                        <div id="kb-drop-zone" class="drop-zone rounded-xl p-4 text-center cursor-pointer bg-slate-950/50" onclick="document.getElementById('kb-file-input').click()" ondragover="onDragOver(event, 'kb-drop-zone')" ondragleave="onDragLeave('kb-drop-zone')" ondrop="onDropKb(event)">
                             <i class="ph-bold ph-upload-simple text-slate-500 text-2xl mb-1.5"></i>
                             <p class="text-slate-400 font-medium">點擊或拖曳上傳文件</p>
                             <p class="text-slate-600 mt-1">支援 .txt / .md / .html / .csv</p>
                         </div>
-                        <input type="file" id="kb-file-input" multiple
-                               accept=".txt,.md,.html,.csv,.json"
-                               class="hidden"
-                               onchange="handleKbUpload(this.files)">
-
-                        <!-- 文字貼上區（直接輸入知識庫內容） -->
+                        <input type="file" id="kb-file-input" multiple accept=".txt,.md,.html,.csv,.json" class="hidden" onchange="handleKbUpload(this.files)">
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">或直接貼上文字內容</label>
-                            <textarea id="kb-paste-area" rows="4"
-                                      placeholder="在此貼上會議紀錄、報告節錄、產品文件等…"
-                                      class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                             text-slate-200 resize-y focus:border-emerald-500 outline-none
-                                             placeholder:text-slate-600 text-xs leading-relaxed"></textarea>
+                            <textarea id="kb-paste-area" rows="4" placeholder="在此貼上會議紀錄、報告節錄、產品文件等…" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 resize-y focus:border-emerald-500 outline-none placeholder:text-slate-600 text-xs leading-relaxed"></textarea>
                         </div>
-
-                        <!-- 已上傳文件列表 -->
                         <div id="kb-file-list" class="space-y-1.5"></div>
                     </div>
                 </div>
             </div>
 
-            <!-- ── 面板 3：Logo / 浮水印設定 ── -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-logo')"
-                        class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
+                <button onclick="togglePanel('panel-logo')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
                     <div class="flex items-center gap-2.5">
                         <div class="w-7 h-7 bg-violet-500/15 rounded-lg flex items-center justify-center">
                             <i class="ph-fill ph-image-square text-violet-400 text-sm"></i>
                         </div>
                         <span class="text-sm font-semibold text-white">Logo / 浮水印</span>
-                        <span id="logo-status-badge"
-                              class="text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                                     bg-slate-700 text-slate-400">未上傳</span>
+                        <span id="logo-status-badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400">未上傳</span>
                     </div>
                     <i id="panel-logo-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform rotate-180"></i>
                 </button>
                 <div id="panel-logo" class="panel-body">
                     <div class="px-4 pb-4 space-y-3 text-xs">
-                        <!-- Logo 上傳按鈕 -->
-                        <div class="drop-zone rounded-xl p-4 text-center cursor-pointer bg-slate-950/50"
-                             onclick="document.getElementById('logo-file-input').click()">
-                            <!-- Logo 預覽 -->
+                        <div class="drop-zone rounded-xl p-4 text-center cursor-pointer bg-slate-950/50" onclick="document.getElementById('logo-file-input').click()">
                             <div id="logo-preview-container" class="hidden mb-3">
-                                <img id="logo-preview-img" src="" alt="Logo 預覽"
-                                     class="max-h-16 mx-auto object-contain rounded-lg">
+                                <img id="logo-preview-img" src="" alt="Logo 預覽" class="max-h-16 mx-auto object-contain rounded-lg">
                             </div>
                             <div id="logo-upload-hint">
                                 <i class="ph-bold ph-image text-slate-500 text-2xl mb-1.5"></i>
@@ -301,72 +210,51 @@
                                 <p class="text-slate-600 mt-1">PNG / SVG / WebP（建議透明背景）</p>
                             </div>
                         </div>
-                        <input type="file" id="logo-file-input" accept="image/*"
-                               class="hidden" onchange="handleLogoUpload(this)">
-
-                        <!-- Logo 位置選擇 -->
+                        <input type="file" id="logo-file-input" accept="image/*" class="hidden" onchange="handleLogoUpload(this)">
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">Logo 位置</label>
-                            <select id="sel-logo-position"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                           text-slate-200 focus:border-violet-500 outline-none">
+                            <select id="sel-logo-position" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-violet-500 outline-none">
                                 <option value="top-right">右上角（預設）</option>
                                 <option value="top-left">左上角</option>
                                 <option value="bottom-right">右下角</option>
                                 <option value="bottom-left">左下角</option>
-                                <!-- 置中浮水印：低透明度覆蓋整張投影片 -->
                                 <option value="center-watermark">置中透明浮水印</option>
                             </select>
                         </div>
-
-                        <!-- 透明度控制 -->
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold flex justify-between">
                                 <span>透明度 (Opacity)</span>
                                 <span id="opacity-val" class="text-violet-400 font-bold">85%</span>
                             </label>
-                            <input type="range" id="range-opacity" min="10" max="100" value="85"
-                                   oninput="document.getElementById('opacity-val').textContent = this.value + '%'"
-                                   class="w-full">
+                            <input type="range" id="range-opacity" min="10" max="100" value="85" oninput="document.getElementById('opacity-val').textContent = this.value + '%'" class="w-full">
                         </div>
-
-                        <!-- 縮放比例控制 -->
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold flex justify-between">
                                 <span>縮放比例 (Scale)</span>
                                 <span id="scale-val" class="text-violet-400 font-bold">15%</span>
                             </label>
-                            <input type="range" id="range-scale" min="5" max="40" value="15"
-                                   oninput="document.getElementById('scale-val').textContent = this.value + '%'"
-                                   class="w-full">
+                            <input type="range" id="range-scale" min="5" max="40" value="15" oninput="document.getElementById('scale-val').textContent = this.value + '%'" class="w-full">
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ── 面板 4：自定義封面圖片 ── -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-cover')"
-                        class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
+                <button onclick="togglePanel('panel-cover')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
                     <div class="flex items-center gap-2.5">
                         <div class="w-7 h-7 bg-rose-500/15 rounded-lg flex items-center justify-center">
                             <i class="ph-fill ph-frame-corners text-rose-400 text-sm"></i>
                         </div>
                         <span class="text-sm font-semibold text-white">自定義封面圖片</span>
-                        <span id="cover-status-badge"
-                              class="text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                                     bg-slate-700 text-slate-400">未上傳</span>
+                        <span id="cover-status-badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400">未上傳</span>
                     </div>
                     <i id="panel-cover-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform rotate-180"></i>
                 </button>
                 <div id="panel-cover" class="panel-body">
                     <div class="px-4 pb-4 space-y-3 text-xs">
-                        <div class="drop-zone rounded-xl p-4 text-center cursor-pointer bg-slate-950/50"
-                             onclick="document.getElementById('cover-file-input').click()">
-                            <!-- 封面圖預覽 -->
+                        <div class="drop-zone rounded-xl p-4 text-center cursor-pointer bg-slate-950/50" onclick="document.getElementById('cover-file-input').click()">
                             <div id="cover-preview-container" class="hidden mb-3">
-                                <img id="cover-preview-img" src="" alt="封面圖預覽"
-                                     class="max-h-24 mx-auto object-cover rounded-xl">
+                                <img id="cover-preview-img" src="" alt="封面圖預覽" class="max-h-24 mx-auto object-cover rounded-xl">
                             </div>
                             <div id="cover-upload-hint">
                                 <i class="ph-bold ph-panorama text-slate-500 text-2xl mb-1.5"></i>
@@ -374,21 +262,16 @@
                                 <p class="text-slate-600 mt-1">建議 16:9 比例 (1920×1080)</p>
                             </div>
                         </div>
-                        <input type="file" id="cover-file-input" accept="image/*"
-                               class="hidden" onchange="handleCoverUpload(this)">
-                        <button id="btn-clear-cover" onclick="clearCover()"
-                                class="hidden w-full py-2 bg-rose-900/30 hover:bg-rose-900/50 text-rose-300
-                                       rounded-xl font-semibold transition-colors border border-rose-800/50">
+                        <input type="file" id="cover-file-input" accept="image/*" class="hidden" onchange="handleCoverUpload(this)">
+                        <button id="btn-clear-cover" onclick="clearCover()" class="hidden w-full py-2 bg-rose-900/30 hover:bg-rose-900/50 text-rose-300 rounded-xl font-semibold transition-colors border border-rose-800/50">
                             <i class="ph-bold ph-trash"></i> 移除封面圖
                         </button>
                     </div>
                 </div>
             </div>
 
-            <!-- ── 面板 5：簡報參數設定 ── -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-config')"
-                        class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
+                <button onclick="togglePanel('panel-config')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
                     <div class="flex items-center gap-2.5">
                         <div class="w-7 h-7 bg-amber-500/15 rounded-lg flex items-center justify-center">
                             <i class="ph-fill ph-sliders-horizontal text-amber-400 text-sm"></i>
@@ -399,28 +282,18 @@
                 </button>
                 <div id="panel-config" class="panel-body">
                     <div class="px-4 pb-4 space-y-3 text-xs">
-                        <!-- 投影片張數 -->
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold flex justify-between">
                                 <span>投影片張數（含封面）</span>
                                 <span id="slide-count-val" class="text-amber-400 font-bold">10 張</span>
                             </label>
-                            <input type="range" id="range-slide-count" min="5" max="20" value="10"
-                                   oninput="document.getElementById('slide-count-val').textContent = this.value + ' 張'"
-                                   class="w-full">
+                            <input type="range" id="range-slide-count" min="5" max="20" value="10" oninput="document.getElementById('slide-count-val').textContent = this.value + ' 張'" class="w-full">
                         </div>
-
-                        <!-- 文字 LLM 引擎 — 精確使用 index.html 的模型 ID -->
-                        <!-- 失敗時自動 fallback：3 Flash Preview → 2.5 Pro → 3.1 Pro Preview → 2.5 Flash -->
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">
                                 <i class="ph-fill ph-brain text-blue-400"></i> 文字生成模型（首選）
                             </label>
-                            <select id="sel-text-model"
-                                    onchange="updateHeaderBadge()"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                           text-slate-200 focus:border-amber-500 outline-none">
-                                <!-- 與 index.html gemini-sub-model-select 完全對應 -->
+                            <select id="sel-text-model" onchange="updateHeaderBadge()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="gemini-3-flash-preview" selected>Gemini 3 Flash Preview（最新・推薦）</option>
                                 <option value="gemini-2.5-pro">Gemini 2.5 Pro（精準）</option>
                                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview（旗艦）</option>
@@ -430,9 +303,7 @@
                         </div>
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">簡報語言</label>
-                            <select id="sel-lang"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                           text-slate-200 focus:border-amber-500 outline-none">
+                            <select id="sel-lang" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="zh-TW">繁體中文</option>
                                 <option value="zh-CN">簡體中文</option>
                                 <option value="en">English</option>
@@ -440,13 +311,9 @@
                                 <option value="ko">한국어</option>
                             </select>
                         </div>
-
-                        <!-- 簡報風格 -->
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">簡報風格</label>
-                            <select id="sel-style"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                           text-slate-200 focus:border-amber-500 outline-none">
+                            <select id="sel-style" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="professional">專業商務</option>
                                 <option value="academic">學術報告</option>
                                 <option value="creative">創意設計</option>
@@ -454,35 +321,16 @@
                                 <option value="storytelling">敘事故事</option>
                             </select>
                         </div>
-
-                        <!-- 色彩主題 -->
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">色彩主題</label>
                             <div class="grid grid-cols-5 gap-2">
-                                <button onclick="selectTheme('midnight', this)"
-                                        class="theme-btn h-8 rounded-lg bg-gradient-to-br from-indigo-900 to-slate-900
-                                               border-2 border-indigo-500 ring-2 ring-white/30 scale-110 border-white/50 transition-all"
-                                        title="午夜藍"></button>
-                                <button onclick="selectTheme('ocean', this)"
-                                        class="theme-btn h-8 rounded-lg bg-gradient-to-br from-cyan-700 to-blue-900
-                                               border-2 border-slate-700 transition-all"
-                                        title="深海藍"></button>
-                                <button onclick="selectTheme('forest', this)"
-                                        class="theme-btn h-8 rounded-lg bg-gradient-to-br from-emerald-800 to-green-950
-                                               border-2 border-slate-700 transition-all"
-                                        title="森林綠"></button>
-                                <button onclick="selectTheme('sunset', this)"
-                                        class="theme-btn h-8 rounded-lg bg-gradient-to-br from-orange-700 to-rose-900
-                                               border-2 border-slate-700 transition-all"
-                                        title="夕陽橙"></button>
-                                <button onclick="selectTheme('mono', this)"
-                                        class="theme-btn h-8 rounded-lg bg-gradient-to-br from-slate-600 to-slate-900
-                                               border-2 border-slate-700 transition-all"
-                                        title="黑白簡約"></button>
+                                <button onclick="selectTheme('midnight', this)" class="theme-btn h-8 rounded-lg bg-gradient-to-br from-indigo-900 to-slate-900 border-2 border-indigo-500 ring-2 ring-white/30 scale-110 border-white/50 transition-all" title="午夜藍"></button>
+                                <button onclick="selectTheme('ocean', this)" class="theme-btn h-8 rounded-lg bg-gradient-to-br from-cyan-700 to-blue-900 border-2 border-slate-700 transition-all" title="深海藍"></button>
+                                <button onclick="selectTheme('forest', this)" class="theme-btn h-8 rounded-lg bg-gradient-to-br from-emerald-800 to-green-950 border-2 border-slate-700 transition-all" title="森林綠"></button>
+                                <button onclick="selectTheme('sunset', this)" class="theme-btn h-8 rounded-lg bg-gradient-to-br from-orange-700 to-rose-900 border-2 border-slate-700 transition-all" title="夕陽橙"></button>
+                                <button onclick="selectTheme('mono', this)" class="theme-btn h-8 rounded-lg bg-gradient-to-br from-slate-600 to-slate-900 border-2 border-slate-700 transition-all" title="黑白簡約"></button>
                             </div>
                         </div>
-
-                        <!-- 是否生成演講者備忘錄 -->
                         <div class="flex items-center justify-between pt-1">
                             <div>
                                 <p class="font-semibold text-slate-300">生成演講者備忘錄</p>
@@ -490,11 +338,7 @@
                             </div>
                             <label class="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
                                 <input type="checkbox" id="chk-speaker-notes" class="sr-only peer" checked>
-                                <div class="w-9 h-5 bg-slate-700 rounded-full peer
-                                            peer-checked:after:translate-x-full peer-checked:after:border-white
-                                            after:content-[''] after:absolute after:top-[2px] after:left-[2px]
-                                            after:bg-white after:border-slate-300 after:border after:rounded-full
-                                            after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                                <div class="w-9 h-5 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
                             </label>
                         </div>
                     </div>
@@ -503,121 +347,68 @@
 
         </aside>
 
-        <!-- ==================== 右側工作區 ==================== -->
         <div class="flex-1 min-w-0 flex flex-col gap-5">
 
-            <!-- ── 主題輸入區 ── -->
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
                 <label class="block text-sm font-semibold text-white mb-3">
                     <i class="ph-fill ph-pencil-simple-line text-violet-400"></i>
                     簡報主題 / 指令
                 </label>
-                <textarea id="inp-topic" rows="4"
-                          placeholder="例如：請幫我製作一份關於「2025 年 AI 技術發展趨勢」的商業簡報，重點涵蓋大型語言模型、多模態 AI、AI Agent 三個方向，並附上市場數據…"
-                          class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm
-                                 text-slate-200 resize-y focus:border-violet-500 outline-none
-                                 placeholder:text-slate-600 leading-relaxed transition-colors"
-                          oninput="autoResize(this)"></textarea>
+                <textarea id="inp-topic" rows="4" placeholder="例如：請幫我製作一份關於「2025 年 AI 技術發展趨勢」的商業簡報，重點涵蓋大型語言模型、多模態 AI、AI Agent 三個方向，並附上市場數據…" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 resize-y focus:border-violet-500 outline-none placeholder:text-slate-600 leading-relaxed transition-colors" oninput="autoResize(this)"></textarea>
 
-                <!-- 快捷主題建議 -->
                 <div class="flex flex-wrap gap-2 mt-3">
                     <span class="text-xs text-slate-500 mr-1 self-center">快速輸入：</span>
-                    <button onclick="setTopic('2025 AI 技術發展趨勢報告')"
-                            class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300
-                                   text-xs rounded-full border border-slate-700 transition-colors">
-                        AI 技術趨勢
-                    </button>
-                    <button onclick="setTopic('公司季度營運成果與未來策略規劃')"
-                            class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300
-                                   text-xs rounded-full border border-slate-700 transition-colors">
-                        季度報告
-                    </button>
-                    <button onclick="setTopic('新產品上市行銷計畫提案')"
-                            class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300
-                                   text-xs rounded-full border border-slate-700 transition-colors">
-                        新品行銷
-                    </button>
-                    <button onclick="setTopic('ESG 永續發展年度報告')"
-                            class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300
-                                   text-xs rounded-full border border-slate-700 transition-colors">
-                        ESG 報告
-                    </button>
+                    <button onclick="setTopic('2025 AI 技術發展趨勢報告')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-full border border-slate-700 transition-colors">AI 技術趨勢</button>
+                    <button onclick="setTopic('公司季度營運成果與未來策略規劃')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-full border border-slate-700 transition-colors">季度報告</button>
+                    <button onclick="setTopic('新產品上市行銷計畫提案')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-full border border-slate-700 transition-colors">新品行銷</button>
+                    <button onclick="setTopic('ESG 永續發展年度報告')" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded-full border border-slate-700 transition-colors">ESG 報告</button>
                 </div>
 
-                <!-- 底部操作列 -->
                 <div class="flex items-center justify-between mt-4 pt-4 border-t border-slate-800">
                     <div class="text-xs text-slate-500">
                         <i class="ph-fill ph-database text-emerald-400"></i>
                         知識庫：<span id="kb-summary">無（將純粹由 AI 生成）</span>
                     </div>
-                    <!-- 桌機版生成按鈕（與 header 同步） -->
-                    <button onclick="startGeneration()"
-                            class="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600
-                                   hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold
-                                   px-5 py-2.5 rounded-xl transition-all active:scale-95
-                                   shadow-lg shadow-violet-500/20">
-                        <i class="ph-bold ph-sparkle"></i>
-                        開始生成簡報
+                    <button onclick="startGeneration()" class="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all active:scale-95 shadow-lg shadow-violet-500/20">
+                        <i class="ph-bold ph-sparkle"></i> 開始生成簡報
                     </button>
                 </div>
             </div>
 
-            <!-- ── 生成進度與日誌區（生成前隱藏） ── -->
             <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5">
                 <div class="flex items-center gap-2.5 mb-4">
-                    <div id="progress-spinner"
-                         class="w-5 h-5 border-2 border-violet-500 border-t-transparent
-                                rounded-full animate-spin shrink-0"></div>
+                    <div id="progress-spinner" class="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
                     <h3 class="text-sm font-semibold text-white">生成進度</h3>
-                    <!-- 總進度條 -->
                     <div class="flex-1 bg-slate-800 rounded-full h-1.5 ml-2">
-                        <div id="progress-bar"
-                             class="h-1.5 bg-gradient-to-r from-violet-500 to-indigo-500
-                                    rounded-full transition-all duration-500"
-                             style="width: 0%"></div>
+                        <div id="progress-bar" class="h-1.5 bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500" style="width: 0%"></div>
                     </div>
                     <span id="progress-pct" class="text-xs font-bold text-violet-400 shrink-0">0%</span>
                 </div>
-                <!-- 日誌捲動區 -->
-                <div id="log-container"
-                     class="space-y-1.5 max-h-52 overflow-y-auto no-scrollbar">
-                </div>
+                <div id="log-container" class="space-y-1.5 max-h-52 overflow-y-auto no-scrollbar"></div>
             </div>
 
-            <!-- ── 投影片大綱預覽區 ── -->
             <div id="section-preview" class="hidden">
                 <div class="flex items-center justify-between mb-3">
                     <h3 class="text-sm font-semibold text-white">
-                        <i class="ph-fill ph-stack text-violet-400"></i>
-                        投影片大綱預覽
+                        <i class="ph-fill ph-stack text-violet-400"></i> 投影片大綱預覽
                     </h3>
                     <div class="flex items-center gap-2">
-                        <span id="preview-slide-count"
-                              class="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded-lg"></span>
-                        <button onclick="downloadPptx()"
-                                id="btn-download-inline"
-                                class="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400
-                                       text-white text-xs font-bold px-3 py-1.5 rounded-xl
-                                       transition-all active:scale-95">
-                            <i class="ph-bold ph-download-simple"></i>
-                            下載 PPTX
+                        <span id="preview-slide-count" class="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded-lg"></span>
+                        <button onclick="downloadPptx()" id="btn-download-inline" class="flex items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition-all active:scale-95">
+                            <i class="ph-bold ph-download-simple"></i> 下載 PPTX
                         </button>
                     </div>
                 </div>
-                <!-- 投影片卡片列表 -->
                 <div id="slides-preview-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
             </div>
 
-            <!-- ── 空白狀態提示（初始畫面） ── -->
             <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-20 text-center">
-                <div class="w-20 h-20 bg-gradient-to-br from-violet-500/20 to-indigo-500/20
-                            rounded-3xl flex items-center justify-center mb-5 border border-violet-500/20">
+                <div class="w-20 h-20 bg-gradient-to-br from-violet-500/20 to-indigo-500/20 rounded-3xl flex items-center justify-center mb-5 border border-violet-500/20">
                     <i class="ph-bold ph-presentation-chart text-violet-400 text-3xl"></i>
                 </div>
                 <h2 class="text-xl font-bold text-white mb-2">準備好了嗎？</h2>
                 <p class="text-slate-500 text-sm max-w-sm leading-relaxed">
-                    在左側上傳知識庫文件、設定 API 參數，<br>
-                    然後輸入簡報主題，點擊「開始生成」。
+                    在左側上傳知識庫文件、設定 API 參數，<br>然後輸入簡報主題，點擊「開始生成」。
                 </p>
                 <div class="grid grid-cols-3 gap-3 mt-8 text-xs text-slate-400 max-w-sm">
                     <div class="bg-slate-900 rounded-xl p-3 border border-slate-800">
@@ -641,64 +432,27 @@
         </div>
     </main>
 
-    <!-- ===== Toast 通知 ===== -->
-    <div id="toast"
-         class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-slate-800 text-white
-                text-sm font-medium px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700
-                opacity-0 transition-all duration-300 pointer-events-none translate-y-4">
-    </div>
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-slate-800 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700 opacity-0 transition-all duration-300 pointer-events-none translate-y-4"></div>
 
-    <!-- ===================================================
-         JAVASCRIPT 核心邏輯
-         ===================================================
-         架構說明：
-         1. 應用程式狀態 (App State)
-         2. 初始化 (Init)
-         3. UI 輔助函數 (UI Helpers)
-         4. 檔案處理 (File Handling)
-         5. API 呼叫 (API Calls)
-            - Gemini 文字 API
-            - Gemini 圖像 API
-            - Grok 圖像 API（透過 Proxy）
-         6. Mermaid 渲染 (Mermaid Rendering)
-         7. PptxGenJS 建構邏輯 (PPTX Builder)
-            - 母片設定（含 Logo 整合）
-            - 封面頁處理
-            - 內容頁渲染（依 layout 切換）
-         8. 主要協調器 (Main Orchestrator)
-    ===================================================-->
     <script>
     // ════════════════════════════════════════════════
     // § 1. 應用程式全域狀態
     // ════════════════════════════════════════════════
     const AppState = {
-        // API 金鑰（直接從 localStorage 讀取，與 index.html 完全共用同一組 key）
         googleApiKey: '',
         xaiApiKey:    '',
-
-        // 知識庫
         kbDocs: [],
-
-        // 本地資產
         logoBase64:  null,
         coverBase64: null,
-
-        // 生成結果
         pptxObject:       null,
         presentationData: null,
-
-        // 色彩主題
         selectedTheme: 'midnight',
-
         isGenerating: false,
     };
 
-    // ★ 與 index.html 完全相同的 Cloudflare Worker Proxy URL ★
-    // 此 URL 已內建於 index.html（GROK_PROXY 常數），無需使用者另外填寫
     const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
     const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
 
-    // 色彩主題定義
     const THEMES = {
         midnight: { bg: '0F172A', accent: '6366F1', text: 'FFFFFF', secondary: '818CF8' },
         ocean:    { bg: '0C1A2E', accent: '0EA5E9', text: 'FFFFFF', secondary: '38BDF8' },
@@ -711,17 +465,11 @@
     // § 2. 初始化
     // ════════════════════════════════════════════════
     function init() {
-        // ★ 使用與 index.html 完全相同的 localStorage key 名稱 ★
-        // index.html 的 saveKeys() 函數將 id="key-gemini" 存為 'nova_key_gemini'
-        //                           將 id="key-grok"   存為 'nova_key_grok'
         AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
         AppState.xaiApiKey    = localStorage.getItem('nova_key_grok')   || '';
-
-        // 更新 header 狀態顯示
         updateApiStatusBadge();
         updateHeaderBadge();
 
-        // 初始化 Mermaid
         mermaid.initialize({
             startOnLoad:   false,
             theme:         'dark',
@@ -730,34 +478,22 @@
         });
     }
 
-    // 頁面載入完成後執行初始化
     document.addEventListener('DOMContentLoaded', () => {
         init();
-
-        // 監聽知識庫貼上區的輸入，即時更新知識庫摘要
         document.getElementById('kb-paste-area').addEventListener('input', updateKbBadge);
 
-        // 預設展開「API設定」與「簡報參數」面板
-        // (panel-api 預設已設為 open class，其餘收合)
-        // 頁面初始化後觸發一次 icon 旋轉方向同步
         ['panel-kb', 'panel-logo', 'panel-cover', 'panel-config'].forEach(id => {
             const icon = document.getElementById(id + '-icon');
-            // 這些面板預設收合（max-height: 0）
             if (icon) icon.classList.add('rotate-180');
         });
 
-        // API 面板預設展開，icon 不旋轉
         const apiIcon = document.getElementById('panel-api-icon');
         if (apiIcon) apiIcon.classList.remove('rotate-180');
-
-        console.log('[NOVA SSP] AI 簡報生成器初始化完成，Gemini Key:', AppState.googleApiKey ? '已找到' : '未找到');
     });
 
     // ════════════════════════════════════════════════
     // § 3. UI 輔助函數
     // ════════════════════════════════════════════════
-
-    /** 收折 / 展開面板 */
     function togglePanel(panelId) {
         const body = document.getElementById(panelId);
         const icon = document.getElementById(panelId + '-icon');
@@ -766,7 +502,6 @@
         icon.classList.toggle('rotate-180', !isOpen);
     }
 
-    /** 顯示 Toast 通知 */
     function showToast(msg, duration = 2500) {
         const toast = document.getElementById('toast');
         toast.textContent = msg;
@@ -778,7 +513,6 @@
         }, duration);
     }
 
-    /** 更新 API 狀態顯示（對應新的雙欄狀態列） */
     function updateApiStatusBadge() {
         const gemEl = document.getElementById('api-gemini-status');
         const grokEl = document.getElementById('api-grok-status');
@@ -792,34 +526,30 @@
         }
     }
 
-    /** 更新 Header 模型名稱顯示 */
     function updateHeaderBadge() {
         const sel = document.getElementById('sel-text-model');
         const name = sel.options[sel.selectedIndex].text.replace('Gemini ', '').replace(' Preview', '');
         document.getElementById('header-model-name').textContent = name;
     }
 
-    /** 快捷主題選擇 */
     function setTopic(text) {
-        document.getElementById('inp-topic').value = text;
-        autoResize(document.getElementById('inp-topic'));
+        const input = document.getElementById('inp-topic');
+        input.value = text;
+        input.style.height = 'auto';
+        input.style.height = input.scrollHeight + 'px';
     }
 
-    /** 新增進度日誌條目 */
+    function autoResize(textarea) {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+    }
+
     function addLog(message, type = 'info') {
         const container = document.getElementById('log-container');
         const item = document.createElement('div');
         item.className = 'log-item flex items-start gap-2 text-xs py-1';
-
         const icons = { info: '🔵', success: '✅', warning: '⚠️', error: '❌', ai: '✨' };
-        const colors = {
-            info:    'text-slate-300',
-            success: 'text-emerald-300',
-            warning: 'text-amber-300',
-            error:   'text-rose-300',
-            ai:      'text-violet-300'
-        };
-
+        const colors = { info: 'text-slate-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300' };
         item.innerHTML = `
             <span class="shrink-0 mt-0.5">${icons[type] || '•'}</span>
             <span class="${colors[type] || 'text-slate-300'}">${message}</span>
@@ -828,17 +558,35 @@
         container.scrollTop = container.scrollHeight;
     }
 
-    /** 更新進度條 */
     function setProgress(pct) {
         document.getElementById('progress-bar').style.width = pct + '%';
         document.getElementById('progress-pct').textContent = pct + '%';
     }
 
+    /** ★ 已修復：選擇 PPT 匯出色系主題功能 ★ */
+    function selectTheme(themeId, btnElement) {
+        AppState.selectedTheme = themeId;
+        
+        // 清除所有按鈕的選中樣式
+        document.querySelectorAll('.theme-btn').forEach(btn => {
+            btn.classList.remove('ring-2', 'ring-white/30', 'scale-110', 'border-white/50');
+            btn.classList.add('border-slate-700'); // 恢復預設邊框
+            if(btn.title === '午夜藍' && themeId !== 'midnight') {
+                btn.classList.remove('border-indigo-500'); // 處理預設特殊的邊框
+            }
+        });
+        
+        // 套用選中樣式到目前按鈕
+        if (btnElement) {
+            btnElement.classList.add('ring-2', 'ring-white/30', 'scale-110', 'border-white/50');
+            btnElement.classList.remove('border-slate-700');
+        }
+        showToast('🎨 已切換簡報色彩主題');
+    }
+
     // ════════════════════════════════════════════════
     // § 4. 檔案處理函數
     // ════════════════════════════════════════════════
-
-    /** 將 File 物件讀取為 Data URL（Base64） */
     function readFileAsDataURL(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -848,7 +596,6 @@
         });
     }
 
-    /** 將 File 物件讀取為純文字 */
     function readFileAsText(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -858,7 +605,6 @@
         });
     }
 
-    /** 處理知識庫文件上傳 */
     async function handleKbUpload(files) {
         for (const file of files) {
             try {
@@ -873,7 +619,6 @@
         updateKbBadge();
     }
 
-    /** 在 UI 上顯示已上傳的文件項目 */
     function addKbFileItem(name, index) {
         const list = document.getElementById('kb-file-list');
         const item = document.createElement('div');
@@ -883,100 +628,79 @@
                 <i class="ph-fill ph-file-text text-emerald-400 shrink-0"></i>
                 <span class="text-slate-300 truncate">${name}</span>
             </div>
-            <button onclick="removeKbDoc(${index}, this.closest('div'))"
-                    class="text-slate-600 hover:text-rose-400 ml-2 shrink-0 transition-colors">
+            <button onclick="removeKbDoc(${index}, this.closest('div'))" class="text-slate-600 hover:text-rose-400 ml-2 shrink-0 transition-colors">
                 <i class="ph-bold ph-x"></i>
             </button>
         `;
         list.appendChild(item);
     }
 
-    /** 移除知識庫文件 */
     function removeKbDoc(index, el) {
         AppState.kbDocs.splice(index, 1);
         el.remove();
         updateKbBadge();
     }
 
-    /** 更新知識庫計數徽章 */
     function updateKbBadge() {
         const count = AppState.kbDocs.length;
         const badge = document.getElementById('kb-count-badge');
         badge.textContent = `${count} 份文件`;
-        badge.className = count > 0
-            ? 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400'
-            : 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400';
+        badge.className = count > 0 ? 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400' : 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-700 text-slate-400';
 
-        // 更新知識庫摘要顯示
         const pasteText = document.getElementById('kb-paste-area').value.trim();
         const kbSummary = document.getElementById('kb-summary');
         const totalParts = count + (pasteText ? 1 : 0);
-        kbSummary.textContent = totalParts > 0
-            ? `${count} 份文件${pasteText ? ' + 貼上文字' : ''}`
-            : '無（將純粹由 AI 生成）';
+        kbSummary.textContent = totalParts > 0 ? `${count} 份文件${pasteText ? ' + 貼上文字' : ''}` : '無（將純粹由 AI 生成）';
     }
 
-    /** 拖曳事件：over */
     function onDragOver(event, zoneId) {
         event.preventDefault();
         document.getElementById(zoneId).classList.add('drag-over');
     }
 
-    /** 拖曳事件：leave */
     function onDragLeave(zoneId) {
         document.getElementById(zoneId).classList.remove('drag-over');
     }
 
-    /** 拖曳事件：drop（知識庫） */
     function onDropKb(event) {
         event.preventDefault();
         document.getElementById('kb-drop-zone').classList.remove('drag-over');
-        const files = event.dataTransfer.files;
-        handleKbUpload(files);
+        handleKbUpload(event.dataTransfer.files);
     }
 
-    /** 處理 Logo 圖片上傳 */
     async function handleLogoUpload(input) {
         const file = input.files[0];
         if (!file) return;
         const dataUrl = await readFileAsDataURL(file);
         AppState.logoBase64 = dataUrl;
 
-        // 顯示預覽
         document.getElementById('logo-preview-img').src = dataUrl;
         document.getElementById('logo-preview-container').classList.remove('hidden');
         document.getElementById('logo-upload-hint').classList.add('hidden');
 
-        // 更新狀態徽章
         const badge = document.getElementById('logo-status-badge');
         badge.textContent = '✓ 已上傳';
         badge.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-500/15 text-violet-400';
-
         showToast('🖼️ Logo 已載入');
     }
 
-    /** 處理封面圖片上傳 */
     async function handleCoverUpload(input) {
         const file = input.files[0];
         if (!file) return;
         const dataUrl = await readFileAsDataURL(file);
         AppState.coverBase64 = dataUrl;
 
-        // 顯示預覽
         document.getElementById('cover-preview-img').src = dataUrl;
         document.getElementById('cover-preview-container').classList.remove('hidden');
         document.getElementById('cover-upload-hint').classList.add('hidden');
         document.getElementById('btn-clear-cover').classList.remove('hidden');
 
-        // 更新狀態徽章
         const badge = document.getElementById('cover-status-badge');
         badge.textContent = '✓ 已上傳';
         badge.className = 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400';
-
         showToast('🖼️ 封面圖已載入');
     }
 
-    /** 清除封面圖片 */
     function clearCover() {
         AppState.coverBase64 = null;
         document.getElementById('cover-preview-img').src = '';
@@ -993,43 +717,10 @@
     // ════════════════════════════════════════════════
     // § 5. API 呼叫函數
     // ════════════════════════════════════════════════
-    //
-    // ★ 所有模型名稱、API version、Proxy URL 均與 index.html 完全一致 ★
-    // ────────────────────────────────────────────────
-    // 文字 LLM fallback 順序（使用者選擇為首，其餘自動補足）：
-    //   1. gemini-3-flash-preview    → v1alpha
-    //   2. gemini-2.5-pro            → v1beta
-    //   3. gemini-3.1-pro-preview    → v1alpha
-    //   4. gemini-2.5-flash          → v1beta
-    //
-    // 圖片生成 fallback 順序：
-    //   1. grok-imagine-image-pro    → GROK_PROXY
-    //   2. grok-imagine-image        → GROK_PROXY
-    //   3. gemini-2.5-flash-image    → v1beta
-    //   4. gemini-3.1-flash-image-preview → v1alpha
-    //   5. Picsum Photos             → 公開備援
-    // ════════════════════════════════════════════════
-
-    /**
-     * API 版本判斷（與 index.html 第 8081 行邏輯完全相同）
-     * 含 preview / gemini-3 / thinking / research → v1alpha
-     * 其他穩定版 → v1beta
-     */
     function getGeminiApiVersion(modelName) {
-        return (modelName.includes('preview') ||
-                modelName.includes('gemini-3') ||
-                modelName.includes('thinking') ||
-                modelName.includes('research'))
-            ? 'v1alpha' : 'v1beta';
+        return (modelName.includes('preview') || modelName.includes('gemini-3') || modelName.includes('thinking') || modelName.includes('research')) ? 'v1alpha' : 'v1beta';
     }
 
-    /**
-     * ★ 文字 LLM：瀑布式 fallback，精確使用 index.html 的模型 ID ★
-     *
-     * 使用者在「首選模型」下拉選擇後，若該模型失敗，
-     * 自動依 gemini-3-flash-preview → gemini-2.5-pro
-     *       → gemini-3.1-pro-preview → gemini-2.5-flash 順序降級。
-     */
     async function callGeminiForOutline(topic, knowledgeBase) {
         const apiKey     = AppState.googleApiKey;
         const userChoice = document.getElementById('sel-text-model').value;
@@ -1038,23 +729,9 @@
         const style      = document.getElementById('sel-style').value;
         const withNotes  = document.getElementById('chk-speaker-notes').checked;
 
-        const langMap = {
-            'zh-TW': '繁體中文', 'zh-CN': '簡體中文',
-            'en': 'English', 'ja': '日本語', 'ko': '한국어'
-        };
-
-        // ★ 與 index.html gemini-sub-model-select 完全相同的 model ID ★
-        const FALLBACK_MODELS = [
-            'gemini-3-flash-preview',   // v1alpha — 最新最快
-            'gemini-2.5-pro',           // v1beta  — 精準
-            'gemini-3.1-pro-preview',   // v1alpha — 旗艦
-            'gemini-2.5-flash',         // v1beta  — 最終保底
-        ];
-        // 使用者選擇排最前，其餘去重後依序 fallback
-        const orderedModels = [
-            userChoice,
-            ...FALLBACK_MODELS.filter(m => m !== userChoice),
-        ];
+        const langMap = { 'zh-TW': '繁體中文', 'zh-CN': '簡體中文', 'en': 'English', 'ja': '日本語', 'ko': '한국어' };
+        const FALLBACK_MODELS = ['gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-3.1-pro-preview', 'gemini-2.5-flash'];
+        const orderedModels = [userChoice, ...FALLBACK_MODELS.filter(m => m !== userChoice)];
 
         const systemPrompt = `你是一位世界頂級的專業簡報設計師與內容策略師。
 你必須根據提供的知識庫內容（如有）與主題，生成一份結構完整、邏輯清晰的簡報大綱。
@@ -1092,43 +769,26 @@ JSON Schema：
   ]
 }`;
 
-        const userPrompt = knowledgeBase
-            ? `【知識庫內容】\n${knowledgeBase}\n\n【簡報主題】\n${topic}`
-            : `【簡報主題】\n${topic}`;
-
+        const userPrompt = knowledgeBase ? `【知識庫內容】\n${knowledgeBase}\n\n【簡報主題】\n${topic}` : `【簡報主題】\n${topic}`;
         const bodyObj = {
             contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }],
-            generationConfig: {
-                responseMimeType: 'application/json',
-                temperature:      0.7,
-                maxOutputTokens:  8192,
-            }
+            generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 8192 }
         };
 
         let lastErr = null;
         for (const modelId of orderedModels) {
-            const ver      = getGeminiApiVersion(modelId);
+            const ver = getGeminiApiVersion(modelId);
             const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${apiKey}`;
             try {
                 addLog(`🧠 呼叫 ${modelId} (${ver})…`, 'ai');
                 const resp = await Promise.race([
-                    fetch(endpoint, {
-                        method:  'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body:    JSON.stringify(bodyObj)
-                    }),
+                    fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyObj) }),
                     new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 60000))
                 ]);
-                if (!resp.ok) {
-                    const e = await resp.json().catch(() => ({}));
-                    throw new Error(e.error?.message || `HTTP ${resp.status}`);
-                }
+                if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error?.message || `HTTP ${resp.status}`);
                 const data    = await resp.json();
                 const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-                const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-                const parsed  = JSON.parse(cleaned);
-                addLog(`✓ ${modelId} 大綱生成成功`, 'success');
-                return parsed;
+                return JSON.parse(rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim());
             } catch (e) {
                 lastErr = e;
                 addLog(`⚠ ${modelId} 失敗（${e.message}），嘗試下一個…`, 'warning');
@@ -1137,10 +797,6 @@ JSON Schema：
         throw new Error(`所有文字模型均失敗，最後錯誤：${lastErr?.message}`);
     }
 
-    /**
-     * 先用 gemini-2.5-flash 將主題優化為英文 image prompt
-     * （與 index.html buildPrompt 函數完全一致，使用 v1beta + gemini-2.5-flash）
-     */
     async function buildImagePrompt(query) {
         const gKey = AppState.googleApiKey;
         if (!gKey) return `Professional business illustration about: ${query}`;
@@ -1151,770 +807,306 @@ JSON Schema：
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text:
-                            `Create a concise English image generation prompt (max 60 words) for a presentation slide about: "${query}". Professional, clean, modern illustration style. Return only the prompt text.`
-                        }] }],
+                        contents: [{ role: 'user', parts: [{ text: `Create a concise English image generation prompt (max 60 words) for a presentation slide about: "${query}". Professional, clean, modern illustration style. Return only the prompt text.` }] }],
                         generationConfig: { maxOutputTokens: 100, temperature: 0.5 }
                     })
                 }
             );
-            const d = await r.json();
-            return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
-                || `Professional illustration: ${query}`;
-        } catch {
-            return `Professional business illustration: ${query}`;
-        }
+            return (await r.json()).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${query}`;
+        } catch { return `Professional business illustration: ${query}`; }
     }
 
-    /**
-     * ★ 圖片生成：model ID / API version / Proxy URL 與 index.html 完全一致 ★
-     *
-     * fallback 順序（與 index.html 第 3916, 3949-3950 行相同）：
-     *   1️⃣  grok-imagine-image-pro         → GROK_PROXY (grokcaller worker)
-     *   2️⃣  grok-imagine-image             → GROK_PROXY
-     *   3️⃣  gemini-2.5-flash-image  v1beta → Google API
-     *   4️⃣  gemini-3.1-flash-image-preview v1alpha → Google API
-     *   5️⃣  Picsum Photos                  → 公開圖庫
-     */
     async function generateImage(slideTitle, bulletPoints, imagePrompt, slideIdx) {
-        const slideContext = imagePrompt ||
-            `${slideTitle}${bulletPoints?.length ? ': ' + bulletPoints.slice(0,2).join(', ') : ''}`;
+        const slideContext = imagePrompt || `${slideTitle}${bulletPoints?.length ? ': ' + bulletPoints.slice(0,2).join(', ') : ''}`;
         const slideLabel = slideIdx < 0 ? '封面' : `第 ${slideIdx + 1} 頁`;
 
         addLog(`🔤 ${slideLabel}：生成圖片 Prompt…`, 'ai');
         const prompt = await buildImagePrompt(slideContext);
-
-        // ── 1️⃣ & 2️⃣  Grok（與 index.html 第 3916-3942 行格式完全相同）──
         const grokKey = AppState.xaiApiKey;
+
         if (grokKey) {
             for (const grokModel of ['grok-imagine-image-pro', 'grok-imagine-image']) {
                 try {
                     addLog(`🎨 ${slideLabel}：${grokModel}…`, 'ai');
                     const r = await Promise.race([
                         fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
-                            method:  'POST',
-                            headers: {
-                                'Authorization': `Bearer ${grokKey}`,
-                                'Content-Type':  'application/json'
-                            },
-                            body: JSON.stringify({
-                                model:           grokModel,
-                                prompt,
-                                response_format: 'b64_json'
-                            })
+                            method: 'POST',
+                            headers: { 'Authorization': `Bearer ${grokKey}`, 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ model: grokModel, prompt, response_format: 'b64_json' })
                         }),
                         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 28000))
                     ]);
                     if (r.ok) {
-                        const d    = await r.json();
-                        const item = d.data?.[0];
+                        const item = (await r.json()).data?.[0];
                         if (item) {
-                            const imgData = item.b64_json
-                                ? `data:image/png;base64,${item.b64_json}`
-                                : item.url;
-                            if (imgData) {
-                                addLog(`✓ ${slideLabel}：${grokModel} 成功`, 'success');
-                                return imgData;
-                            }
+                            const imgData = item.b64_json ? `data:image/png;base64,${item.b64_json}` : item.url;
+                            if (imgData) { addLog(`✓ ${slideLabel}：${grokModel} 成功`, 'success'); return imgData; }
                         }
                     }
-                    addLog(`⚠ ${slideLabel}：${grokModel} 未回傳圖片`, 'warning');
-                } catch (e) {
-                    addLog(`⚠ ${slideLabel}：${grokModel} 失敗（${e.message}）`, 'warning');
-                }
+                } catch (e) { addLog(`⚠ ${slideLabel}：${grokModel} 失敗（${e.message}）`, 'warning'); }
             }
         }
 
-        // ── 3️⃣ & 4️⃣  Gemini Image（與 index.html 第 3948-3950 行完全相同）──
         const gKey = AppState.googleApiKey;
         if (gKey) {
-            // ★ model ID 與 ver 精確對應 index.html 的 gemModels 陣列 ★
-            const gemImageModels = [
-                { name: 'gemini-2.5-flash-image',         ver: 'v1beta',  label: 'Gemini 2.5 Flash-Image' },
-                { name: 'gemini-3.1-flash-image-preview', ver: 'v1alpha', label: 'Gemini 3.1 Flash-Image' },
-            ];
-            for (const { name: mName, ver, label } of gemImageModels) {
+            for (const { name: mName, ver, label } of [{ name: 'gemini-2.5-flash-image', ver: 'v1beta', label: 'Gemini 2.5 Flash-Image' }, { name: 'gemini-3.1-flash-image-preview', ver: 'v1alpha', label: 'Gemini 3.1 Flash-Image' }]) {
                 try {
                     addLog(`🎨 ${slideLabel}：${label} (${ver})…`, 'ai');
                     const r = await Promise.race([
-                        fetch(
-                            `https://generativelanguage.googleapis.com/${ver}/models/${mName}:generateContent?key=${gKey}`,
-                            {
-                                method:  'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                                    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
-                                })
-                            }
-                        ),
+                        fetch(`https://generativelanguage.googleapis.com/${ver}/models/${mName}:generateContent?key=${gKey}`, {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { responseModalities: ['TEXT', 'IMAGE'] } })
+                        }),
                         new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 28000))
                     ]);
                     if (r.ok) {
-                        const d       = await r.json();
-                        const imgPart = d.candidates?.[0]?.content?.parts?.find(
-                            p => p.inlineData?.mimeType?.startsWith('image/')
-                        );
-                        if (imgPart?.inlineData?.data) {
-                            addLog(`✓ ${slideLabel}：${label} 成功`, 'success');
-                            return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
-                        }
+                        const imgPart = (await r.json()).candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+                        if (imgPart?.inlineData?.data) { addLog(`✓ ${slideLabel}：${label} 成功`, 'success'); return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`; }
                     }
-                    addLog(`⚠ ${slideLabel}：${label} 未回傳圖片`, 'warning');
-                } catch (e) {
-                    addLog(`⚠ ${slideLabel}：${label} 失敗（${e.message}）`, 'warning');
-                }
+                } catch (e) { addLog(`⚠ ${slideLabel}：${label} 失敗（${e.message}）`, 'warning'); }
             }
         }
 
-        // ── 5️⃣  Picsum Photos 備援（與 index.html 第 3984 行相同）──
         addLog(`📷 ${slideLabel}：所有 AI 模型失敗，使用 Picsum 備援`, 'warning');
         try {
             const seed = encodeURIComponent(prompt.replace(/\s+/g, '-').substring(0, 50));
-            const r = await Promise.race([
-                fetch(`https://picsum.photos/seed/${seed}/800/450`),
-                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
-            ]);
+            const r = await Promise.race([fetch(`https://picsum.photos/seed/${seed}/800/450`), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))]);
             const blob = await r.blob();
-            return await new Promise(resolve => {
-                const reader     = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(blob);
-            });
-        } catch {
-            return null;
-        }
+            return await new Promise(resolve => { const reader = new FileReader(); reader.onloadend = () => resolve(reader.result); reader.readAsDataURL(blob); });
+        } catch { return null; }
     }
 
     // ════════════════════════════════════════════════
     // § 6. Mermaid 流程圖渲染
     // ════════════════════════════════════════════════
-
-    /**
-     * 將 Mermaid 語法渲染為 JPEG Base64 Data URL，注入 PPTX。
-     *
-     * 效能優化重點（解決卡頓問題）：
-     *
-     * ① 整體 12 秒超時保護
-     *    — mermaid.render() 在複雜圖或首次初始化時可能掛住，
-     *      超時後直接回傳 null，讓 PPTX 顯示佔位框，不阻斷整個流程。
-     *
-     * ② mermaid.render() 之後插入 `await tick()`
-     *    — setTimeout(0) 讓瀏覽器先處理完 Mermaid 的 DOM 寫入、
-     *      觸發 reflow，再繼續 Canvas 工作，避免主執行緒長時間凍結。
-     *
-     * ③ Canvas 縮小為 800×450（原 1000×600）
-     *    — PPTX 投影片實際解析度需求不高；縮小後 toDataURL 速度提升約 40%。
-     *
-     * ④ 輸出改為 JPEG quality 0.88（原 PNG）
-     *    — PNG 編碼對含漸層/陰影的 SVG 比 JPEG 慢 3-5 倍；
-     *      JPEG 對流程圖視覺損失可忽略。
-     *
-     * ⑤ 渲染容器改用 `opacity:0; position:fixed; pointer-events:none`
-     *    — 保持元素「在視口內但不可見」，避免 Chrome/Safari 對
-     *      `left:-9999px` off-screen 元素的懶渲染節流。
-     *
-     * @param {string} mermaidCode - Mermaid 語法字串
-     * @returns {Promise<string|null>} - JPEG Base64 Data URL，或 null（失敗/超時）
-     */
+    /** ★ 已修復：解決 1x1 渲染問題與非同步安全處理 ★ */
     async function mermaidToBase64(mermaidCode) {
-        // 輔助：讓瀏覽器在當前 microtask queue 清空後再繼續（釋放 UI thread）
         const tick = () => new Promise(r => setTimeout(r, 0));
-
-        // 整體超時 Promise（12 秒）
         const timeout = new Promise(r => setTimeout(() => r(null), 12000));
 
         const doRender = async () => {
             try {
-                // ── 步驟 1：呼叫 Mermaid 渲染取得 SVG 字串 ──
-                // 使用時間戳確保每次 ID 唯一，避免 Mermaid 內部快取衝突
                 const renderId  = 'mmr-' + Date.now();
                 const container = document.getElementById('mermaid-render-container');
 
                 const { svg } = await mermaid.render(renderId, mermaidCode, container);
+                await tick(); // 讓 DOM 處理完畢
 
-                // ② 讓瀏覽器處理完 Mermaid 的 DOM 操作後再繼續
-                await tick();
+                // 將 Mermaid SVG 塞入真實的寬高以利計算
+                const parser = new DOMParser();
+                const svgDoc = parser.parseFromString(svg, "image/svg+xml");
+                const svgEl = svgDoc.documentElement;
+                svgEl.setAttribute('width', '1280');
+                svgEl.setAttribute('height', '720');
+                const modifiedSvg = new XMLSerializer().serializeToString(svgDoc);
 
-                // ── 步驟 2：SVG → Blob URL ──
-                const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+                const svgBlob = new Blob([modifiedSvg], { type: 'image/svg+xml;charset=utf-8' });
                 const blobUrl = URL.createObjectURL(svgBlob);
 
-                // ── 步驟 3：建立 Canvas，③ 縮小至 800×450 ──
                 const canvas = document.createElement('canvas');
-                canvas.width  = 800;
-                canvas.height = 450;
+                canvas.width  = 1280; // 統一轉換成大圖
+                canvas.height = 720;
                 const ctx = canvas.getContext('2d');
 
-                // 深色背景（與 PPTX 主題色一致，比白色更適合流程圖）
-                ctx.fillStyle = '#1e293b';
+                const theme = THEMES[AppState.selectedTheme] || THEMES.midnight;
+                ctx.fillStyle = '#' + theme.bg;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // ── 步驟 4：將 SVG Image 繪製到 Canvas ──
                 return new Promise((resolve) => {
                     const img = new Image();
                     img.onload = async () => {
-                        // 等比例縮放，留 5% 邊距
-                        const scale = Math.min(
-                            (canvas.width  * 0.92) / img.width,
-                            (canvas.height * 0.92) / img.height
-                        );
-                        const dw = img.width  * scale;
+                        const scale = Math.min((canvas.width * 0.92) / img.width, (canvas.height * 0.92) / img.height);
+                        const dw = img.width * scale;
                         const dh = img.height * scale;
-                        const dx = (canvas.width  - dw) / 2;
+                        const dx = (canvas.width - dw) / 2;
                         const dy = (canvas.height - dh) / 2;
-
                         ctx.drawImage(img, dx, dy, dw, dh);
                         URL.revokeObjectURL(blobUrl);
-
-                        // ④ JPEG 輸出（比 PNG 快 3-5 倍，視覺損失可忽略）
-                        // 再 tick 一次讓 drawImage 完成 composite 再編碼
                         await tick();
                         resolve(canvas.toDataURL('image/jpeg', 0.88));
                     };
-                    img.onerror = () => {
-                        URL.revokeObjectURL(blobUrl);
-                        resolve(null);
-                    };
+                    img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve(null); };
                     img.src = blobUrl;
                 });
-
-            } catch (e) {
-                console.error('[Mermaid] 渲染失敗：', e);
-                return null;
-            }
+            } catch (e) { console.error('[Mermaid] 渲染失敗：', e); return null; }
         };
-
-        // ① race：渲染完成 vs 超時，取先到者
         return Promise.race([doRender(), timeout]);
     }
 
     // ════════════════════════════════════════════════
     // § 7. PptxGenJS 簡報建構邏輯
     // ════════════════════════════════════════════════
-
-    /**
-     * ★ 核心函數：將 Logo Data URL 整合進 PptxGenJS 母片設定 ★
-     *
-     * PptxGenJS 母片 (Master Slide) 機制說明：
-     * - defineMaster() 建立一個「母版」，後續所有投影片呼叫 addSlide({ masterName })
-     *   時，會自動繼承母版中定義的所有物件（背景、Logo、頁碼等）。
-     * - objects 陣列中的 image 物件，需要提供 `data` 欄位（接受 Base64 Data URL）
-     *   或 `path` 欄位（本地路徑/URL）。
-     * - 座標系統：x/y/w/h 預設單位為英吋（16:9 = 10" × 5.625"）
-     *
-     * @param {PptxGenJS} pres - PptxGenJS 實例
-     */
+    /** ★ 已修復：將 defineMaster 替換為 defineSlideMaster (v3.x API 規範) ★ */
     function setupMasterSlide(pres) {
         const theme   = THEMES[AppState.selectedTheme] || THEMES.midnight;
         const logoPos = document.getElementById('sel-logo-position').value;
-        const logoScale  = parseInt(document.getElementById('range-scale').value)   / 100;  // 0.05 ~ 0.40
-        const logoOpacity = parseInt(document.getElementById('range-opacity').value) / 100;  // 0.10 ~ 1.00
+        const logoScale  = parseInt(document.getElementById('range-scale').value)   / 100;
+        const logoOpacity = parseInt(document.getElementById('range-opacity').value) / 100;
 
-        // 母片物件陣列（背景 + Logo）
         const masterObjects = [];
 
-        // ── Logo 整合邏輯 ──
-        // 規則：若有 Logo 且位置不是「置中浮水印」，則加入母片（每頁自動顯示）
-        // 「置中浮水印」模式改為在各內容頁單獨疊加，以便控制透明度
         if (AppState.logoBase64 && logoPos !== 'center-watermark') {
-            // 計算 Logo 尺寸（以投影片寬度百分比換算為英吋）
-            // PptxGenJS 16:9 寬螢幕：寬 10 英吋 × 高 5.625 英吋
-            const logoWidthInch  = 10 * logoScale;       // 例：15% → 1.5 英吋
-            const logoHeightInch = logoWidthInch * 0.45; // 假設 Logo 約為 2.2:1 比例
-
-            // 依位置計算 x, y 座標（留 0.15" 邊距）
+            const logoWidthInch  = 10 * logoScale;
+            const logoHeightInch = logoWidthInch * 0.45;
             const margin = 0.12;
             let logoX, logoY;
             switch (logoPos) {
-                case 'top-left':
-                    logoX = margin;
-                    logoY = margin;
-                    break;
-                case 'top-right':
-                    logoX = 10 - logoWidthInch - margin;
-                    logoY = margin;
-                    break;
-                case 'bottom-left':
-                    logoX = margin;
-                    logoY = 5.625 - logoHeightInch - margin;
-                    break;
-                case 'bottom-right':
-                    logoX = 10 - logoWidthInch - margin;
-                    logoY = 5.625 - logoHeightInch - margin;
-                    break;
-                default: // top-right
-                    logoX = 10 - logoWidthInch - margin;
-                    logoY = margin;
+                case 'top-left': logoX = margin; logoY = margin; break;
+                case 'bottom-left': logoX = margin; logoY = 5.625 - logoHeightInch - margin; break;
+                case 'bottom-right': logoX = 10 - logoWidthInch - margin; logoY = 5.625 - logoHeightInch - margin; break;
+                default: logoX = 10 - logoWidthInch - margin; logoY = margin;
             }
-
-            // ★ 關鍵：將 Logo 的 Base64 Data URL 傳給 PptxGenJS ★
-            // `data` 欄位直接接受 "data:image/png;base64,..." 格式
-            // transparency 欄位：0 = 完全不透明，100 = 完全透明
             masterObjects.push({
                 image: {
-                    x:    logoX,
-                    y:    logoY,
-                    w:    logoWidthInch,
-                    h:    logoHeightInch,
-                    data: AppState.logoBase64,              // ← 本地上傳的 Logo Base64
+                    x: logoX, y: logoY, w: logoWidthInch, h: logoHeightInch,
+                    data: AppState.logoBase64,
                     transparency: Math.round((1 - logoOpacity) * 100),
                 }
             });
         }
 
-        // 定義母片（所有投影片將繼承此模板）
-        pres.defineMaster({
+        // 修改：使用 defineSlideMaster 解決 is not a function 報錯
+        pres.defineSlideMaster({
             title: 'NOVA_MASTER',
             background: { color: theme.bg },
             objects: masterObjects,
         });
     }
 
-    /**
-     * 渲染封面頁（第一張投影片）
-     * 若有自定義封面圖，以圖片為底並疊加標題文字
-     *
-     * @param {PptxGenJS} pres - PptxGenJS 實例
-     * @param {Object} slideData - 封面頁 JSON 資料
-     */
     function renderCoverSlide(pres, slideData) {
         const slide = pres.addSlide({ masterName: 'NOVA_MASTER' });
         const theme = THEMES[AppState.selectedTheme] || THEMES.midnight;
 
         if (AppState.coverBase64) {
-            // ── 模式一：使用自定義封面圖片 ──
-            // 全版面背景圖
-            slide.addImage({
-                data: AppState.coverBase64,
-                x: 0, y: 0, w: '100%', h: '100%',
-            });
-            // 半透明深色遮罩，提升文字可讀性
-            slide.addShape(pres.ShapeType.rect, {
-                x: 0, y: 0, w: '100%', h: '100%',
-                fill: { color: '000000', transparency: 35 },
-            });
-            // 主標題
-            slide.addText(slideData.title || '未命名簡報', {
-                x: 0.8, y: 1.6, w: 8.4, h: 1.8,
-                fontSize:  40,
-                bold:      true,
-                color:     'FFFFFF',
-                align:     'center',
-                fontFace:  'Arial',
-                shadow:    { type: 'outer', color: '000000', blur: 15, offset: 3 },
-            });
-            // 副標題
-            if (slideData.subtitle) {
-                slide.addText(slideData.subtitle, {
-                    x: 1.5, y: 3.6, w: 7, h: 0.8,
-                    fontSize: 18,
-                    color:    'EEEEEE',
-                    align:    'center',
-                    fontFace: 'Arial',
-                    italic:   true,
-                });
-            }
+            slide.addImage({ data: AppState.coverBase64, x: 0, y: 0, w: '100%', h: '100%' });
+            slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: '100%', fill: { color: '000000', transparency: 35 } });
+            slide.addText(slideData.title || '未命名簡報', { x: 0.8, y: 1.6, w: 8.4, h: 1.8, fontSize: 40, bold: true, color: 'FFFFFF', align: 'center', fontFace: 'Arial', shadow: { type: 'outer', color: '000000', blur: 15, offset: 3 } });
+            if (slideData.subtitle) slide.addText(slideData.subtitle, { x: 1.5, y: 3.6, w: 7, h: 0.8, fontSize: 18, color: 'EEEEEE', align: 'center', fontFace: 'Arial', italic: true });
         } else {
-            // ── 模式二：預設漸層封面 ──
-            // 左側強調色塊
-            slide.addShape(pres.ShapeType.rect, {
-                x: 0, y: 0, w: 0.5, h: '100%',
-                fill: { color: theme.accent },
-            });
-            // 主標題
-            slide.addText(slideData.title || '未命名簡報', {
-                x: 0.8, y: 1.5, w: 8.8, h: 2,
-                fontSize: 40,
-                bold:     true,
-                color:    theme.text,
-                align:    'left',
-                fontFace: 'Arial',
-            });
-            // 副標題
-            if (slideData.subtitle) {
-                slide.addText(slideData.subtitle, {
-                    x: 0.8, y: 3.7, w: 7, h: 0.8,
-                    fontSize: 20,
-                    color:    theme.secondary,
-                    align:    'left',
-                    fontFace: 'Arial',
-                });
-            }
-            // 底部裝飾線
-            slide.addShape(pres.ShapeType.rect, {
-                x: 0.8, y: 5.1, w: 8.4, h: 0.03,
-                fill: { color: theme.accent, transparency: 50 },
-            });
+            slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: 0.5, h: '100%', fill: { color: theme.accent } });
+            slide.addText(slideData.title || '未命名簡報', { x: 0.8, y: 1.5, w: 8.8, h: 2, fontSize: 40, bold: true, color: theme.text, align: 'left', fontFace: 'Arial' });
+            if (slideData.subtitle) slide.addText(slideData.subtitle, { x: 0.8, y: 3.7, w: 7, h: 0.8, fontSize: 20, color: theme.secondary, align: 'left', fontFace: 'Arial' });
+            slide.addShape(pres.ShapeType.rect, { x: 0.8, y: 5.1, w: 8.4, h: 0.03, fill: { color: theme.accent, transparency: 50 } });
         }
     }
 
-    /**
-     * 渲染純文字投影片 (text_only layout)
-     *
-     * @param {Object} slide     - PptxGenJS 投影片物件
-     * @param {Object} slideData - 投影片 JSON 資料
-     * @param {Object} theme     - 色彩主題
-     */
     function renderTextOnly(slide, slideData, theme) {
-        // 左側強調色條（裝飾用）
-        slide.addShape('rect', {
-            x: 0, y: 0, w: 0.08, h: '100%',
-            fill: { color: theme.accent },
-        });
-        // 投影片標題
-        slide.addText(slideData.title || '', {
-            x: 0.4, y: 0.2, w: 9.2, h: 0.85,
-            fontSize: 26,
-            bold:     true,
-            color:    theme.text,
-            fontFace: 'Arial',
-        });
-        // 標題底部強調線
-        slide.addShape('rect', {
-            x: 0.4, y: 1.05, w: 0.55, h: 0.045,
-            fill: { color: theme.accent },
-        });
-        // 項目符號列表（支援多條）
+        slide.addShape('rect', { x: 0, y: 0, w: 0.08, h: '100%', fill: { color: theme.accent } });
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.85, fontSize: 26, bold: true, color: theme.text, fontFace: 'Arial' });
+        slide.addShape('rect', { x: 0.4, y: 1.05, w: 0.55, h: 0.045, fill: { color: theme.accent } });
         const bullets = slideData.bullet_points || [];
         if (bullets.length > 0) {
-            const bulletObjs = bullets.map(b => ({
-                text: b,
-                options: {
-                    bullet:        { type: 'bullet', code: '25CF' }, // ● 實心圓點
-                    paraSpaceAfter: 6,
-                    color:         'CCCCCC',
-                }
-            }));
-            slide.addText(bulletObjs, {
-                x:      0.5,
-                y:      1.25,
-                w:      9.1,
-                h:      4.15,
-                fontSize: 15,
-                fontFace: 'Arial',
-                valign:   'top',
-                lineSpacingMultiple: 1.4,
-                color:  'CCCCCC',
-            });
+            const bulletObjs = bullets.map(b => ({ text: b, options: { bullet: { type: 'bullet', code: '25CF' }, paraSpaceAfter: 6, color: 'CCCCCC' } }));
+            slide.addText(bulletObjs, { x: 0.5, y: 1.25, w: 9.1, h: 4.15, fontSize: 15, fontFace: 'Arial', valign: 'top', lineSpacingMultiple: 1.4, color: 'CCCCCC' });
         }
     }
 
-    /**
-     * 渲染文字 + 圖片投影片 (text_and_image layout)
-     * 布局：左 55% 文字 | 右 42% 圖片
-     *
-     * @param {Object} slide       - PptxGenJS 投影片物件
-     * @param {Object} slideData   - 投影片 JSON 資料
-     * @param {string|null} imageBase64 - 已生成的圖片 Base64
-     * @param {Object} theme       - 色彩主題
-     */
     function renderTextAndImage(slide, slideData, imageBase64, theme) {
-        // 左側強調色條
-        slide.addShape('rect', {
-            x: 0, y: 0, w: 0.08, h: '100%',
-            fill: { color: theme.accent },
-        });
-        // 投影片標題
-        slide.addText(slideData.title || '', {
-            x: 0.3, y: 0.2, w: 9.4, h: 0.75,
-            fontSize: 22,
-            bold:     true,
-            color:    theme.text,
-            fontFace: 'Arial',
-        });
-        // 標題強調線
-        slide.addShape('rect', {
-            x: 0.3, y: 0.95, w: 0.45, h: 0.04,
-            fill: { color: theme.accent },
-        });
+        slide.addShape('rect', { x: 0, y: 0, w: 0.08, h: '100%', fill: { color: theme.accent } });
+        slide.addText(slideData.title || '', { x: 0.3, y: 0.2, w: 9.4, h: 0.75, fontSize: 22, bold: true, color: theme.text, fontFace: 'Arial' });
+        slide.addShape('rect', { x: 0.3, y: 0.95, w: 0.45, h: 0.04, fill: { color: theme.accent } });
 
-        // 左側文字區（佔約 55% 寬度）
         const bullets = slideData.bullet_points || [];
         if (bullets.length > 0) {
-            const bulletObjs = bullets.map(b => ({
-                text: b,
-                options: {
-                    bullet:        { type: 'bullet', code: '25B8' }, // ▸ 小三角箭頭
-                    paraSpaceAfter: 6,
-                }
-            }));
-            slide.addText(bulletObjs, {
-                x:        0.3,
-                y:        1.15,
-                w:        5.35,
-                h:        4.25,
-                fontSize: 14,
-                color:    'C8C8D0',
-                fontFace: 'Arial',
-                valign:   'top',
-                lineSpacingMultiple: 1.38,
-            });
+            const bulletObjs = bullets.map(b => ({ text: b, options: { bullet: { type: 'bullet', code: '25B8' }, paraSpaceAfter: 6 } }));
+            slide.addText(bulletObjs, { x: 0.3, y: 1.15, w: 5.35, h: 4.25, fontSize: 14, color: 'C8C8D0', fontFace: 'Arial', valign: 'top', lineSpacingMultiple: 1.38 });
         }
-
-        // 右側：圖片區（佔約 42% 寬度）
         if (imageBase64) {
-            // AI 生成圖片：帶圓角與陰影
-            slide.addImage({
-                data:     imageBase64,
-                x:        5.85,
-                y:        1.0,
-                w:        3.95,
-                h:        4.4,
-                rounding: true,
-            });
+            slide.addImage({ data: imageBase64, x: 5.85, y: 1.0, w: 3.95, h: 4.4, rounding: true });
         } else {
-            // 佔位框：顯示提示文字
-            slide.addShape('rect', {
-                x: 5.85, y: 1.0, w: 3.95, h: 4.4,
-                fill: { color: theme.accent, transparency: 82 },
-                line: { color: theme.secondary, width: 0.5, transparency: 60 },
-            });
-            slide.addText('🖼️\n圖片生成中\n或已跳過', {
-                x: 5.85, y: 2.4, w: 3.95, h: 1.6,
-                fontSize: 12,
-                color:    theme.secondary,
-                align:    'center',
-                valign:   'middle',
-            });
+            slide.addShape('rect', { x: 5.85, y: 1.0, w: 3.95, h: 4.4, fill: { color: theme.accent, transparency: 82 }, line: { color: theme.secondary, width: 0.5, transparency: 60 } });
+            slide.addText('🖼️\n圖片生成中\n或已跳過', { x: 5.85, y: 2.4, w: 3.95, h: 1.6, fontSize: 12, color: theme.secondary, align: 'center', valign: 'middle' });
         }
     }
 
-    /**
-     * 渲染流程圖投影片 (flowchart_only layout)
-     *
-     * @param {Object} slide         - PptxGenJS 投影片物件
-     * @param {Object} slideData     - 投影片 JSON 資料
-     * @param {string|null} chartB64 - Mermaid 渲染後的 PNG Base64
-     * @param {Object} theme         - 色彩主題
-     */
     function renderFlowchart(slide, slideData, chartB64, theme) {
-        // 左側強調色條
-        slide.addShape('rect', {
-            x: 0, y: 0, w: 0.08, h: '100%',
-            fill: { color: theme.accent },
-        });
-        // 標題
-        slide.addText(slideData.title || '', {
-            x: 0.3, y: 0.18, w: 9.4, h: 0.75,
-            fontSize: 22,
-            bold:     true,
-            color:    theme.text,
-            fontFace: 'Arial',
-        });
-        // 標題強調線
-        slide.addShape('rect', {
-            x: 0.3, y: 0.93, w: 0.45, h: 0.04,
-            fill: { color: theme.accent },
-        });
-        // 流程圖圖片（置中顯示，留適當邊距）
+        slide.addShape('rect', { x: 0, y: 0, w: 0.08, h: '100%', fill: { color: theme.accent } });
+        slide.addText(slideData.title || '', { x: 0.3, y: 0.18, w: 9.4, h: 0.75, fontSize: 22, bold: true, color: theme.text, fontFace: 'Arial' });
+        slide.addShape('rect', { x: 0.3, y: 0.93, w: 0.45, h: 0.04, fill: { color: theme.accent } });
         if (chartB64) {
-            slide.addImage({
-                data: chartB64,
-                x: 0.4, y: 1.05, w: 9.2, h: 4.35,
-            });
+            slide.addImage({ data: chartB64, x: 0.4, y: 1.05, w: 9.2, h: 4.35 });
         } else {
-            // 渲染失敗提示框
-            slide.addShape('rect', {
-                x: 0.4, y: 1.05, w: 9.2, h: 4.35,
-                fill: { color: theme.accent, transparency: 90 },
-                line: { color: theme.secondary, width: 0.5, transparency: 60, dashType: 'dash' },
-            });
-            slide.addText('流程圖渲染失敗\n請確認 Mermaid 語法是否正確', {
-                x: 2.5, y: 2.5, w: 5, h: 1.2,
-                fontSize: 14,
-                color:    theme.secondary,
-                align:    'center',
-                valign:   'middle',
-                italic:   true,
-            });
+            slide.addShape('rect', { x: 0.4, y: 1.05, w: 9.2, h: 4.35, fill: { color: theme.accent, transparency: 90 }, line: { color: theme.secondary, width: 0.5, transparency: 60, dashType: 'dash' } });
+            slide.addText('流程圖渲染失敗\n請確認 Mermaid 語法是否正確', { x: 2.5, y: 2.5, w: 5, h: 1.2, fontSize: 14, color: theme.secondary, align: 'center', valign: 'middle', italic: true });
         }
     }
 
-    /**
-     * 添加演講者備忘錄到投影片
-     */
     function addSpeakerNotes(slide, notes) {
-        if (notes) {
-            slide.addNotes(notes);
-        }
+        if (notes) slide.addNotes(notes);
     }
 
-    /**
-     * 在投影片上疊加置中浮水印 Logo
-     * 此函數在「置中浮水印」模式下，對每張內容頁單獨呼叫
-     * 注意：透明度以非常低的 opacity 疊加，視覺上若隱若現
-     *
-     * @param {Object} slide - PptxGenJS 投影片物件
-     */
     function addCenterWatermark(slide) {
         if (!AppState.logoBase64) return;
-        const opacityPct = parseInt(document.getElementById('range-opacity').value); // 10~100
-
-        // 浮水印固定尺寸（佔投影片寬度 40%，約 4 英吋）
-        // 透明度計算：使用者設定值 × 0.18 → 最終只顯示 10%~18% 的不透明度
+        const opacityPct = parseInt(document.getElementById('range-opacity').value);
         const watermarkOpacityPct = Math.round(opacityPct * 0.18);
         const transparency = Math.max(0, Math.min(100, 100 - watermarkOpacityPct));
-
-        slide.addImage({
-            data:         AppState.logoBase64,
-            x:            2.75,    // (10 - 4.5) / 2 = 2.75"
-            y:            1.88,    // (5.625 - 1.85) / 2 ≈ 1.88"
-            w:            4.5,
-            h:            1.85,
-            transparency: transparency,
-        });
+        slide.addImage({ data: AppState.logoBase64, x: 2.75, y: 1.88, w: 4.5, h: 1.85, transparency: transparency });
     }
 
-    /**
-     * ★ 主要 PPTX 建構函數 ★
-     * 整合所有投影片並輸出 PptxGenJS 物件
-     *
-     * @param {Object} presentationData - Gemini 生成的簡報 JSON
-     * @param {Map} imageMap  - slideNumber → Base64 圖片的 Map
-     * @param {Map} chartMap  - slideNumber → Mermaid PNG Base64 的 Map
-     * @returns {PptxGenJS} - 完成的簡報物件
-     */
     function buildPptx(presentationData, imageMap, chartMap) {
         const pres  = new PptxGenJS();
         const theme = THEMES[AppState.selectedTheme] || THEMES.midnight;
         const logoPos = document.getElementById('sel-logo-position').value;
         const withNotes = document.getElementById('chk-speaker-notes').checked;
 
-        // 設定簡報基本屬性
-        pres.layout = 'LAYOUT_WIDE'; // 16:9 寬螢幕（1280×720 等比）
+        pres.layout = 'LAYOUT_WIDE';
         pres.title  = presentationData.presentation_title || '簡報';
         pres.author = 'NOVA 120 AI 簡報生成器';
 
-        // ════ 步驟一：設定母片（含 Logo 整合）════
         setupMasterSlide(pres);
 
         const slides = presentationData.slides || [];
-
-        // ════ 步驟二：渲染每張投影片 ════
         for (let i = 0; i < slides.length; i++) {
             const slideData = slides[i];
             const slideNum  = slideData.slide_number;
             const layout    = slideData.layout || 'text_only';
 
             if (i === 0 && layout === 'title_only') {
-                // ── 封面頁：特殊處理 ──
                 renderCoverSlide(pres, slideData);
             } else {
-                // ── 內容頁：套用母片，依 layout 決定排版 ──
                 const slide = pres.addSlide({ masterName: 'NOVA_MASTER' });
+                if (logoPos === 'center-watermark') addCenterWatermark(slide);
 
-                // 若為「置中浮水印」模式，在每張內容頁疊加 Logo
-                if (logoPos === 'center-watermark') {
-                    addCenterWatermark(slide);
-                }
+                slide.addText(`${i + 1}  /  ${slides.length}`, { x: 8.5, y: 5.28, w: 1.35, h: 0.28, fontSize: 9, color: '555566', align: 'right', fontFace: 'Arial' });
 
-                // 頁碼（右下角，小字灰色）
-                slide.addText(`${i + 1}  /  ${slides.length}`, {
-                    x:        8.5,
-                    y:        5.28,
-                    w:        1.35,
-                    h:        0.28,
-                    fontSize: 9,
-                    color:    '555566',
-                    align:    'right',
-                    fontFace: 'Arial',
-                });
-
-                // 依 layout 分流渲染
                 switch (layout) {
-                    case 'text_and_image':
-                        renderTextAndImage(
-                            slide,
-                            slideData,
-                            imageMap.get(slideNum) || null,
-                            theme
-                        );
-                        break;
-                    case 'flowchart_only':
-                        renderFlowchart(
-                            slide,
-                            slideData,
-                            chartMap.get(slideNum) || null,
-                            theme
-                        );
-                        break;
-                    case 'text_only':
-                    default:
-                        renderTextOnly(slide, slideData, theme);
-                        break;
+                    case 'text_and_image': renderTextAndImage(slide, slideData, imageMap.get(slideNum) || null, theme); break;
+                    case 'flowchart_only': renderFlowchart(slide, slideData, chartMap.get(slideNum) || null, theme); break;
+                    case 'text_only': default: renderTextOnly(slide, slideData, theme); break;
                 }
-
-                // 加入演講者備忘錄
-                if (withNotes && slideData.speaker_notes) {
-                    addSpeakerNotes(slide, slideData.speaker_notes);
-                }
+                if (withNotes && slideData.speaker_notes) addSpeakerNotes(slide, slideData.speaker_notes);
             }
         }
-
         return pres;
     }
 
     // ════════════════════════════════════════════════
-    // § 8. 主要協調器（Main Orchestrator）
+    // § 8. 主要協調器
     // ════════════════════════════════════════════════
-
-    /**
-     * 整合知識庫文字（文件 + 貼上區）
-     * 限制最大長度以避免超出 Gemini context window
-     */
     function buildKnowledgeBase() {
-        const MAX_CHARS = 80000;  // 約 20K tokens
+        const MAX_CHARS = 80000;
         const parts = [];
-
-        // 加入上傳的文件
-        for (const doc of AppState.kbDocs) {
-            parts.push(`=== 文件：${doc.name} ===\n${doc.text}`);
-        }
-
-        // 加入貼上的文字
+        for (const doc of AppState.kbDocs) parts.push(`=== 文件：${doc.name} ===\n${doc.text}`);
         const pasteText = document.getElementById('kb-paste-area').value.trim();
-        if (pasteText) {
-            parts.push(`=== 貼上文字 ===\n${pasteText}`);
-        }
-
+        if (pasteText) parts.push(`=== 貼上文字 ===\n${pasteText}`);
         if (parts.length === 0) return '';
         const combined = parts.join('\n\n');
         return combined.length > MAX_CHARS ? combined.slice(0, MAX_CHARS) + '\n…（已截斷）' : combined;
     }
 
-    /**
-     * ★ 主函數：啟動簡報生成流程 ★
-     * 執行順序：
-     * 1. 驗證輸入
-     * 2. 呼叫 Gemini 生成 JSON 大綱
-     * 3. 並行：生成圖片 + 渲染 Mermaid 圖表
-     * 4. 建構 PPTX
-     * 5. 顯示預覽 + 啟用下載按鈕
-     */
     async function startGeneration() {
-        // ── 前置驗證：每次生成都重新從 localStorage 取得最新 key ──
-        // （使用者可能在生成前才在 index.html 設定好 key）
         AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
         AppState.xaiApiKey    = localStorage.getItem('nova_key_grok')   || '';
         updateApiStatusBadge();
 
-        if (!AppState.googleApiKey) {
-            showToast('❌ 請先在 NOVA 120 設定中填寫 Gemini API Key');
-            return;
-        }
+        if (!AppState.googleApiKey) { showToast('❌ 請先在 NOVA 120 設定中填寫 Gemini API Key'); return; }
 
         const topic = document.getElementById('inp-topic').value.trim();
-        if (!topic) {
-            showToast('❌ 請輸入簡報主題');
-            document.getElementById('inp-topic').focus();
-            return;
-        }
+        if (!topic) { showToast('❌ 請輸入簡報主題'); document.getElementById('inp-topic').focus(); return; }
 
         if (AppState.isGenerating) return;
         AppState.isGenerating = true;
 
-        // ── 初始化 UI 狀態 ──
         document.getElementById('section-empty').classList.add('hidden');
         document.getElementById('section-progress').classList.remove('hidden');
         document.getElementById('section-preview').classList.add('hidden');
@@ -1927,7 +1119,6 @@ JSON Schema：
             const knowledgeBase = buildKnowledgeBase();
             const slideCount    = parseInt(document.getElementById('range-slide-count').value);
 
-            // ── Step 1：生成簡報大綱 JSON ──
             addLog('正在分析主題與知識庫…', 'info');
             addLog(`呼叫 ${document.getElementById('sel-text-model').options[document.getElementById('sel-text-model').selectedIndex].text}，生成 ${slideCount} 張投影片大綱…`, 'ai');
             setProgress(5);
@@ -1936,77 +1127,46 @@ JSON Schema：
             AppState.presentationData = presentationData;
 
             addLog(`✓ 大綱生成完成：「${presentationData.presentation_title}」`, 'success');
-            addLog(`  共 ${presentationData.slides.length} 張投影片`, 'info');
             setProgress(20);
 
-            // ── Step 2：並行處理圖片與 Mermaid ──
-            const imageMap = new Map();  // slideNumber → Base64
-            const chartMap = new Map();  // slideNumber → PNG Base64
-
+            const imageMap = new Map();
+            const chartMap = new Map();
             const slides = presentationData.slides || [];
-
-            // 收集需要生成圖片的投影片（所有 text_and_image layout 都生成，引擎自動 fallback）
-            const imageTasks = slides.filter(s =>
-                s.layout === 'text_and_image'
-            );
-            // 收集需要渲染 Mermaid 的投影片
-            const chartTasks = slides.filter(s =>
-                s.layout === 'flowchart_only' && s.mermaid_code
-            );
+            const imageTasks = slides.filter(s => s.layout === 'text_and_image');
+            const chartTasks = slides.filter(s => s.layout === 'flowchart_only' && s.mermaid_code);
 
             const totalAssets = imageTasks.length + chartTasks.length;
             let doneAssets    = 0;
 
-            // ── Step 2a：生成 AI 圖片 ──
-            if (imageTasks.length > 0) {
-                addLog(`開始生成圖片（共 ${imageTasks.length} 張）…`, 'ai');
-            }
+            if (imageTasks.length > 0) addLog(`開始生成圖片（共 ${imageTasks.length} 張）…`, 'ai');
 
-            // 限制並發數量為 2，避免觸發 API rate limit（圖片生成較耗時）
             const IMAGE_CONCURRENCY = 2;
             for (let i = 0; i < imageTasks.length; i += IMAGE_CONCURRENCY) {
                 const batch = imageTasks.slice(i, i + IMAGE_CONCURRENCY);
                 await Promise.allSettled(
                     batch.map(async (slideData) => {
-                        // ★ 使用新簽名：傳入 title / bullets / image_prompt / slideIdx ★
-                        const imgBase64 = await generateImage(
-                            slideData.title || '',
-                            slideData.bullet_points || [],
-                            slideData.image_prompt  || '',
-                            slideData.slide_number  - 1
-                        );
-                        if (imgBase64) {
-                            imageMap.set(slideData.slide_number, imgBase64);
-                        }
+                        const imgBase64 = await generateImage(slideData.title || '', slideData.bullet_points || [], slideData.image_prompt || '', slideData.slide_number - 1);
+                        if (imgBase64) imageMap.set(slideData.slide_number, imgBase64);
                         doneAssets++;
-                        const pct = 20 + Math.round((doneAssets / Math.max(totalAssets, 1)) * 60);
-                        setProgress(Math.min(pct, 80));
+                        setProgress(Math.min(20 + Math.round((doneAssets / Math.max(totalAssets, 1)) * 60), 80));
                     })
                 );
             }
 
-            // ── Step 2b：渲染 Mermaid 流程圖（每個最多等 12 秒，超時自動跳過）──
             if (chartTasks.length > 0) {
                 addLog(`開始渲染流程圖（共 ${chartTasks.length} 個，每個限時 12 秒）…`, 'ai');
                 for (const slideData of chartTasks) {
                     addLog(`📐 渲染投影片 ${slideData.slide_number} 流程圖…`, 'info');
-                    const t0       = Date.now();
                     const chartB64 = await mermaidToBase64(slideData.mermaid_code);
-                    const elapsed  = ((Date.now() - t0) / 1000).toFixed(1);
-
                     if (chartB64) {
                         chartMap.set(slideData.slide_number, chartB64);
-                        addLog(`✓ 流程圖 ${slideData.slide_number} 完成（${elapsed}s）`, 'success');
-                    } else {
-                        addLog(`⚠ 流程圖 ${slideData.slide_number} 失敗或超時（${elapsed}s），使用佔位框`, 'warning');
-                    }
+                        addLog(`✓ 流程圖 ${slideData.slide_number} 完成`, 'success');
+                    } else { addLog(`⚠ 流程圖 ${slideData.slide_number} 失敗，使用佔位框`, 'warning'); }
                     doneAssets++;
-                    const pct = 20 + Math.round((doneAssets / Math.max(totalAssets, 1)) * 60);
-                    setProgress(Math.min(pct, 80));
+                    setProgress(Math.min(20 + Math.round((doneAssets / Math.max(totalAssets, 1)) * 60), 80));
                 }
             }
 
-            // ── Step 3：建構 PPTX ──
             addLog('正在組裝 PPTX 檔案…', 'info');
             setProgress(82);
 
@@ -2016,12 +1176,10 @@ JSON Schema：
             setProgress(95);
             addLog('✓ PPTX 組裝完成！', 'success');
 
-            // ── Step 4：顯示預覽 ──
             renderSlidesPreview(presentationData);
             setProgress(100);
             addLog('🎉 簡報生成完成，請點擊下載按鈕！', 'success');
 
-            // 更新 UI：停止進度動畫，顯示下載按鈕
             document.getElementById('progress-spinner').classList.remove('animate-spin');
             document.getElementById('progress-spinner').style.border = '2px solid #10b981';
             document.getElementById('btn-download').classList.remove('hidden');
@@ -2041,9 +1199,6 @@ JSON Schema：
         }
     }
 
-    /**
-     * 在右側渲染投影片大綱預覽卡片
-     */
     function renderSlidesPreview(presentationData) {
         const container = document.getElementById('slides-preview-list');
         const countEl   = document.getElementById('preview-slide-count');
@@ -2052,73 +1207,36 @@ JSON Schema：
         const slides = presentationData.slides || [];
         countEl.textContent = `${slides.length} 張投影片`;
 
-        slides.forEach((slide, idx) => {
-            const theme    = THEMES[AppState.selectedTheme] || THEMES.midnight;
-            const layoutCN = {
-                title_only:     '封面頁',
-                text_only:      '純文字',
-                text_and_image: '文字+圖片',
-                flowchart_only: '流程圖',
-            }[slide.layout] || slide.layout;
-
+        slides.forEach((slide) => {
+            const layoutCN = { title_only: '封面頁', text_only: '純文字', text_and_image: '文字+圖片', flowchart_only: '流程圖' }[slide.layout] || slide.layout;
             const card = document.createElement('div');
-            card.className = 'slide-card bg-slate-900 border border-slate-800 rounded-2xl p-4 ' +
-                             'hover:border-violet-500/40 transition-colors';
+            card.className = 'slide-card bg-slate-900 border border-slate-800 rounded-2xl p-4 hover:border-violet-500/40 transition-colors';
             card.innerHTML = `
                 <div class="flex items-start justify-between gap-2 mb-2">
                     <div class="flex items-center gap-2 min-w-0">
-                        <!-- 投影片編號 -->
-                        <span class="w-6 h-6 rounded-lg bg-violet-500/20 text-violet-300
-                                     text-xs font-bold flex items-center justify-center shrink-0">
-                            ${slide.slide_number}
-                        </span>
+                        <span class="w-6 h-6 rounded-lg bg-violet-500/20 text-violet-300 text-xs font-bold flex items-center justify-center shrink-0">${slide.slide_number}</span>
                         <h4 class="text-sm font-semibold text-white truncate">${slide.title || '（無標題）'}</h4>
                     </div>
-                    <!-- Layout 徽章 -->
                     <span class="layout-badge layout-${slide.layout} shrink-0">${layoutCN}</span>
                 </div>
-                <!-- 項目符號預覽（最多顯示 3 條） -->
-                ${(slide.bullet_points || []).slice(0, 3).map(b =>
-                    `<p class="text-xs text-slate-500 truncate pl-2 before:content-['·'] before:mr-1.5">${b}</p>`
-                ).join('')}
-                ${slide.bullet_points?.length > 3
-                    ? `<p class="text-xs text-slate-600 pl-2">…還有 ${slide.bullet_points.length - 3} 條</p>`
-                    : ''}
-                <!-- 演講者備忘錄預覽 -->
-                ${slide.speaker_notes
-                    ? `<div class="mt-2 pt-2 border-t border-slate-800">
-                           <p class="text-[11px] text-slate-600 line-clamp-2">
-                               💬 ${slide.speaker_notes}
-                           </p>
-                       </div>`
-                    : ''}
+                ${(slide.bullet_points || []).slice(0, 3).map(b => `<p class="text-xs text-slate-500 truncate pl-2 before:content-['·'] before:mr-1.5">${b}</p>`).join('')}
+                ${slide.bullet_points?.length > 3 ? `<p class="text-xs text-slate-600 pl-2">…還有 ${slide.bullet_points.length - 3} 條</p>` : ''}
+                ${slide.speaker_notes ? `<div class="mt-2 pt-2 border-t border-slate-800"><p class="text-[11px] text-slate-600 line-clamp-2">💬 ${slide.speaker_notes}</p></div>` : ''}
             `;
             container.appendChild(card);
         });
     }
 
-    /**
-     * 觸發 PPTX 檔案下載
-     */
     async function downloadPptx() {
-        if (!AppState.pptxObject) {
-            showToast('❌ 尚未生成簡報，請先點擊「開始生成」');
-            return;
-        }
+        if (!AppState.pptxObject) { showToast('❌ 尚未生成簡報，請先點擊「開始生成」'); return; }
         try {
-            const fileName = (AppState.presentationData?.presentation_title || '簡報')
-                .replace(/[\\/:*?"<>|]/g, '_') + '.pptx';
-
+            const fileName = (AppState.presentationData?.presentation_title || '簡報').replace(/[\\/:*?"<>|]/g, '_') + '.pptx';
             addLog('正在準備下載…', 'info');
             await AppState.pptxObject.writeFile({ fileName });
             addLog(`✓ 已下載：${fileName}`, 'success');
             showToast(`📥 已下載 ${fileName}`);
-        } catch (e) {
-            console.error('[Download Error]', e);
-            showToast('❌ 下載失敗：' + e.message);
-        }
+        } catch (e) { console.error('[Download Error]', e); showToast('❌ 下載失敗：' + e.message); }
     }
-
     </script>
 </body>
 </html>
