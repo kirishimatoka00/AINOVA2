@@ -172,6 +172,16 @@
                             </div>
                         </div>
 
+                        <div class="border-t border-slate-800 pt-3">
+                            <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格 (Template)</label>
+                            <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
+                                <option value="modern">現代極簡 (Modern Minimalist)</option>
+                                <option value="tech">科技未來 (Tech Future)</option>
+                                <option value="corporate">商務專業 (Corporate Professional)</option>
+                                <option value="creative">活潑創意 (Creative & Playful)</option>
+                            </select>
+                        </div>
+
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">投影片背景底色</label>
                             <div class="flex gap-2">
@@ -221,7 +231,7 @@
                 </div>
                 <h2 class="text-lg sm:text-xl font-bold text-white mb-2">原生可編輯 PPTX 引擎</h2>
                 <p class="text-slate-500 text-xs sm:text-sm max-w-md leading-relaxed">
-                    本次革命性升級：LLM 設計的 HTML 將被<b>即時解析並轉換為 PPT 原生的文字方塊、形狀與圖片</b>。下載後的簡報將擁有 100% 的可編輯性，不再只是靜態圖片！
+                    本次革命性升級：LLM 設計的排版將被<b>即時解析並轉換為 PPT 原生的文字方塊、形狀與圖片</b>。下載後的簡報將擁有 100% 的可編輯性，不再只是靜態圖片！
                 </p>
             </div>
         </div>
@@ -235,7 +245,7 @@
         kbDocs: [], logoBase64: null, 
         pptxObject: null, presentationData: null,
         isGenerating: false, cancelRequested: false, abortController: null,
-        finalSlideHTMLs: [] // 儲存供預覽的 HTML
+        finalSlideHTMLs: [] 
     };
 
     const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
@@ -285,12 +295,15 @@
         c.appendChild(i); c.scrollTop = c.scrollHeight;
     }
 
-    // ★ 修正 1：非同步進度條更新器，強迫瀏覽器繪製畫面
+    // ★ 修正 1：非同步進度條更新器，強迫瀏覽器重繪畫面 ★
     async function updateProgress(pct) {
-        document.getElementById('progress-bar').style.width = pct + '%';
-        document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
-        // 讓出 Thread，強迫 UI 重新渲染
-        await new Promise(resolve => setTimeout(resolve, 20));
+        const bar = document.getElementById('progress-bar');
+        const pctText = document.getElementById('progress-pct');
+        if (bar) bar.style.width = Math.min(pct, 100) + '%';
+        if (pctText) pctText.textContent = Math.round(Math.min(pct, 100)) + '%';
+        
+        // 使用 Promise + setTimeout 強制讓出主執行緒，確保畫面一定會刷新
+        await new Promise(resolve => setTimeout(resolve, 25));
     }
 
     function getGeminiApiVersion(modelName) {
@@ -509,6 +522,9 @@ JSON Schema:
         const txtColor = '#F8FAFC'; // 淺色字
         const accColor = '#38BDF8'; // 強調色
 
+        // 防禦性變數宣告，避免 sData.bullet_points 為 undefined 時報錯
+        const bullets = sData.bullet_points || [];
+
         if (sData.layout === 'title_only') {
             // 原生形狀 (裝飾條)
             slide.addShape('rect', { x: 0, y: 0, w: 0.3, h: '100%', fill: { color: accColor } });
@@ -535,8 +551,8 @@ JSON Schema:
             });
             slide.addShape('rect', { x: 0.5, y: 1.2, w: 1.0, h: 0.05, fill: { color: accColor } });
             
-            if (sData.bullet_points) {
-                slide.addText(sData.bullet_points.map(b => ({ text: b, options: { bullet: { type: 'number' }, paraSpaceAfter: 10 } })), {
+            if (bullets.length > 0) {
+                slide.addText(bullets.map(b => ({ text: b, options: { bullet: { type: 'number' }, paraSpaceAfter: 10 } })), {
                     x: 0.5, y: 1.5, w: 5.0, h: 3.8, 
                     fontSize: 18, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
                 });
@@ -549,24 +565,30 @@ JSON Schema:
             // 雙欄排版
             slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 32, bold: true, color: accColor, fontFace: fontFace, align: 'center' });
             
-            let half = Math.ceil(sData.bullet_points.length / 2);
-            let col1 = sData.bullet_points.slice(0, half);
-            let col2 = sData.bullet_points.slice(half);
+            if (bullets.length > 0) {
+                let half = Math.ceil(bullets.length / 2);
+                let col1 = bullets.slice(0, half);
+                let col2 = bullets.slice(half);
 
-            slide.addText(col1.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
-                x: 0.5, y: 1.5, w: 4.3, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fill: {color:'1E293B'}, margin: 15
-            });
-            slide.addText(col2.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
-                x: 5.2, y: 1.5, w: 4.3, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fill: {color:'1E293B'}, margin: 15
-            });
+                if (col1.length > 0) {
+                    slide.addText(col1.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
+                        x: 0.5, y: 1.5, w: 4.3, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fill: {color:'1E293B'}, margin: 15
+                    });
+                }
+                if (col2.length > 0) {
+                    slide.addText(col2.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
+                        x: 5.2, y: 1.5, w: 4.3, h: 3.8, fontSize: 18, color: txtColor, valign: 'top', fill: {color:'1E293B'}, margin: 15
+                    });
+                }
+            }
         }
         else {
             // 預設純文字滿版
             slide.addText(sData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 0.8, fontSize: 36, bold: true, color: accColor, fontFace: fontFace });
             slide.addShape('rect', { x: 0.5, y: 1.25, w: 2.0, h: 0.05, fill: { color: accColor } });
             
-            if (sData.bullet_points) {
-                slide.addText(sData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 16 } })), {
+            if (bullets.length > 0) {
+                slide.addText(bullets.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 16 } })), {
                     x: 0.5, y: 1.6, w: 9.0, h: 3.5, fontSize: 20, color: txtColor, valign: 'top', fontFace: fontFace, lineSpacingMultiple: 1.2
                 });
             }
@@ -577,7 +599,7 @@ JSON Schema:
             <div style="width:100%; height:100%; background-color:${userBg}; position:relative; padding:40px; box-sizing:border-box; text-align:left;">
                 <h2 style="color:${accColor}; font-size:24px; font-weight:bold; margin-bottom:10px;">${sData.title || ''}</h2>
                 <ul style="color:${txtColor}; font-size:12px; line-height:1.5; padding-left:20px;">
-                    ${(sData.bullet_points||[]).map(b => `<li style="margin-bottom:8px;">${b}</li>`).join('')}
+                    ${bullets.map(b => `<li style="margin-bottom:8px;">${b}</li>`).join('')}
                 </ul>
             </div>
         `;
