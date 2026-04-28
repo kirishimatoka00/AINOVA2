@@ -111,7 +111,25 @@
                             <p class="text-slate-500 text-[10px] mt-1">若失敗會自動依序降級調用其他模型</p>
                         </div>
 
-                        <div>
+                        <div class="border-t border-slate-800 pt-3">
+                            <label class="block text-slate-400 mb-1.5 font-semibold">簡報 Logo / 浮水印</label>
+                            <div class="flex items-center gap-2">
+                                <button onclick="document.getElementById('logo-upload').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2 text-slate-300 transition-colors">上傳圖片</button>
+                                <select id="sel-logo-pos" class="bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 focus:border-amber-500 outline-none">
+                                    <option value="TR">右上角</option>
+                                    <option value="BR">右下角</option>
+                                    <option value="TL">左上角</option>
+                                    <option value="BL">左下角</option>
+                                </select>
+                                <input type="file" id="logo-upload" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
+                            </div>
+                            <div id="logo-preview-wrapper" class="hidden mt-2 relative inline-block">
+                                <img id="logo-preview" class="h-10 object-contain bg-white/10 rounded p-1">
+                                <button onclick="removeLogo()" class="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">&times;</button>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-800 pt-3">
                             <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格 (Template)</label>
                             <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="modern">現代極簡 (Modern Minimalist)</option>
@@ -130,14 +148,15 @@
                         </div>
 
                         <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">流程圖種類</label>
+                            <label class="block text-slate-400 mb-1.5 font-semibold">是否需要流程圖？</label>
                             <select id="sel-flowchart-dir" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="TD">由上至下 (Top-Down)</option>
-                                <option value="LR">由左至右 (Left-Right)</option>
-                                <option value="PIE">環形比例圖 (Pie Chart)</option>
-                                <option value="MINDMAP">心智圖 (Mindmap)</option>
-                                <option value="TIMELINE">時間軸 (Timeline)</option>
-                                <option value="SEQUENCE">交互循序圖 (Sequence)</option>
+                                <option value="NONE" class="text-rose-400 font-bold">🚫 不需要流程圖</option>
+                                <option value="TD">✅ 需要：由上至下 (Top-Down)</option>
+                                <option value="LR">✅ 需要：由左至右 (Left-Right)</option>
+                                <option value="PIE">✅ 需要：環形比例圖 (Pie Chart)</option>
+                                <option value="MINDMAP">✅ 需要：心智圖 (Mindmap)</option>
+                                <option value="TIMELINE">✅ 需要：時間軸 (Timeline)</option>
+                                <option value="SEQUENCE">✅ 需要：交互循序圖 (Sequence)</option>
                             </select>
                         </div>
 
@@ -174,7 +193,7 @@
                     <i class="ph-bold ph-presentation-chart text-violet-400 text-3xl"></i>
                 </div>
                 <h2 class="text-xl font-bold text-white mb-2">準備好 Pro 等級的簡報了嗎？</h2>
-                <p class="text-slate-500 text-sm max-w-sm">左側可精確指定模型、底色與版型風格，系統將自動套用動態排版，生成高解析度 16:9 專業簡報。</p>
+                <p class="text-slate-500 text-sm max-w-sm">左側可上傳 Logo 並精確指定模型、底色與版型。系統將自動套用無死角滿版排版，生成極具張力的 16:9 專業簡報。</p>
             </div>
         </div>
     </main>
@@ -261,7 +280,27 @@
         }
     }
 
-    /** 1. 增強 LLM 生成深度的 Prompt 設計 **/
+    // Logo 處理邏輯
+    function handleLogoUpload(e) {
+        const file = e.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            AppState.logoBase64 = event.target.result;
+            document.getElementById('logo-preview').src = AppState.logoBase64;
+            document.getElementById('logo-preview-wrapper').classList.remove('hidden');
+            showToast('✅ Logo 上傳成功');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function removeLogo() {
+        AppState.logoBase64 = null;
+        document.getElementById('logo-upload').value = '';
+        document.getElementById('logo-preview-wrapper').classList.add('hidden');
+    }
+
+    /** 1. 增強 LLM 生成深度的 Prompt 設計 & 流程圖開關邏輯 **/
     async function callGeminiForOutline(topic, kb) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
@@ -281,12 +320,19 @@
         const uniqueModels = [...new Set(FALLBACK_MODELS)];
 
         let flowchartPrompt = "";
-        switch(flowDir) {
-            case 'PIE': flowchartPrompt = "mermaid_code 必須使用 pie chart 語法，例如: pie title 分布圖 \\n \"A\" : 40 \\n \"B\" : 60"; break;
-            case 'MINDMAP': flowchartPrompt = "mermaid_code 必須使用 mindmap 語法，例如: mindmap \\n root((主題)) \\n   分支1 \\n   分支2"; break;
-            case 'TIMELINE': flowchartPrompt = "mermaid_code 必須使用 timeline 語法，例如: timeline \\n title 發展歷史 \\n 2023 : 事件A \\n 2024 : 事件B"; break;
-            case 'SEQUENCE': flowchartPrompt = "mermaid_code 必須使用 sequenceDiagram 語法，例如: sequenceDiagram \\n A->>B: 請求 \\n B-->>A: 回應"; break;
-            default: flowchartPrompt = `mermaid_code 必須以 graph ${flowDir} 開頭進行繪製。`;
+        let layoutOptions = '"title_only", "text_only", "text_and_image", "flowchart_only"';
+
+        if (flowDir === 'NONE') {
+            flowchartPrompt = "【極度重要】使用者已明確要求「不需要流程圖」，因此請絕對不要生成任何 mermaid_code，也不要使用 'flowchart_only' 版型。";
+            layoutOptions = '"title_only", "text_only", "text_and_image"';
+        } else {
+            switch(flowDir) {
+                case 'PIE': flowchartPrompt = "mermaid_code 必須使用 pie chart 語法，例如: pie title 分布圖 \\n \"A\" : 40 \\n \"B\" : 60"; break;
+                case 'MINDMAP': flowchartPrompt = "mermaid_code 必須使用 mindmap 語法，例如: mindmap \\n root((主題)) \\n   分支1 \\n   分支2"; break;
+                case 'TIMELINE': flowchartPrompt = "mermaid_code 必須使用 timeline 語法，例如: timeline \\n title 發展歷史 \\n 2023 : 事件A \\n 2024 : 事件B"; break;
+                case 'SEQUENCE': flowchartPrompt = "mermaid_code 必須使用 sequenceDiagram 語法，例如: sequenceDiagram \\n A->>B: 請求 \\n B-->>A: 回應"; break;
+                default: flowchartPrompt = `mermaid_code 必須以 graph ${flowDir} 開頭進行繪製。`;
+            }
         }
 
         const systemPrompt = `你是一位世界頂級的簡報內容策略師與商業分析師。
@@ -300,8 +346,8 @@
 1. 拒絕空泛：內容絕對不可只有「大綱式」或「名詞解釋」。必須包含具體案例、數據預估、優劣勢比較或深度邏輯推演。
 2. 內容飽滿：每張投影片的 \`bullet_points\` 必須提供 3 到 5 點，且每點文字長度必須足夠長（約 15~40 字），以確保寬螢幕排版顯得豐滿充實。
 3. 嚴格輸出純 JSON，不可包含 markdown 標籤（絕對不要輸出 \`\`\`json 標記）。
-4. layout 只能是: "title_only", "text_only", "text_and_image", "flowchart_only"。
-5. flowchart_only 必須包含 mermaid_code。mermaid_code 的節點文字請勿使用括號 ()、方括號 [] 或雙引號 "" 等特殊符號，以免造成渲染錯誤。字串內換行用 '\\n'。
+4. layout 只能是: ${layoutOptions}。
+5. 若有 flowchart_only，必須包含 mermaid_code。mermaid_code 的節點文字請勿使用括號 ()、方括號 [] 或雙引號 "" 等特殊符號，以免造成渲染錯誤。字串內換行用 '\\n'。
 6. image_prompt 必須是簡短的英文敘述（AI 繪圖提示詞），具體描述畫面中的物件、風格、光影。
 
 JSON Schema:
@@ -325,8 +371,8 @@ JSON Schema:
                         contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題指令：" + topic + (kb ? "\n參考資料：" + kb : "") }] }],
                         generationConfig: { 
                             responseMimeType: 'application/json', 
-                            temperature: 0.85, // 提高一點溫度，讓內容更豐富且具創造力
-                            maxOutputTokens: 8192 // 確保長篇距不被截斷
+                            temperature: 0.85, 
+                            maxOutputTokens: 8192 
                         }
                     }),
                     signal: AppState.abortController.signal
@@ -430,17 +476,13 @@ JSON Schema:
         return null;
     }
 
-    /** * 2. 動態排版引擎 (Dynamic Layout Engine)
-     * 解決「裁切形狀單調」與「版面利用率」問題 
-     */
+    /** 滿版無死角排版系統 (Full-Bleed Dynamic Layout) **/
 
     function renderTextOnly(slide, slideData, themeConfig) {
-        // 大面積滿版文字排版
-        slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 1.0, fontSize: 38, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.5, y: 1.4, w: 2.5, h: 0.06, fill: { color: themeConfig.accent } });
+        slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 1.0, fontSize: 40, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+        slide.addShape('rect', { x: 0.5, y: 1.45, w: 2.5, h: 0.06, fill: { color: themeConfig.accent } });
         
         if (slideData.bullet_points) {
-            // 利用 16:9 全寬幅空間
             slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 15 } })), {
                 x: 0.5, y: 1.8, w: 9.0, h: 3.5, fontSize: 22, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.3
             });
@@ -448,48 +490,50 @@ JSON Schema:
     }
 
     function renderTextAndImage(slide, slideData, imgB64, themeConfig, slideIndex) {
-        // 利用頁碼的奇偶數或隨機因子來決定當頁的排版風格
-        const layoutStyle = slideIndex % 3; // 產生 0, 1, 2 三種風格交替
-
-        slide.addText(slideData.title || '', { x: 0.5, y: 0.3, w: 9.0, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.5, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
+        const layoutStyle = slideIndex % 3; 
 
         const formattedBullets = slideData.bullet_points ? slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })) : [];
 
         if (layoutStyle === 0) {
-            // 【風格 A：傳統圖右文左】
-            slide.addText(formattedBullets, { x: 0.5, y: 1.4, w: 5.0, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+            // 【風格 A：滿版右切 (Half-bleed Right)】
+            slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 4.5, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 0.5, y: 1.25, w: 1.0, h: 0.05, fill: { color: themeConfig.accent } });
+            slide.addText(formattedBullets, { x: 0.5, y: 1.5, w: 4.5, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+            
             if (imgB64) {
-                slide.addImage({ data: imgB64, x: 5.7, y: 1.2, w: 4.0, h: 4.0, rounding: true });
+                slide.addImage({ data: imgB64, x: 5.5, y: 0, w: 4.5, h: 5.625, sizing: { type: 'cover', w: 4.5, h: 5.625 } });
             } else {
-                slide.addShape('rect', { x: 5.7, y: 1.2, w: 4.0, h: 4.0, fill: { color: themeConfig.accent, transparency: 80 } });
+                slide.addShape('rect', { x: 5.5, y: 0, w: 4.5, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
             }
         } 
         else if (layoutStyle === 1) {
-            // 【風格 B：圖文反轉 (圖左文右)，並使用特殊裁切/比例】
+            // 【風格 B：滿版左切 (Half-bleed Left)】
             if (imgB64) {
-                // 將圖片裁切為更細長的直式或較大的方塊
-                slide.addImage({ data: imgB64, x: 0.5, y: 1.4, w: 3.8, h: 3.8, rounding: true });
+                slide.addImage({ data: imgB64, x: 0, y: 0, w: 4.0, h: 5.625, sizing: { type: 'cover', w: 4.0, h: 5.625 } });
             } else {
-                slide.addShape('rect', { x: 0.5, y: 1.4, w: 3.8, h: 3.8, fill: { color: themeConfig.accent, transparency: 80 } });
+                slide.addShape('rect', { x: 0, y: 0, w: 4.0, h: 5.625, fill: { color: themeConfig.accent, transparency: 80 } });
             }
-            slide.addText(formattedBullets, { x: 4.6, y: 1.4, w: 5.0, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+            slide.addText(slideData.title || '', { x: 4.5, y: 0.4, w: 5.0, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 4.5, y: 1.25, w: 1.0, h: 0.05, fill: { color: themeConfig.accent } });
+            slide.addText(formattedBullets, { x: 4.5, y: 1.5, w: 5.0, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
         }
         else {
-            // 【風格 C：橫幅寬排版 (圖上文下，適合大圖片展示)】
+            // 【風格 C：頂部滿版 (Top-bleed)】
             if (imgB64) {
-                slide.addImage({ data: imgB64, x: 0.5, y: 1.3, w: 9.0, h: 2.2, rounding: true });
+                slide.addImage({ data: imgB64, x: 0, y: 0, w: 10.0, h: 2.5, sizing: { type: 'cover', w: 10.0, h: 2.5 } });
             } else {
-                slide.addShape('rect', { x: 0.5, y: 1.3, w: 9.0, h: 2.2, fill: { color: themeConfig.accent, transparency: 80 } });
+                slide.addShape('rect', { x: 0, y: 0, w: 10.0, h: 2.5, fill: { color: themeConfig.accent, transparency: 80 } });
             }
-            // 文字分為雙欄 (PptxGenJS 支援簡易分欄法：縮小寬度，這裡我們簡化為下方橫置)
-            slide.addText(formattedBullets, { x: 0.5, y: 3.7, w: 9.0, h: 1.8, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.1 });
+            slide.addText(slideData.title || '', { x: 0.5, y: 2.7, w: 9.0, h: 0.6, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+            slide.addShape('rect', { x: 0.5, y: 3.35, w: 9.0, h: 0.03, fill: { color: themeConfig.accent, transparency: 50 } });
+            slide.addText(formattedBullets, { x: 0.5, y: 3.5, w: 9.0, h: 1.9, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.1 });
         }
     }
 
     function renderFlowchart(slide, slideData, chartB64, themeConfig) {
         slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 30, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
         if (chartB64) {
+            // 圖表顯示區滿版
             slide.addImage({ data: chartB64, x: 0.4, y: 0.9, w: 9.2, h: 4.5 });
         }
     }
@@ -530,12 +574,27 @@ JSON Schema:
             const pres = new PptxGenJS();
             pres.layout = 'LAYOUT_WIDE'; // 16:9
 
+            // Logo Master Slide 配置
+            let masterObjects = [
+                { text: { text: "NOVA 120 Pro", options: { x: 8.0, y: 5.4, w: 1.8, color: themeConfig.accent, fontSize: 10, align: 'right' } } }
+            ];
+
+            if (AppState.logoBase64) {
+                const pos = document.getElementById('sel-logo-pos').value;
+                let lx = 8.8, ly = 0.2; // TR
+                if (pos === 'BR') { lx = 8.8; ly = 5.0; }
+                else if (pos === 'TL') { lx = 0.2; ly = 0.2; }
+                else if (pos === 'BL') { lx = 0.2; ly = 5.0; }
+                
+                masterObjects.push({
+                    image: { x: lx, y: ly, w: 1.0, h: 0.5, sizing: { type: 'contain', w: 1.0, h: 0.5 }, data: AppState.logoBase64 }
+                });
+            }
+
             pres.defineSlideMaster({
                 title: 'MASTER_PRO',
                 background: { color: userBg },
-                objects: [
-                    { text: { text: "NOVA 120 Pro", options: { x: 8.0, y: 5.4, w: 1.8, color: themeConfig.accent, fontSize: 10, align: 'right' } } }
-                ]
+                objects: masterObjects
             });
 
             const slides = data.slides || [];
@@ -548,9 +607,11 @@ JSON Schema:
                 const slide = pres.addSlide({ masterName: 'MASTER_PRO' });
 
                 if (sData.layout === 'title_only') {
+                    // 極致現代感滿版封面
                     slide.addShape('rect', { x: 0, y: 0, w: 0.5, h: '100%', fill: { color: themeConfig.accent } });
-                    slide.addText(sData.title || '未命名', { x: 0.8, y: 1.5, w: 9.0, h: 1.5, fontSize: 52, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-                    if(sData.subtitle) slide.addText(sData.subtitle, { x: 0.8, y: 3.2, w: 8.5, h: 1.0, fontSize: 26, color: themeConfig.textColor, fontFace: themeConfig.font });
+                    slide.addShape('rect', { x: 0.5, y: 4.5, w: 9.5, h: 1.125, fill: { color: themeConfig.accent, transparency: 85 } });
+                    slide.addText(sData.title || '未命名', { x: 1.0, y: 1.8, w: 8.5, h: 1.5, fontSize: 56, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+                    if(sData.subtitle) slide.addText(sData.subtitle, { x: 1.0, y: 3.4, w: 8.0, h: 1.0, fontSize: 26, color: themeConfig.textColor, fontFace: themeConfig.font });
                 
                 } else if (sData.layout === 'flowchart_only') {
                     const b64 = await mermaidToBase64(sData.mermaid_code || "", userBg, sData, false);
@@ -565,7 +626,7 @@ JSON Schema:
                 
                 } else if (sData.layout === 'text_and_image') {
                     const imgB64 = await generateImage(sData.image_prompt, sData.slide_number);
-                    // 傳入 i (slideIndex) 讓排版引擎動態切換版型
+                    // 傳入 i 讓排版引擎動態切換裁切形狀
                     renderTextAndImage(slide, sData, imgB64, themeConfig, i);
                 
                 } else {
@@ -629,6 +690,7 @@ JSON Schema:
                     svgEl.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
                 }
                 
+                // 4K 解析度放大
                 const scaleFactor = 3;
                 svgEl.setAttribute('width', (origW * scaleFactor).toString());
                 svgEl.setAttribute('height', (origH * scaleFactor).toString());
