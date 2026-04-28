@@ -94,8 +94,8 @@
                             <select id="sel-text-model" onchange="updateHeaderBadge()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                                 <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (最新旗艦)</option>
                                 <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (最新快速)</option>
-                                <option value="gemini-2.5-pro">Gemini 2.5 Pro (穩定高智商)</option>
-                                <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (快速均衡)</option>
+                                <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro (深度邏輯推薦)</option>
+                                <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速均衡)</option>
                                 <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</option>
                             </select>
                         </div>
@@ -154,8 +154,8 @@
 
         <div class="flex-1 min-w-0 flex flex-col gap-5">
             <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-                <label class="block text-sm font-semibold text-white mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令</label>
-                <textarea id="inp-topic" rows="4" placeholder="請輸入簡報主題..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
+                <label class="block text-sm font-semibold text-white mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 簡報主題 / 指令 (請盡量詳細)</label>
+                <textarea id="inp-topic" rows="4" placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告，內容需包含大量數據、具體案例與未來預測，不要流於空泛..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
             </div>
 
             <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5">
@@ -174,7 +174,7 @@
                     <i class="ph-bold ph-presentation-chart text-violet-400 text-3xl"></i>
                 </div>
                 <h2 class="text-xl font-bold text-white mb-2">準備好 Pro 等級的簡報了嗎？</h2>
-                <p class="text-slate-500 text-sm max-w-sm">左側可精確指定模型、底色與版型風格，輸入主題後即可生成 16:9 專業比例簡報。</p>
+                <p class="text-slate-500 text-sm max-w-sm">左側可精確指定模型、底色與版型風格，系統將自動套用動態排版，生成高解析度 16:9 專業簡報。</p>
             </div>
         </div>
     </main>
@@ -207,7 +207,6 @@
         document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
         updateHeaderBadge();
         
-        // 放大字體設定，確保高解析度圖表中的文字也同樣清晰
         mermaid.initialize({ 
             startOnLoad: false, 
             theme: 'dark', 
@@ -262,6 +261,7 @@
         }
     }
 
+    /** 1. 增強 LLM 生成深度的 Prompt 設計 **/
     async function callGeminiForOutline(topic, kb) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
@@ -289,24 +289,26 @@
             default: flowchartPrompt = `mermaid_code 必須以 graph ${flowDir} 開頭進行繪製。`;
         }
 
-        const systemPrompt = `你是一位世界級簡報設計師。
-請以 16:9 寬螢幕佈局思維生成簡報 JSON。
+        const systemPrompt = `你是一位世界頂級的簡報內容策略師與商業分析師。
+請以 16:9 寬螢幕佈局思維，為以下主題生成一份【具備極高知識密度、深度分析與具體數據】的專業簡報 JSON。
+
 簡報視覺與文案風格：${templateStyle}
+目標投影片張數：${slideCount} 張
 流程圖要求：${flowchartPrompt}
 
-重要規則：
-1. 嚴格輸出純 JSON，不可包含 markdown 標籤（不要有 \`\`\`json）。
-2. layout 只能是: "title_only", "text_only", "text_and_image", "flowchart_only"。
-3. flowchart_only 必須包含 mermaid_code。
-4. mermaid_code 的節點文字請勿使用括號 ()、方括號 [] 或雙引號 "" 等特殊符號，以免造成渲染錯誤。
-5. 針對 16:9 寬螢幕設計內容，bullet_points 應精簡但具備橫向擴展潛力，每點不超過 25 字。
-6. image_prompt 必須是簡短的英文敘述（AI 繪圖提示詞），不可為空。
+【內容品質要求 - 極度重要】：
+1. 拒絕空泛：內容絕對不可只有「大綱式」或「名詞解釋」。必須包含具體案例、數據預估、優劣勢比較或深度邏輯推演。
+2. 內容飽滿：每張投影片的 \`bullet_points\` 必須提供 3 到 5 點，且每點文字長度必須足夠長（約 15~40 字），以確保寬螢幕排版顯得豐滿充實。
+3. 嚴格輸出純 JSON，不可包含 markdown 標籤（絕對不要輸出 \`\`\`json 標記）。
+4. layout 只能是: "title_only", "text_only", "text_and_image", "flowchart_only"。
+5. flowchart_only 必須包含 mermaid_code。mermaid_code 的節點文字請勿使用括號 ()、方括號 [] 或雙引號 "" 等特殊符號，以免造成渲染錯誤。字串內換行用 '\\n'。
+6. image_prompt 必須是簡短的英文敘述（AI 繪圖提示詞），具體描述畫面中的物件、風格、光影。
 
 JSON Schema:
 {
   "presentation_title": "標題",
   "slides": [
-    { "slide_number": 1, "layout": "title_only", "title": "...", "subtitle": "...", "bullet_points": [], "image_prompt": "English prompt", "mermaid_code": null }
+    { "slide_number": 1, "layout": "title_only", "title": "...", "subtitle": "...", "bullet_points": ["內容飽滿的一句話...","具體數據佐證的第二句話..."], "image_prompt": "English prompt", "mermaid_code": null }
   ]
 }`;
         let lastErr = null;
@@ -315,13 +317,17 @@ JSON Schema:
             const ver = getGeminiApiVersion(modelId);
             const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${apiKey}`;
             try {
-                addLog(`嘗試呼叫文字引擎 ${modelId} (${ver})...`, 'ai');
+                addLog(`嘗試呼叫強邏輯引擎 ${modelId} (${ver})...`, 'ai');
                 const resp = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題：" + topic + (kb ? "\n知識庫：" + kb : "") }] }],
-                        generationConfig: { responseMimeType: 'application/json', temperature: 0.7 }
+                        contents: [{ role: 'user', parts: [{ text: systemPrompt + "\n\n主題指令：" + topic + (kb ? "\n參考資料：" + kb : "") }] }],
+                        generationConfig: { 
+                            responseMimeType: 'application/json', 
+                            temperature: 0.85, // 提高一點溫度，讓內容更豐富且具創造力
+                            maxOutputTokens: 8192 // 確保長篇距不被截斷
+                        }
                     }),
                     signal: AppState.abortController.signal
                 });
@@ -332,7 +338,7 @@ JSON Schema:
                 const jsonMatch = raw.match(/\{[\s\S]*\}/);
                 if (jsonMatch) raw = jsonMatch[0];
 
-                addLog(`✓ 成功使用 ${modelId} 生成大綱`, 'success');
+                addLog(`✓ 成功使用 ${modelId} 生成深度大綱`, 'success');
                 return JSON.parse(raw);
             } catch (e) {
                 lastErr = e;
@@ -345,15 +351,15 @@ JSON Schema:
 
     async function buildImagePrompt(query) {
         const gKey = AppState.googleApiKey;
-        if (!gKey) return `Professional modern presentation illustration: ${query}`;
+        if (!gKey) return `High quality modern presentation illustration: ${query}`;
         try {
             const r = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`,
                 {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: `Create a concise English image generation prompt (max 40 words) for a presentation slide about: "${query}". Minimalist, professional business illustration style.` }] }],
-                        generationConfig: { maxOutputTokens: 100, temperature: 0.5 }
+                        contents: [{ role: 'user', parts: [{ text: `Create a highly detailed, extremely concise English image generation prompt (max 40 words) for a presentation slide about: "${query}". Minimalist, professional corporate illustration style, 4k resolution.` }] }],
+                        generationConfig: { maxOutputTokens: 100, temperature: 0.6 }
                     }),
                     signal: AppState.abortController.signal
                 }
@@ -395,7 +401,7 @@ JSON Schema:
                     if (r.ok) {
                         const item = (await r.json()).data?.[0];
                         if (item && item.b64_json) {
-                            addLog(`✓ 成功使用 ${model} 生成配圖`, 'success');
+                            addLog(`✓ 成功使用 ${model} 生成高品質配圖`, 'success');
                             return `data:image/png;base64,${item.b64_json}`;
                         }
                     }
@@ -410,7 +416,7 @@ JSON Schema:
                     if (r.ok) {
                         const imgPart = (await r.json()).candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
                         if (imgPart?.inlineData?.data) {
-                            addLog(`✓ 成功使用 ${model} 生成配圖`, 'success');
+                            addLog(`✓ 成功使用 ${model} 生成高品質配圖`, 'success');
                             return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
                         }
                     }
@@ -424,43 +430,66 @@ JSON Schema:
         return null;
     }
 
-    // ★ 優化版面利用：盡可能將所有 bounding box 推至 16:9 (10 x 5.625 inch) 極限 ★
+    /** * 2. 動態排版引擎 (Dynamic Layout Engine)
+     * 解決「裁切形狀單調」與「版面利用率」問題 
+     */
 
     function renderTextOnly(slide, slideData, themeConfig) {
-        // Title bounds 擴大
-        slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 9.2, h: 0.8, fontSize: 36, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.4, y: 1.15, w: 2.0, h: 0.05, fill: { color: themeConfig.accent } });
+        // 大面積滿版文字排版
+        slide.addText(slideData.title || '', { x: 0.5, y: 0.4, w: 9.0, h: 1.0, fontSize: 38, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+        slide.addShape('rect', { x: 0.5, y: 1.4, w: 2.5, h: 0.06, fill: { color: themeConfig.accent } });
+        
         if (slideData.bullet_points) {
-            // Bullets bounds 擴大 (w: 9.2, h: 3.8)
-            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })), {
-                x: 0.4, y: 1.4, w: 9.2, h: 3.8, fontSize: 20, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font
+            // 利用 16:9 全寬幅空間
+            slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 15 } })), {
+                x: 0.5, y: 1.8, w: 9.0, h: 3.5, fontSize: 22, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.3
             });
         }
     }
 
-    function renderTextAndImage(slide, slideData, imgB64, themeConfig) {
-        // Title bounds 擴大
-        slide.addText(slideData.title || '', { x: 0.4, y: 0.3, w: 9.2, h: 0.8, fontSize: 32, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-        slide.addShape('rect', { x: 0.4, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
-        
-        // 左側文字區擴張
-        slide.addText(slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 10 } })), {
-            x: 0.4, y: 1.4, w: 5.2, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font
-        });
+    function renderTextAndImage(slide, slideData, imgB64, themeConfig, slideIndex) {
+        // 利用頁碼的奇偶數或隨機因子來決定當頁的排版風格
+        const layoutStyle = slideIndex % 3; // 產生 0, 1, 2 三種風格交替
 
-        // 右側圖片區極大化
-        if (imgB64) {
-            slide.addImage({ data: imgB64, x: 5.8, y: 1.1, w: 3.8, h: 4.1, rounding: true });
-        } else {
-            slide.addShape('rect', { x: 5.8, y: 1.1, w: 3.8, h: 4.1, fill: { color: themeConfig.accent, transparency: 80 } });
+        slide.addText(slideData.title || '', { x: 0.5, y: 0.3, w: 9.0, h: 0.8, fontSize: 34, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+        slide.addShape('rect', { x: 0.5, y: 1.15, w: 1.5, h: 0.05, fill: { color: themeConfig.accent } });
+
+        const formattedBullets = slideData.bullet_points ? slideData.bullet_points.map(b => ({ text: b, options: { bullet: true, paraSpaceAfter: 12 } })) : [];
+
+        if (layoutStyle === 0) {
+            // 【風格 A：傳統圖右文左】
+            slide.addText(formattedBullets, { x: 0.5, y: 1.4, w: 5.0, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+            if (imgB64) {
+                slide.addImage({ data: imgB64, x: 5.7, y: 1.2, w: 4.0, h: 4.0, rounding: true });
+            } else {
+                slide.addShape('rect', { x: 5.7, y: 1.2, w: 4.0, h: 4.0, fill: { color: themeConfig.accent, transparency: 80 } });
+            }
+        } 
+        else if (layoutStyle === 1) {
+            // 【風格 B：圖文反轉 (圖左文右)，並使用特殊裁切/比例】
+            if (imgB64) {
+                // 將圖片裁切為更細長的直式或較大的方塊
+                slide.addImage({ data: imgB64, x: 0.5, y: 1.4, w: 3.8, h: 3.8, rounding: true });
+            } else {
+                slide.addShape('rect', { x: 0.5, y: 1.4, w: 3.8, h: 3.8, fill: { color: themeConfig.accent, transparency: 80 } });
+            }
+            slide.addText(formattedBullets, { x: 4.6, y: 1.4, w: 5.0, h: 3.8, fontSize: 18, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.2 });
+        }
+        else {
+            // 【風格 C：橫幅寬排版 (圖上文下，適合大圖片展示)】
+            if (imgB64) {
+                slide.addImage({ data: imgB64, x: 0.5, y: 1.3, w: 9.0, h: 2.2, rounding: true });
+            } else {
+                slide.addShape('rect', { x: 0.5, y: 1.3, w: 9.0, h: 2.2, fill: { color: themeConfig.accent, transparency: 80 } });
+            }
+            // 文字分為雙欄 (PptxGenJS 支援簡易分欄法：縮小寬度，這裡我們簡化為下方橫置)
+            slide.addText(formattedBullets, { x: 0.5, y: 3.7, w: 9.0, h: 1.8, fontSize: 16, color: themeConfig.textColor, valign: 'top', fontFace: themeConfig.font, lineSpacingMultiple: 1.1 });
         }
     }
 
     function renderFlowchart(slide, slideData, chartB64, themeConfig) {
-        // Title bounds 擴大
-        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 28, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
+        slide.addText(slideData.title || '', { x: 0.4, y: 0.2, w: 9.2, h: 0.7, fontSize: 30, bold: true, color: themeConfig.titleColor, align: 'center', fontFace: themeConfig.font });
         if (chartB64) {
-            // 圖表顯示區滿版 (w: 9.2, h: 4.5)
             slide.addImage({ data: chartB64, x: 0.4, y: 0.9, w: 9.2, h: 4.5 });
         }
     }
@@ -501,7 +530,6 @@ JSON Schema:
             const pres = new PptxGenJS();
             pres.layout = 'LAYOUT_WIDE'; // 16:9
 
-            // Master Slide 調整到底部角落
             pres.defineSlideMaster({
                 title: 'MASTER_PRO',
                 background: { color: userBg },
@@ -521,8 +549,8 @@ JSON Schema:
 
                 if (sData.layout === 'title_only') {
                     slide.addShape('rect', { x: 0, y: 0, w: 0.5, h: '100%', fill: { color: themeConfig.accent } });
-                    slide.addText(sData.title || '未命名', { x: 0.5, y: 1.5, w: 9.0, h: 1.5, fontSize: 48, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
-                    if(sData.subtitle) slide.addText(sData.subtitle, { x: 0.5, y: 3.2, w: 8.5, h: 1.0, fontSize: 26, color: themeConfig.textColor, fontFace: themeConfig.font });
+                    slide.addText(sData.title || '未命名', { x: 0.8, y: 1.5, w: 9.0, h: 1.5, fontSize: 52, bold: true, color: themeConfig.titleColor, fontFace: themeConfig.font });
+                    if(sData.subtitle) slide.addText(sData.subtitle, { x: 0.8, y: 3.2, w: 8.5, h: 1.0, fontSize: 26, color: themeConfig.textColor, fontFace: themeConfig.font });
                 
                 } else if (sData.layout === 'flowchart_only') {
                     const b64 = await mermaidToBase64(sData.mermaid_code || "", userBg, sData, false);
@@ -537,7 +565,8 @@ JSON Schema:
                 
                 } else if (sData.layout === 'text_and_image') {
                     const imgB64 = await generateImage(sData.image_prompt, sData.slide_number);
-                    renderTextAndImage(slide, sData, imgB64, themeConfig);
+                    // 傳入 i (slideIndex) 讓排版引擎動態切換版型
+                    renderTextAndImage(slide, sData, imgB64, themeConfig, i);
                 
                 } else {
                     renderTextOnly(slide, sData, themeConfig);
@@ -579,12 +608,8 @@ JSON Schema:
         }
     }
 
-    /** * 保證絕對生成機制 + 4K 強制升頻 (Upscale) 渲染器
-     * 解決「流程圖解析度太差」痛點
-     */
     async function mermaidToBase64(code, bgColorHex, slideData, isRetry = false) {
         const container = document.getElementById('mermaid-render-container');
-        
         let safeCode = code.replace(/```mermaid/gi, '').replace(/```/g, '').trim();
         const timeout = new Promise(r => setTimeout(() => r(null), 10000));
         
@@ -593,8 +618,6 @@ JSON Schema:
                 const uniqueId = 'mmr-' + Date.now() + '-' + Math.floor(Math.random() * 10000);
                 const { svg } = await mermaid.render(uniqueId, safeCode, container);
                 
-                // 為了達到極高解析度，我們需要從 SVG 字串中剝離死板的 width/height
-                // 並將其放大 3 倍，以 4K 級別渲染至 Canvas
                 const parser = new DOMParser();
                 const svgDoc = parser.parseFromString(svg, "image/svg+xml");
                 const svgEl = svgDoc.documentElement;
@@ -606,7 +629,6 @@ JSON Schema:
                     svgEl.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
                 }
                 
-                // 強制放大 3 倍解析度
                 const scaleFactor = 3;
                 svgEl.setAttribute('width', (origW * scaleFactor).toString());
                 svgEl.setAttribute('height', (origH * scaleFactor).toString());
@@ -619,7 +641,6 @@ JSON Schema:
                     const img = new Image();
                     img.onload = () => {
                         const canvas = document.createElement('canvas');
-                        // 畫布隨放大的 SVG 延伸
                         canvas.width = img.width + 100; 
                         canvas.height = img.height + 100; 
                         
@@ -627,11 +648,9 @@ JSON Schema:
                         ctx.fillStyle = '#' + bgColorHex;
                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                         
-                        // 居中繪製高解析度圖片
                         ctx.drawImage(img, 50, 50, img.width, img.height);
                         
                         URL.revokeObjectURL(url);
-                        // 匯出為無損 PNG 以保證文字與線條邊緣清晰
                         res(canvas.toDataURL('image/png'));
                     };
                     img.onerror = () => {
@@ -648,7 +667,6 @@ JSON Schema:
 
         let result = await Promise.race([doRender(), timeout]);
 
-        // 終極保底機制 (Auto-Reconstruct Fallback)
         if (!result && !isRetry && slideData) {
             addLog(`⚠️ 流程圖語法異常，啟動安全修復機制...`, 'warning');
             
