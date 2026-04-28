@@ -192,111 +192,27 @@
         <aside class="lg:w-80 xl:w-96 flex flex-col gap-4 shrink-0">
 
             <!-- ── 面板 1：API 設定 ── -->
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-api')"
-                        class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-7 h-7 bg-blue-500/15 rounded-lg flex items-center justify-center">
-                            <i class="ph-fill ph-key text-blue-400 text-sm"></i>
-                        </div>
-                        <span class="text-sm font-semibold text-white">API 設定</span>
-                        <!-- 讀取自 localStorage 的狀態指示 -->
-                        <span id="api-status-badge"
-                              class="text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                                     bg-slate-700 text-slate-400">檢測中…</span>
-                    </div>
-                    <i id="panel-api-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
-                </button>
-                <div id="panel-api" class="panel-body open">
-                    <div class="px-4 pb-4 space-y-3 text-xs">
-                        <!-- 提示：從主程式繼承 API 金鑰 -->
-                        <div class="flex items-start gap-2 bg-blue-500/10 border border-blue-500/20
-                                    rounded-xl p-3 text-blue-300">
-                            <i class="ph-fill ph-info text-blue-400 mt-0.5 shrink-0"></i>
-                            <p>API 金鑰自動從 <strong>NOVA 120 設定</strong>繼承，
-                               若尚未設定請先至主程式填寫，或在下方手動輸入。</p>
-                        </div>
-
-                        <!-- 手動輸入 API Key（備用，不儲存至 localStorage） -->
-                        <div id="manual-key-area">
-                            <label class="block text-slate-400 mb-1.5 font-semibold">
-                                <i class="ph-fill ph-key text-blue-400"></i> Gemini API Key
-                                <span class="text-slate-600 font-normal ml-1">（本頁面臨時使用）</span>
-                            </label>
-                            <div class="flex gap-2">
-                                <input type="password" id="inp-manual-gemini-key"
-                                       placeholder="AIza... （若已從 NOVA 120 繼承則無需填寫）"
-                                       class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                              text-slate-200 focus:border-blue-500 outline-none text-xs
-                                              placeholder:text-slate-600">
-                                <button onclick="applyManualKey()"
-                                        class="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs
-                                               font-bold rounded-xl transition-colors shrink-0">
-                                    套用
-                                </button>
-                            </div>
-                        </div>
-
-                        <!-- 文字 LLM 引擎選擇（Google Gemini） -->
-                        <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">
-                                <i class="ph-fill ph-brain text-blue-400"></i> 文字 LLM 引擎
-                            </label>
-                            <select id="sel-text-model"
-                                    onchange="updateHeaderBadge()"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                           text-slate-200 focus:border-blue-500 outline-none">
-                                <!-- Gemini 2.5 Pro Preview：最強推理，適合複雜主題 -->
-                                <option value="gemini-2.5-pro-preview-06-05">Gemini 2.5 Pro Preview</option>
-                                <!-- Gemini 2.5 Flash：速度與品質均衡 -->
-                                <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash Preview</option>
-                                <!-- Gemini 2.0 Flash：快速輕量 -->
-                                <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                            </select>
-                        </div>
-
-                        <!-- Cloudflare Worker Proxy URL（用於 Grok CORS 代理） -->
-                        <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">
-                                <i class="ph-fill ph-cloud text-orange-400"></i> Cloudflare Worker Proxy URL
-                            </label>
-                            <input type="url" id="inp-proxy-url"
-                                   placeholder="https://your-worker.workers.dev/grok"
-                                   class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                          text-slate-200 focus:border-orange-500 outline-none placeholder:text-slate-600">
-                            <p class="text-slate-500 mt-1">⚠️ 使用 Grok 模型時必填（解決 CORS 問題）</p>
-                        </div>
-
-                        <!-- 圖像生成引擎選擇 -->
-                        <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">
-                                <i class="ph-fill ph-image text-purple-400"></i> 圖像生成引擎
-                            </label>
-                            <select id="sel-image-model"
-                                    onchange="updateImageModelNote()"
-                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
-                                           text-slate-200 focus:border-purple-500 outline-none">
-                                <!-- Gemini 圖像模型（使用 Google API Key） -->
-                                <option value="gemini-2.0-flash-exp-image-generation">Gemini 2.0 Flash Image（推薦）</option>
-                                <option value="gemini-2.5-flash-preview-05-20">Gemini 2.5 Flash Image</option>
-                                <!-- Grok 圖像模型（需透過 Proxy） -->
-                                <optgroup label="── 需 Proxy ──">
-                                    <option value="grok-2-image-1212">Grok Image Pro</option>
-                                    <option value="grok-2-image-beta">Grok Image</option>
-                                    <option value="none">❌ 不生成圖片</option>
-                                </optgroup>
-                            </select>
-                            <p id="image-model-note" class="text-slate-500 mt-1"></p>
-                        </div>
-
-                        <!-- 儲存代理 URL 按鈕 -->
-                        <button onclick="saveProxyUrl()"
-                                class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300
-                                       rounded-xl text-xs font-semibold transition-colors border border-slate-700">
-                            <i class="ph-bold ph-floppy-disk"></i> 儲存 Proxy URL
-                        </button>
-                    </div>
+            <!-- ── API 狀態列（取代原設定面板，直接繼承 index.html 的設定） ── -->
+            <!-- 所有 API Key 與 Proxy URL 直接從 localStorage 讀取，與 NOVA 120 共用 -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
+                <div class="w-7 h-7 bg-blue-500/15 rounded-lg flex items-center justify-center shrink-0">
+                    <i class="ph-fill ph-key text-blue-400 text-sm"></i>
                 </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-semibold text-white">API 設定</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5 truncate">
+                        Gemini：<span id="api-gemini-status" class="font-bold">檢測中…</span>
+                        ／ Grok：<span id="api-grok-status" class="font-bold">檢測中…</span>
+                    </p>
+                </div>
+                <!-- 前往 NOVA 120 設定頁面 -->
+                <a href="./index.html" title="在 NOVA 120 設定 API Key"
+                   class="shrink-0 flex items-center gap-1 text-xs text-slate-400 hover:text-white
+                          bg-slate-800 hover:bg-slate-700 px-2.5 py-1.5 rounded-xl border border-slate-700
+                          transition-colors">
+                    <i class="ph-bold ph-gear text-xs"></i>
+                    <span class="hidden sm:inline">設定</span>
+                </a>
             </div>
 
             <!-- ── 面板 2：知識庫上傳（模擬 RAG）── -->
@@ -489,7 +405,24 @@
                                    class="w-full">
                         </div>
 
-                        <!-- 語言設定 -->
+                        <!-- 文字 LLM 引擎 — 精確使用 index.html 的模型 ID -->
+                        <!-- 失敗時自動 fallback：3 Flash Preview → 2.5 Pro → 3.1 Pro Preview → 2.5 Flash -->
+                        <div>
+                            <label class="block text-slate-400 mb-1.5 font-semibold">
+                                <i class="ph-fill ph-brain text-blue-400"></i> 文字生成模型（首選）
+                            </label>
+                            <select id="sel-text-model"
+                                    onchange="updateHeaderBadge()"
+                                    class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5
+                                           text-slate-200 focus:border-amber-500 outline-none">
+                                <!-- 與 index.html gemini-sub-model-select 完全對應 -->
+                                <option value="gemini-3-flash-preview" selected>Gemini 3 Flash Preview（最新・推薦）</option>
+                                <option value="gemini-2.5-pro">Gemini 2.5 Pro（精準）</option>
+                                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview（旗艦）</option>
+                                <option value="gemini-2.5-flash">Gemini 2.5 Flash（快速均衡）</option>
+                            </select>
+                            <p class="text-slate-600 mt-1">⚡ 若首選模型失敗，系統自動依序 fallback</p>
+                        </div>
                         <div>
                             <label class="block text-slate-400 mb-1.5 font-semibold">簡報語言</label>
                             <select id="sel-lang"
@@ -734,30 +667,33 @@
     // § 1. 應用程式全域狀態
     // ════════════════════════════════════════════════
     const AppState = {
-        // API 金鑰（從 localStorage 讀取，與 Nova 120 共享）
-        googleApiKey:  '',
-        xaiApiKey:     '',
-        proxyUrl:      '',
+        // API 金鑰（直接從 localStorage 讀取，與 index.html 完全共用同一組 key）
+        googleApiKey: '',
+        xaiApiKey:    '',
 
         // 知識庫
-        kbDocs: [],      // [{ name: String, text: String }]
+        kbDocs: [],
 
         // 本地資產
-        logoBase64:    null,  // Data URL（含 "data:image/...;base64," 前綴）
-        coverBase64:   null,  // Data URL
+        logoBase64:  null,
+        coverBase64: null,
 
-        // 生成結果（PptxGenJS 物件）
-        pptxObject:    null,
-        presentationData: null,   // Gemini 回傳的 JSON
+        // 生成結果
+        pptxObject:       null,
+        presentationData: null,
 
-        // 色彩主題選擇
+        // 色彩主題
         selectedTheme: 'midnight',
 
-        // 生成中狀態
-        isGenerating:  false,
+        isGenerating: false,
     };
 
-    // 色彩主題定義（背景色、強調色、文字色 — 十六進位，不含 #）
+    // ★ 與 index.html 完全相同的 Cloudflare Worker Proxy URL ★
+    // 此 URL 已內建於 index.html（GROK_PROXY 常數），無需使用者另外填寫
+    const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
+    const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
+
+    // 色彩主題定義
     const THEMES = {
         midnight: { bg: '0F172A', accent: '6366F1', text: 'FFFFFF', secondary: '818CF8' },
         ocean:    { bg: '0C1A2E', accent: '0EA5E9', text: 'FFFFFF', secondary: '38BDF8' },
@@ -770,31 +706,17 @@
     // § 2. 初始化
     // ════════════════════════════════════════════════
     function init() {
-        // 從 localStorage 讀取 Nova 120 的 API 金鑰
-        // ★ key 名稱對應 Nova 120 主程式 saveKeys() 中的設定 ★
-        // Nova 120 的 HTML 中，id="key-gemini" → localStorage key 為 'nova_key_gemini'
-        // id="key-grok" → localStorage key 為 'nova_key_grok'
+        // ★ 使用與 index.html 完全相同的 localStorage key 名稱 ★
+        // index.html 的 saveKeys() 函數將 id="key-gemini" 存為 'nova_key_gemini'
+        //                           將 id="key-grok"   存為 'nova_key_grok'
         AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
         AppState.xaiApiKey    = localStorage.getItem('nova_key_grok')   || '';
-        AppState.proxyUrl     = localStorage.getItem('ssp_proxy_url')   || '';
 
-        // 備用：若 nova_key_gemini 不存在，嘗試其他常見 key 名稱
-        if (!AppState.googleApiKey) {
-            AppState.googleApiKey =
-                localStorage.getItem('gemini_api_key') ||
-                localStorage.getItem('GEMINI_API_KEY') || '';
-        }
-
-        // 若有 proxy URL，填入輸入框
-        if (AppState.proxyUrl) {
-            document.getElementById('inp-proxy-url').value = AppState.proxyUrl;
-        }
-
-        // 更新 API 狀態徽章
+        // 更新 header 狀態顯示
         updateApiStatusBadge();
         updateHeaderBadge();
 
-        // 初始化 Mermaid（深色主題，關閉自動掃描）
+        // 初始化 Mermaid
         mermaid.initialize({
             startOnLoad:   false,
             theme:         'dark',
@@ -851,15 +773,17 @@
         }, duration);
     }
 
-    /** 更新 API 狀態徽章 */
+    /** 更新 API 狀態顯示（對應新的雙欄狀態列） */
     function updateApiStatusBadge() {
-        const badge = document.getElementById('api-status-badge');
-        if (AppState.googleApiKey) {
-            badge.textContent = '✓ 已設定';
-            badge.className   = 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400';
-        } else {
-            badge.textContent = '⚠ 未設定';
-            badge.className   = 'text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-rose-500/15 text-rose-400';
+        const gemEl = document.getElementById('api-gemini-status');
+        const grokEl = document.getElementById('api-grok-status');
+        if (gemEl) {
+            gemEl.textContent = AppState.googleApiKey ? '✓ 已設定' : '⚠ 未設定';
+            gemEl.className   = 'font-bold ' + (AppState.googleApiKey ? 'text-emerald-400' : 'text-rose-400');
+        }
+        if (grokEl) {
+            grokEl.textContent = AppState.xaiApiKey ? '✓ 已設定' : '— 未設定';
+            grokEl.className   = 'font-bold ' + (AppState.xaiApiKey ? 'text-emerald-400' : 'text-slate-500');
         }
     }
 
@@ -870,66 +794,10 @@
         document.getElementById('header-model-name').textContent = name;
     }
 
-    /** 圖像模型說明注釋 */
-    function updateImageModelNote() {
-        const model = document.getElementById('sel-image-model').value;
-        const note  = document.getElementById('image-model-note');
-        if (model.startsWith('grok')) {
-            note.textContent = '⚠️ 需填寫 Cloudflare Worker Proxy URL';
-            note.className   = 'text-orange-400 mt-1';
-        } else if (model === 'none') {
-            note.textContent  = '將只生成文字投影片（速度最快）';
-            note.className    = 'text-slate-500 mt-1';
-        } else {
-            note.textContent = '';
-        }
-    }
-
     /** 快捷主題選擇 */
     function setTopic(text) {
         document.getElementById('inp-topic').value = text;
         autoResize(document.getElementById('inp-topic'));
-    }
-
-    /** textarea 自動調整高度 */
-    function autoResize(el) {
-        el.style.height = 'auto';
-        el.style.height = (el.scrollHeight) + 'px';
-    }
-
-    /** 選擇色彩主題
-     *  @param {string} themeName - 主題名稱
-     *  @param {HTMLElement} btnEl - 被點擊的按鈕元素（由 onclick 傳入 this）
-     */
-    function selectTheme(themeName, btnEl) {
-        AppState.selectedTheme = themeName;
-        // 清除所有主題按鈕的選中樣式
-        document.querySelectorAll('.theme-btn').forEach(btn => {
-            btn.classList.remove('ring-2', 'ring-white/30', 'scale-110', 'border-white/50');
-            btn.classList.add('border-slate-700');
-        });
-        // 標記被選中的按鈕
-        if (btnEl) {
-            btnEl.classList.add('ring-2', 'ring-white/30', 'scale-110', 'border-white/50');
-            btnEl.classList.remove('border-slate-700');
-        }
-    }
-
-    /** 套用手動輸入的 API Key（臨時，不儲存至 localStorage） */
-    function applyManualKey() {
-        const key = document.getElementById('inp-manual-gemini-key').value.trim();
-        if (!key) { showToast('⚠️ 請輸入 API Key'); return; }
-        AppState.googleApiKey = key;
-        updateApiStatusBadge();
-        showToast('✅ API Key 已套用（本次生效）');
-    }
-
-    /** 儲存 Proxy URL */
-    function saveProxyUrl() {
-        const url = document.getElementById('inp-proxy-url').value.trim();
-        AppState.proxyUrl = url;
-        localStorage.setItem('ssp_proxy_url', url);
-        showToast('✅ Proxy URL 已儲存');
     }
 
     /** 新增進度日誌條目 */
@@ -1120,30 +988,69 @@
     // ════════════════════════════════════════════════
     // § 5. API 呼叫函數
     // ════════════════════════════════════════════════
+    //
+    // ★ 所有模型名稱、API version、Proxy URL 均與 index.html 完全一致 ★
+    // ────────────────────────────────────────────────
+    // 文字 LLM fallback 順序（使用者選擇為首，其餘自動補足）：
+    //   1. gemini-3-flash-preview    → v1alpha
+    //   2. gemini-2.5-pro            → v1beta
+    //   3. gemini-3.1-pro-preview    → v1alpha
+    //   4. gemini-2.5-flash          → v1beta
+    //
+    // 圖片生成 fallback 順序：
+    //   1. grok-imagine-image-pro    → GROK_PROXY
+    //   2. grok-imagine-image        → GROK_PROXY
+    //   3. gemini-2.5-flash-image    → v1beta
+    //   4. gemini-3.1-flash-image-preview → v1alpha
+    //   5. Picsum Photos             → 公開備援
+    // ════════════════════════════════════════════════
 
     /**
-     * 呼叫 Gemini 文字 API 生成簡報 JSON 架構
-     * 使用 responseMimeType: "application/json" 確保回傳為 JSON 格式
+     * API 版本判斷（與 index.html 第 8081 行邏輯完全相同）
+     * 含 preview / gemini-3 / thinking / research → v1alpha
+     * 其他穩定版 → v1beta
+     */
+    function getGeminiApiVersion(modelName) {
+        return (modelName.includes('preview') ||
+                modelName.includes('gemini-3') ||
+                modelName.includes('thinking') ||
+                modelName.includes('research'))
+            ? 'v1alpha' : 'v1beta';
+    }
+
+    /**
+     * ★ 文字 LLM：瀑布式 fallback，精確使用 index.html 的模型 ID ★
      *
-     * @param {string} topic      - 使用者輸入的簡報主題
-     * @param {string} knowledgeBase - 整合後的知識庫文字
-     * @returns {Promise<Object>} - 解析後的簡報 JSON
+     * 使用者在「首選模型」下拉選擇後，若該模型失敗，
+     * 自動依 gemini-3-flash-preview → gemini-2.5-pro
+     *       → gemini-3.1-pro-preview → gemini-2.5-flash 順序降級。
      */
     async function callGeminiForOutline(topic, knowledgeBase) {
-        const apiKey    = AppState.googleApiKey;
-        const modelId   = document.getElementById('sel-text-model').value;
+        const apiKey     = AppState.googleApiKey;
+        const userChoice = document.getElementById('sel-text-model').value;
         const slideCount = document.getElementById('range-slide-count').value;
-        const lang      = document.getElementById('sel-lang').value;
-        const style     = document.getElementById('sel-style').value;
-        const withNotes = document.getElementById('chk-speaker-notes').checked;
+        const lang       = document.getElementById('sel-lang').value;
+        const style      = document.getElementById('sel-style').value;
+        const withNotes  = document.getElementById('chk-speaker-notes').checked;
 
-        // 語言對應
         const langMap = {
             'zh-TW': '繁體中文', 'zh-CN': '簡體中文',
             'en': 'English', 'ja': '日本語', 'ko': '한국어'
         };
 
-        // 組合系統提示詞
+        // ★ 與 index.html gemini-sub-model-select 完全相同的 model ID ★
+        const FALLBACK_MODELS = [
+            'gemini-3-flash-preview',   // v1alpha — 最新最快
+            'gemini-2.5-pro',           // v1beta  — 精準
+            'gemini-3.1-pro-preview',   // v1alpha — 旗艦
+            'gemini-2.5-flash',         // v1beta  — 最終保底
+        ];
+        // 使用者選擇排最前，其餘去重後依序 fallback
+        const orderedModels = [
+            userChoice,
+            ...FALLBACK_MODELS.filter(m => m !== userChoice),
+        ];
+
         const systemPrompt = `你是一位世界頂級的專業簡報設計師與內容策略師。
 你必須根據提供的知識庫內容（如有）與主題，生成一份結構完整、邏輯清晰的簡報大綱。
 
@@ -1153,7 +1060,7 @@
 
 重要規則：
 1. 嚴格輸出純 JSON，不加任何 Markdown 格式（不加 \`\`\`json 等）
-2. image_prompt 必須為英文描述，適合 AI 圖像生成
+2. image_prompt 必須為英文描述，適合 AI 圖像生成，max 60 words
 3. layout 只能從以下四種選擇：
    - "title_only"：僅用於封面（第 1 張）
    - "text_only"：純文字，適合大綱、摘要
@@ -1184,139 +1091,194 @@ JSON Schema：
             ? `【知識庫內容】\n${knowledgeBase}\n\n【簡報主題】\n${topic}`
             : `【簡報主題】\n${topic}`;
 
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
+        const bodyObj = {
+            contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }],
+            generationConfig: {
+                responseMimeType: 'application/json',
+                temperature:      0.7,
+                maxOutputTokens:  8192,
+            }
+        };
 
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [
-                    { role: 'user', parts: [{ text: systemPrompt + '\n\n' + userPrompt }] }
-                ],
-                generationConfig: {
-                    responseMimeType: 'application/json',
-                    temperature: 0.7,
-                    maxOutputTokens: 8192,
+        let lastErr = null;
+        for (const modelId of orderedModels) {
+            const ver      = getGeminiApiVersion(modelId);
+            const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${apiKey}`;
+            try {
+                addLog(`🧠 呼叫 ${modelId} (${ver})…`, 'ai');
+                const resp = await Promise.race([
+                    fetch(endpoint, {
+                        method:  'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body:    JSON.stringify(bodyObj)
+                    }),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 60000))
+                ]);
+                if (!resp.ok) {
+                    const e = await resp.json().catch(() => ({}));
+                    throw new Error(e.error?.message || `HTTP ${resp.status}`);
                 }
-            })
-        });
-
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(`Gemini API 錯誤：${err.error?.message || response.status}`);
-        }
-
-        const data = await response.json();
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-
-        // 清理可能的 Markdown 代碼圍欄
-        const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
-        return JSON.parse(cleaned);
-    }
-
-    /**
-     * 呼叫 Gemini 圖像生成 API
-     * 使用 responseModalities: ["IMAGE"] 模式生成圖片
-     *
-     * @param {string} prompt - 英文圖像提示詞
-     * @returns {Promise<string|null>} - Base64 Data URL 或 null（失敗時）
-     */
-    async function generateImageGemini(prompt) {
-        const apiKey  = AppState.googleApiKey;
-        const modelId = document.getElementById('sel-image-model').value;
-
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
-
-        const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
-                generationConfig: { responseModalities: ['IMAGE', 'TEXT'] }
-            })
-        });
-
-        if (!response.ok) {
-            console.warn('[Image] Gemini 圖像 API 失敗：', response.status);
-            return null;
-        }
-
-        const data = await response.json();
-        // 找到含有 inlineData（圖片）的 part
-        const candidates = data.candidates || [];
-        for (const candidate of candidates) {
-            for (const part of (candidate.content?.parts || [])) {
-                if (part.inlineData?.data) {
-                    const mime = part.inlineData.mimeType || 'image/png';
-                    return `data:${mime};base64,${part.inlineData.data}`;
-                }
+                const data    = await resp.json();
+                const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const cleaned = rawText.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+                const parsed  = JSON.parse(cleaned);
+                addLog(`✓ ${modelId} 大綱生成成功`, 'success');
+                return parsed;
+            } catch (e) {
+                lastErr = e;
+                addLog(`⚠ ${modelId} 失敗（${e.message}），嘗試下一個…`, 'warning');
             }
         }
-        return null;
+        throw new Error(`所有文字模型均失敗，最後錯誤：${lastErr?.message}`);
     }
 
     /**
-     * 呼叫 Grok 圖像生成 API（透過 Cloudflare Worker Proxy 解決 CORS）
-     *
-     * @param {string} prompt - 英文圖像提示詞
-     * @returns {Promise<string|null>} - Base64 Data URL 或 null
+     * 先用 gemini-2.5-flash 將主題優化為英文 image prompt
+     * （與 index.html buildPrompt 函數完全一致，使用 v1beta + gemini-2.5-flash）
      */
-    async function generateImageGrok(prompt) {
-        const proxyUrl = AppState.proxyUrl;
-        const modelId  = document.getElementById('sel-image-model').value;
-        const apiKey   = AppState.xaiApiKey;
-
-        if (!proxyUrl) {
-            console.warn('[Image] 未設定 Proxy URL，跳過 Grok 圖像生成');
-            return null;
-        }
-
+    async function buildImagePrompt(query) {
+        const gKey = AppState.googleApiKey;
+        if (!gKey) return `Professional business illustration about: ${query}`;
         try {
-            const response = await fetch(proxyUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-API-Key': apiKey,    // Proxy 轉發用的授權 Header
-                },
-                body: JSON.stringify({
-                    model:    modelId,
-                    messages: [{ role: 'user', content: prompt }],
-                    n:        1,
-                })
-            });
-
-            if (!response.ok) return null;
-
-            const data = await response.json();
-            // Grok 圖像回傳格式：data[0].url 或 data[0].b64_json
-            if (data.data?.[0]?.b64_json) {
-                return `data:image/png;base64,${data.data[0].b64_json}`;
-            }
-            if (data.data?.[0]?.url) {
-                // 將 URL 圖片轉換為 Base64
-                const imgRes  = await fetch(data.data[0].url);
-                const blob    = await imgRes.blob();
-                return await new Promise(resolve => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.readAsDataURL(blob);
-                });
-            }
-            return null;
-        } catch (e) {
-            console.error('[Image] Grok 圖像生成失敗：', e);
-            return null;
+            const r = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text:
+                            `Create a concise English image generation prompt (max 60 words) for a presentation slide about: "${query}". Professional, clean, modern illustration style. Return only the prompt text.`
+                        }] }],
+                        generationConfig: { maxOutputTokens: 100, temperature: 0.5 }
+                    })
+                }
+            );
+            const d = await r.json();
+            return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+                || `Professional illustration: ${query}`;
+        } catch {
+            return `Professional business illustration: ${query}`;
         }
     }
 
     /**
-     * 根據設定呼叫對應的圖像生成函數
+     * ★ 圖片生成：model ID / API version / Proxy URL 與 index.html 完全一致 ★
+     *
+     * fallback 順序（與 index.html 第 3916, 3949-3950 行相同）：
+     *   1️⃣  grok-imagine-image-pro         → GROK_PROXY (grokcaller worker)
+     *   2️⃣  grok-imagine-image             → GROK_PROXY
+     *   3️⃣  gemini-2.5-flash-image  v1beta → Google API
+     *   4️⃣  gemini-3.1-flash-image-preview v1alpha → Google API
+     *   5️⃣  Picsum Photos                  → 公開圖庫
      */
-    async function generateImage(prompt) {
-        const model = document.getElementById('sel-image-model').value;
-        if (model === 'none') return null;
-        if (model.startsWith('grok')) return generateImageGrok(prompt);
-        return generateImageGemini(prompt);
+    async function generateImage(slideTitle, bulletPoints, imagePrompt, slideIdx) {
+        const slideContext = imagePrompt ||
+            `${slideTitle}${bulletPoints?.length ? ': ' + bulletPoints.slice(0,2).join(', ') : ''}`;
+        const slideLabel = slideIdx < 0 ? '封面' : `第 ${slideIdx + 1} 頁`;
+
+        addLog(`🔤 ${slideLabel}：生成圖片 Prompt…`, 'ai');
+        const prompt = await buildImagePrompt(slideContext);
+
+        // ── 1️⃣ & 2️⃣  Grok（與 index.html 第 3916-3942 行格式完全相同）──
+        const grokKey = AppState.xaiApiKey;
+        if (grokKey) {
+            for (const grokModel of ['grok-imagine-image-pro', 'grok-imagine-image']) {
+                try {
+                    addLog(`🎨 ${slideLabel}：${grokModel}…`, 'ai');
+                    const r = await Promise.race([
+                        fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
+                            method:  'POST',
+                            headers: {
+                                'Authorization': `Bearer ${grokKey}`,
+                                'Content-Type':  'application/json'
+                            },
+                            body: JSON.stringify({
+                                model:           grokModel,
+                                prompt,
+                                response_format: 'b64_json'
+                            })
+                        }),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 28000))
+                    ]);
+                    if (r.ok) {
+                        const d    = await r.json();
+                        const item = d.data?.[0];
+                        if (item) {
+                            const imgData = item.b64_json
+                                ? `data:image/png;base64,${item.b64_json}`
+                                : item.url;
+                            if (imgData) {
+                                addLog(`✓ ${slideLabel}：${grokModel} 成功`, 'success');
+                                return imgData;
+                            }
+                        }
+                    }
+                    addLog(`⚠ ${slideLabel}：${grokModel} 未回傳圖片`, 'warning');
+                } catch (e) {
+                    addLog(`⚠ ${slideLabel}：${grokModel} 失敗（${e.message}）`, 'warning');
+                }
+            }
+        }
+
+        // ── 3️⃣ & 4️⃣  Gemini Image（與 index.html 第 3948-3950 行完全相同）──
+        const gKey = AppState.googleApiKey;
+        if (gKey) {
+            // ★ model ID 與 ver 精確對應 index.html 的 gemModels 陣列 ★
+            const gemImageModels = [
+                { name: 'gemini-2.5-flash-image',         ver: 'v1beta',  label: 'Gemini 2.5 Flash-Image' },
+                { name: 'gemini-3.1-flash-image-preview', ver: 'v1alpha', label: 'Gemini 3.1 Flash-Image' },
+            ];
+            for (const { name: mName, ver, label } of gemImageModels) {
+                try {
+                    addLog(`🎨 ${slideLabel}：${label} (${ver})…`, 'ai');
+                    const r = await Promise.race([
+                        fetch(
+                            `https://generativelanguage.googleapis.com/${ver}/models/${mName}:generateContent?key=${gKey}`,
+                            {
+                                method:  'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                                    generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+                                })
+                            }
+                        ),
+                        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 28000))
+                    ]);
+                    if (r.ok) {
+                        const d       = await r.json();
+                        const imgPart = d.candidates?.[0]?.content?.parts?.find(
+                            p => p.inlineData?.mimeType?.startsWith('image/')
+                        );
+                        if (imgPart?.inlineData?.data) {
+                            addLog(`✓ ${slideLabel}：${label} 成功`, 'success');
+                            return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+                        }
+                    }
+                    addLog(`⚠ ${slideLabel}：${label} 未回傳圖片`, 'warning');
+                } catch (e) {
+                    addLog(`⚠ ${slideLabel}：${label} 失敗（${e.message}）`, 'warning');
+                }
+            }
+        }
+
+        // ── 5️⃣  Picsum Photos 備援（與 index.html 第 3984 行相同）──
+        addLog(`📷 ${slideLabel}：所有 AI 模型失敗，使用 Picsum 備援`, 'warning');
+        try {
+            const seed = encodeURIComponent(prompt.replace(/\s+/g, '-').substring(0, 50));
+            const r = await Promise.race([
+                fetch(`https://picsum.photos/seed/${seed}/800/450`),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 6000))
+            ]);
+            const blob = await r.blob();
+            return await new Promise(resolve => {
+                const reader     = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        } catch {
+            return null;
+        }
     }
 
     // ════════════════════════════════════════════════
@@ -1883,12 +1845,13 @@ JSON Schema：
      * 5. 顯示預覽 + 啟用下載按鈕
      */
     async function startGeneration() {
-        // ── 前置驗證 ──
-        const apiKey = localStorage.getItem('nova_key_gemini') || '';
-        AppState.googleApiKey = apiKey;
-        AppState.xaiApiKey    = localStorage.getItem('nova_key_grok') || '';
+        // ── 前置驗證：每次生成都重新從 localStorage 取得最新 key ──
+        // （使用者可能在生成前才在 index.html 設定好 key）
+        AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
+        AppState.xaiApiKey    = localStorage.getItem('nova_key_grok')   || '';
+        updateApiStatusBadge();
 
-        if (!apiKey) {
+        if (!AppState.googleApiKey) {
             showToast('❌ 請先在 NOVA 120 設定中填寫 Gemini API Key');
             return;
         }
@@ -1932,12 +1895,11 @@ JSON Schema：
             const imageMap = new Map();  // slideNumber → Base64
             const chartMap = new Map();  // slideNumber → PNG Base64
 
-            const imageModel = document.getElementById('sel-image-model').value;
-            const slides     = presentationData.slides || [];
+            const slides = presentationData.slides || [];
 
-            // 收集需要生成圖片的投影片
+            // 收集需要生成圖片的投影片（所有 text_and_image layout 都生成，引擎自動 fallback）
             const imageTasks = slides.filter(s =>
-                (s.layout === 'text_and_image') && s.image_prompt && imageModel !== 'none'
+                s.layout === 'text_and_image'
             );
             // 收集需要渲染 Mermaid 的投影片
             const chartTasks = slides.filter(s =>
@@ -1952,25 +1914,25 @@ JSON Schema：
                 addLog(`開始生成圖片（共 ${imageTasks.length} 張）…`, 'ai');
             }
 
-            // 限制並發數量為 3，避免 API 過載
-            const IMAGE_CONCURRENCY = 3;
+            // 限制並發數量為 2，避免觸發 API rate limit（圖片生成較耗時）
+            const IMAGE_CONCURRENCY = 2;
             for (let i = 0; i < imageTasks.length; i += IMAGE_CONCURRENCY) {
                 const batch = imageTasks.slice(i, i + IMAGE_CONCURRENCY);
-                const results = await Promise.allSettled(
+                await Promise.allSettled(
                     batch.map(async (slideData) => {
-                        const imgBase64 = await generateImage(slideData.image_prompt);
+                        // ★ 使用新簽名：傳入 title / bullets / image_prompt / slideIdx ★
+                        const imgBase64 = await generateImage(
+                            slideData.title || '',
+                            slideData.bullet_points || [],
+                            slideData.image_prompt  || '',
+                            slideData.slide_number  - 1
+                        );
                         if (imgBase64) {
                             imageMap.set(slideData.slide_number, imgBase64);
                         }
                         doneAssets++;
-                        const pct = 20 + Math.round((doneAssets / totalAssets) * 60);
+                        const pct = 20 + Math.round((doneAssets / Math.max(totalAssets, 1)) * 60);
                         setProgress(Math.min(pct, 80));
-                        addLog(
-                            imgBase64
-                                ? `✓ 投影片 ${slideData.slide_number} 圖片生成完成`
-                                : `⚠ 投影片 ${slideData.slide_number} 圖片生成失敗（跳過）`,
-                            imgBase64 ? 'success' : 'warning'
-                        );
                     })
                 );
             }
