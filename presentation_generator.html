@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NOVA 120 - AI 多代理簡報引擎 V3.0</title>
+    <title>NOVA 120 - AI Pro Interactive Engine (V3.1)</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -14,15 +14,20 @@
         body { font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; background: var(--bg-main); color: white; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
         
         /* 介面佈局：上半部設定 / 下半部預覽 */
-        #settings-zone { height: 50vh; overflow-y: auto; border-bottom: 1px solid #1e293b; background: #0a0f1e; }
-        #preview-zone { height: 50vh; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+        #settings-zone { height: 50vh; overflow-y: auto; border-bottom: 1px solid #1e293b; background: #0a0f1e; transition: height 0.3s; }
+        #preview-zone { height: 50vh; overflow: hidden; display: flex; flex-direction: column; position: relative; transition: height 0.3s; }
         
         #main-canvas { width: 100%; height: 100%; max-height: 56.25vw; background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%); cursor: grab; }
 
         /* 文字強制渲染 */
         .slide-text-box { color: white !important; font-family: 'Noto Sans TC', sans-serif !important; }
         .slide-title { font-size: 32px; font-weight: 900; line-height: 1.2; margin-bottom: 15px; }
-        .slide-body { font-size: 16px; color: #cbd5e1; line-height: 1.6; }
+        .slide-body { font-size: 16px; color: #cbd5e1; line-height: 1.6; white-space: pre-line; }
+
+        /* Flowchart 樣式 */
+        .fc-node { fill: rgba(99, 102, 241, 0.1); stroke: var(--primary); stroke-width: 2; rx: 10; ry: 10; }
+        .fc-text { fill: white; font-size: 12px; font-weight: bold; text-anchor: middle; }
+        .fc-link { stroke: #64748b; stroke-width: 1; fill: none; marker-end: url(#arrow); }
 
         /* 導覽列 */
         .nav-bar { height: 80px; display: flex; gap: 10px; padding: 10px; overflow-x: auto; background: rgba(0,0,0,0.5); }
@@ -40,77 +45,80 @@
         <div class="flex items-center justify-between border-b border-slate-800 pb-4">
             <div class="flex items-center gap-3">
                 <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center"><i class="ph-bold ph-cpu text-white"></i></div>
-                <h1 class="text-lg font-black italic">NOVA 120 <span class="text-indigo-500 font-normal text-xs uppercase tracking-tighter">Multi-Agent Engine</span></h1>
+                <h1 class="text-lg font-black italic">NOVA 120 <span class="text-indigo-500 font-normal text-xs uppercase tracking-tighter">Pro Interactive V3.1</span></h1>
             </div>
             <div class="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
                 <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                <span class="text-[10px] text-green-400 font-bold uppercase">API Linked from index.html</span>
+                <span class="text-[10px] text-green-400 font-bold uppercase">Env Settings Linked</span>
             </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <section class="space-y-4">
-                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">1. 模型與代理分配 (Agent Selection)</label>
-                <div class="space-y-3">
-                    <div class="bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
-                        <span class="text-[10px] text-slate-500 block mb-1">Agent A (內容分析) & Agent C (排版)</span>
-                        <select id="sel-llm" class="w-full bg-transparent text-sm text-indigo-400 outline-none">
-                            <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (最新)</option>
-                            <option value="gemini-2.5-pro">Gemini 2.5 Pro (穩定)</option>
-                            <option value="gemini-3.1-pro-preview" selected>Gemini 3.1 Pro Preview (最強)</option>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                        </select>
-                    </div>
-                    <div class="bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
-                        <span class="text-[10px] text-slate-500 block mb-1">Agent B (視覺生圖)</span>
-                        <select id="sel-img" class="w-full bg-transparent text-sm text-indigo-400 outline-none">
-                            <option value="grok-imagine-image-pro">Grok Image Image Pro</option>
-                            <option value="grok-imagine-image">Grok Image Image</option>
-                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash-image</option>
-                            <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash-image</option>
-                        </select>
-                    </div>
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">1. Agent A 模型分配 (LLM)</label>
+                <div class="bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
+                    <select id="sel-llm" class="w-full bg-transparent text-sm text-indigo-400 outline-none">
+                        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (最強)</option>
+                        <option value="gemini-2.5-pro-preview" selected>Gemini 2.5 Pro Preview (穩定)</option>
+                        <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                        <option value="grok-beta">Grok LLM主力</option>
+                    </select>
                 </div>
             </section>
 
             <section class="space-y-4">
-                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">2. 資料連動 (PDF/Word/YouTube/Links)</label>
-                <input type="file" id="doc-input" accept=".txt,.pdf,.docx" class="hidden" onchange="handleFileUpload(this)">
-                <label for="doc-input" class="w-full border-2 border-dashed border-slate-800 rounded-3xl p-6 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-500 bg-slate-950/30 transition-all">
-                    <i class="ph-bold ph-files text-2xl mb-1 text-slate-500"></i>
-                    <span id="doc-status" class="text-xs text-slate-500 text-center">點擊掛載文檔 (Agent A 將分析其內容)</span>
-                </label>
-                <input type="text" id="url-input" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-indigo-500" placeholder="貼上 YouTube 網址或參考網頁連結...">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">2. 資料連動與知識庫</label>
+                <div class="flex gap-3">
+                    <input type="file" id="doc-input" accept=".txt" class="hidden" onchange="handleFileUpload(this)">
+                    <label for="doc-input" class="flex-1 border-2 border-dashed border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-500 bg-slate-950/30">
+                        <i class="ph-bold ph-file-plus text-xl text-slate-500"></i>
+                        <span id="doc-status" class="text-[10px] text-slate-500 mt-1">掛載 TXT 資料</span>
+                    </label>
+                    <input type="url" id="url-input" class="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs outline-none focus:border-indigo-500" placeholder="貼上網頁或 YouTube 連結...">
+                </div>
             </section>
 
             <section class="space-y-4">
-                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">3. 風格預選與品牌識別</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <select id="style-preset" class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-300">
-                        <option value="tech">賽博科技 (Neon Tech)</option>
-                        <option value="minimal">商務極簡 (Minimalist)</option>
-                        <option value="academic">學術專業 (Academic)</option>
-                        <option value="creative">創意無限 (Creative)</option>
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">3. 投影片內容設定 (Content Settings)</label>
+                <div class="grid grid-cols-2 gap-3">
+                    <select id="content-type" class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-300" onchange="toggleFlowchartOptions()">
+                        <option value="default" selected>預設 (Text/Image)</option>
+                        <option value="flowchart">流程圖 (Flowchart)</option>
                     </select>
+                    <select id="flowchart-type" class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 hidden">
+                        <option value="process">程序圖 (Process)</option>
+                        <option value="decision">決策圖 (Decision)</option>
+                        <option value="logic">邏輯圖 (Logic)</option>
+                        <option value="system">系統圖 (System)</option>
+                    </select>
+                </div>
+            </section>
+
+            <section class="space-y-4">
+                <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">4. 品牌識別與圖片模型</label>
+                <div class="grid grid-cols-2 gap-3">
                     <div class="flex gap-2">
                         <input type="file" id="logo-input" accept="image/*" class="hidden" onchange="loadLogo(this)">
                         <label for="logo-input" class="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs flex items-center justify-center gap-2 cursor-pointer hover:border-indigo-500">
                             <i class="ph-bold ph-image-square"></i> 上傳 Logo
                         </label>
+                        <select id="logo-pos" class="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs" onchange="updateLogoPos()">
+                            <option value="TL">左上</option><option value="TR">右上</option><option value="BL">左下</option><option value="BR">右下</option>
+                        </select>
                     </div>
+                    <select id="sel-image-model" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-indigo-400">
+                        <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash-image</option>
+                        <option value="gemini-2.5-flash-image">Gemini 2.5 Flash-image</option>
+                        <option value="grok-imagine-image">Grok Image Image</option>
+                        <option value="grok-imagine-image-pro">Grok Image Image Pro</option>
+                    </select>
                 </div>
-                <select id="logo-pos" class="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs" onchange="updateLogoPos()">
-                    <option value="TL">Logo 置於左上</option>
-                    <option value="TR">Logo 置於右上</option>
-                    <option value="BL">Logo 置於左下</option>
-                    <option value="BR">Logo 置於右下</option>
-                </select>
             </section>
 
-            <section class="space-y-4">
-                <div class="flex justify-between items-center"><label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">4. 簡報指令</label><span id="count-val" class="text-indigo-400 font-bold text-xs">5 張</span></div>
+            <section class="space-y-4 col-span-1 md:col-span-2 pb-10">
+                <div class="flex justify-between items-center"><label class="text-[10px] font-black text-slate-500 uppercase tracking-widest">5. 生成簡報指令</label><span id="count-val" class="text-indigo-400 font-bold text-xs">5 張</span></div>
                 <input type="range" id="slide-num" min="1" max="15" value="5" class="w-full accent-indigo-500" oninput="document.getElementById('count-val').innerText=this.value+' 張'">
-                <textarea id="prompt-area" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm focus:border-indigo-500 outline-none" placeholder="描述您希望投影片呈現的主題與細節..."></textarea>
+                <textarea id="prompt-area" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm focus:border-indigo-500 outline-none" placeholder="描述您希望簡報呈現的主題與細節..."></textarea>
                 <button onclick="executeAgentWorkflow()" id="run-btn" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-[2rem] font-black text-white shadow-xl flex items-center justify-center gap-3 transition-all active:scale-95">
                     <i class="ph-bold ph-sparkle text-lg"></i> 啟動全代理生成引擎
                 </button>
@@ -119,7 +127,15 @@
     </div>
 
     <div id="preview-zone">
+        <div class="absolute top-2 left-2 z-10 flex gap-1">
+            <button class="p-2 bg-slate-800/80 rounded-lg" title="收起設定" onclick="toggleSettings()"><i id="toggle-icon" class="ph-bold ph-caret-up"></i></button>
+        </div>
         <svg id="main-canvas" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b" />
+                </marker>
+            </defs>
             <image id="canvas-logo" x="60" y="60" width="140" height="70" href="" opacity="0.9" />
             <g id="slides-layer"></g>
         </svg>
@@ -131,20 +147,39 @@
             docText: "",
             slides: [],
             current: 0,
-            // 直接連動 index.html 的設定
+            settingsOpen: true,
+            // 直接連動 index.html 的設定 (假設名稱為 gemini_api_key 或 nova_key_gemini)
             keys: {
-                gemini: localStorage.getItem('nova_key_gemini') || '',
-                grok: localStorage.getItem('nova_key_grok') || ''
+                gemini: localStorage.getItem('gemini_api_key') || localStorage.getItem('nova_key_gemini') || '',
+                grok: localStorage.getItem('grok_api_key') || localStorage.getItem('nova_key_grok') || ''
             }
         };
+
+        function toggleSettings() {
+            State.settingsOpen = !State.settingsOpen;
+            const sz = document.getElementById('settings-zone');
+            const pz = document.getElementById('preview-zone');
+            const icon = document.getElementById('toggle-icon');
+            if(State.settingsOpen) {
+                sz.style.height = '50vh'; pz.style.height = '50vh'; icon.className = 'ph-bold ph-caret-up';
+            } else {
+                sz.style.height = '0'; pz.style.height = '100vh'; icon.className = 'ph-bold ph-caret-down';
+            }
+        }
+
+        function toggleFlowchartOptions() {
+            const ct = document.getElementById('content-type').value;
+            const fo = document.getElementById('flowchart-type');
+            if(ct === 'flowchart') { fo.classList.remove('hidden'); } else { fo.classList.add('hidden'); }
+        }
 
         function handleFileUpload(input) {
             const file = input.files[0];
             if (file) {
-                document.getElementById('doc-status').innerText = `已掛載資料：${file.name}`;
+                document.getElementById('doc-status').innerText = `已掛載：${file.name}`;
                 const reader = new FileReader();
                 reader.onload = (e) => { State.docText = e.target.result; };
-                reader.readAsText(file); // 針對 TXT，PDF/Word 實務上需後端解析或 js-pdf
+                reader.readAsText(file);
             }
         }
 
@@ -167,53 +202,103 @@
             else { logo.setAttribute('x', 1920-140-padding); logo.setAttribute('y', 1080-70-padding); }
         }
 
+        // ════════════════════════════════════════════════
+        // 核心工作流：Fix 1 (Gemini 2.5 Pro) & Fix 2 (圖片提示詞生成)
+        // ════════════════════════════════════════════════
         async function executeAgentWorkflow() {
             const topic = document.getElementById('prompt-area').value;
             const url = document.getElementById('url-input').value;
             const modelA = document.getElementById('sel-llm').value;
             const slideCount = document.getElementById('slide-num').value;
-            
+            const contentType = document.getElementById('content-type').value;
+            const flowchartType = document.getElementById('flowchart-type').value;
+
             if (!topic) return alert("請輸入指令內容");
-            if (!State.keys.gemini) return alert("未偵測到 API Key，請先於 index.html 設定。");
+            
+            // 決定使用的 KEY 和 API
+            let apiKey, apiUrl, modelName = modelA;
+            if(modelA.startsWith('gemini')) {
+                apiKey = State.keys.gemini;
+                if(!apiKey) return alert("環境中未偵測到 Gemini API Key。");
+                apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelA}:generateContent?key=${apiKey}`;
+            } else if (modelA.startsWith('grok')) {
+                apiKey = State.keys.grok;
+                if(!apiKey) return alert("環境中未偵測到 Grok API Key。");
+                apiUrl = `https://api.x.ai/v1/chat/completions`; // 假設 Grok API
+            }
 
             const btn = document.getElementById('run-btn');
-            btn.innerHTML = `<i class="ph-bold ph-circle-notch animate-spin"></i> Agent A 深度分析內容中...`;
+            btn.innerHTML = `<i class="ph-bold ph-circle-notch animate-spin"></i> Agent A & C 數據分析中...`;
             btn.disabled = true;
 
             try {
-                // Agent A 核心大綱分析
-                const systemPrompt = `你是由 Agent A/B/C 組成的 NOVA 120 引擎。
-                分析文檔數據：${State.docText.substring(0, 2000)}
-                分析外部連結：${url}
-                生成張數：${slideCount}
-                任務：根據以上資料與用戶要求生成結構化 JSON：[{"title": "...", "content": "...", "img_prompt": "..."}]`;
+                // Agent A/C 核心 Prompt (整合資料、圖片需求、流程圖需求)
+                let systemPrompt = `你是由 Agent A (分析內容)、Agent B (視覺規劃)、Agent C (排版渲染) 組成的 NOVA 120 引擎。
+                分析提供的文檔數據「${State.docText.substring(0, 3000)}」
+                分析提供的網頁連結「${url}」
+                生成張數：${slideCount}。內容必須完全基於以上資料與用戶要求。
 
-                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelA}:generateContent?key=${State.keys.gemini}`, {
+                請回傳嚴格的 JSON 陣列格式。`;
+
+                // 根據內容類型調整 Prompt
+                if (contentType === 'default') {
+                    systemPrompt += `\n每一項必須包含以下項目：
+                    - title: 投影片標題
+                    - content: 詳細內文
+                    - image_prompt: [Fix 2] 為圖片生成模型 (Agent B) 撰寫的詳細英文圖片提示詞 (描述核心概念)
+                    格式範例：[{"title": "...", "content": "...", "image_prompt": "..."}]`;
+                } else if (contentType === 'flowchart') {
+                    systemPrompt += `\n此投影片需要生成種類為「${flowchartType}」的流程圖。
+                    每一項必須包含以下項目：
+                    - title: 流程圖標題
+                    - content: 流程圖的文字描述大綱
+                    - flowchart: 包含 'nodes' (數組, 每個有 id, text, type) 和 'links' (數組, 每個有 from, to, text) 的結構。
+                    格式範例：[{"title": "...", "content": "...", "flowchart": {"nodes": [...], "links": [...]}}]`;
+                }
+
+                let payload;
+                if(modelA.startsWith('gemini')) {
+                    payload = { contents: [{ parts: [{ text: systemPrompt + "\n\n用戶要求：" + topic }] }] };
+                } else {
+                    // Grok payload (OpenAI compatible)
+                    payload = { model: modelA, messages: [{ role: "system", content: systemPrompt }, { role: "user", content: topic }] };
+                }
+
+                const res = await fetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: systemPrompt + "\n指令：" + topic }] }] })
+                    body: JSON.stringify(payload)
                 });
 
-                const data = await res.json();
-                const raw = data.candidates[0].content.parts[0].text.replace(/```json|```/g, "").trim();
-                State.slides = JSON.parse(raw);
+                const json = await res.json();
+                let raw;
+                if(modelA.startsWith('gemini')) { raw = json.candidates[0].content.parts[0].text; } 
+                else { raw = json.choices[0].message.content; }
 
-                // 啟動 Agent C 渲染
+                const cleanJson = raw.replace(/```json|```/g, "").trim();
+                State.slides = JSON.parse(cleanJson);
+
                 renderSlides();
+                toggleSettings(); // 生成後收起設定
 
             } catch (e) {
                 console.error(e);
-                alert("生成過程發生錯誤，請檢查 API 設定。");
+                alert("生成失敗，請檢查 API 金鑰設定或指令內容。");
             } finally {
                 btn.innerHTML = `<i class="ph-bold ph-sparkle text-lg"></i> 重新生成`;
                 btn.disabled = false;
             }
         }
 
+        // ════════════════════════════════════════════════
+        // 渲染引擎 (解決字體不消失問題 & Fix 2 圖片載入)
+        // ════════════════════════════════════════════════
         function renderSlides() {
             const layer = document.getElementById('slides-layer');
             const nav = document.getElementById('thumb-nav');
             layer.innerHTML = ''; nav.innerHTML = '';
+
+            const contentType = document.getElementById('content-type').value;
 
             State.slides.forEach((s, i) => {
                 const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
@@ -221,38 +306,190 @@
                 g.setAttribute("visibility", i === 0 ? "visible" : "hidden");
 
                 const foreign = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
-                foreign.setAttribute("x", "160"); foreign.setAttribute("y", "260");
-                foreign.setAttribute("width", "1600"); foreign.setAttribute("height", "700");
+                
+                if (contentType === 'default') {
+                    // 預設 Text + Image 佈局
+                    foreign.setAttribute("x", "150"); foreign.setAttribute("y", "260");
+                    foreign.setAttribute("width", "1000"); foreign.setAttribute("height", "700");
 
-                const div = document.createElement("div");
-                div.className = "slide-text-box";
-                div.innerHTML = `
-                    <h2 class="slide-title" style="color:white !important;">${s.title}</h2>
-                    <div class="slide-body" style="color:#cbd5e1 !important;">${s.content.replace(/\n/g, '<br>')}</div>
-                    <div class="mt-8 flex gap-3">
-                        <span class="px-3 py-1 bg-indigo-500/20 border border-indigo-500/30 rounded text-[10px] text-indigo-400 font-bold uppercase">Agent C Layout</span>
-                        <span class="px-3 py-1 bg-slate-800 border border-slate-700 rounded text-[10px] text-slate-500 font-bold">IMAGE Prompt: ${s.img_prompt.substring(0,30)}...</span>
-                    </div>
-                `;
+                    const div = document.createElement("div");
+                    div.className = "slide-text-box";
+                    div.innerHTML = `
+                        <h2 class="slide-title" style="color: white !important;">${s.title}</h2>
+                        <div class="slide-body" style="color: #cbd5e1 !important;">${s.content.replace(/\n/g, '<br>')}</div>
+                    `;
+                    foreign.appendChild(div);
+                    g.appendChild(foreign);
 
-                foreign.appendChild(div);
-                g.appendChild(foreign);
+                    // [Fix 2] 圖片載入塊
+                    const imgG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    imgG.setAttribute("transform", "translate(1220, 260)");
+                    
+                    // 圖片框
+                    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    rect.setAttribute("width", "550"); rect.setAttribute("height", "600");
+                    rect.setAttribute("fill", "rgba(255,255,255,0.05)"); rect.setAttribute("rx", "20");
+                    imgG.appendChild(rect);
+
+                    // Placeholder/Spinner
+                    const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    text.setAttribute("x", "275"); text.setAttribute("y", "300");
+                    text.setAttribute("text-anchor", "middle"); text.setAttribute("fill", "#6366f1");
+                    text.setAttribute("font-size", "14"); text.textContent = "Agent B 圖片生成中...";
+                    imgG.appendChild(text);
+
+                    // 圖片元素
+                    const imgel = document.createElementNS("http://www.w3.org/2000/svg", "image");
+                    imgel.setAttribute("width", "550"); imgel.setAttribute("height", "600");
+                    imgel.setAttribute("rx", "20"); imgel.setAttribute("opacity", "0");
+                    imgG.appendChild(imgel);
+
+                    g.appendChild(imgG);
+
+                    // 異步呼叫 Agent B 生圖
+                    if (s.image_prompt) {
+                        loadAndDisplayImage(s.image_prompt, imgel, text);
+                    }
+
+                } else if (contentType === 'flowchart') {
+                    // 流程圖佈局
+                    foreign.setAttribute("x", "100"); foreign.setAttribute("y", "260");
+                    foreign.setAttribute("width", "600"); foreign.setAttribute("height", "700");
+
+                    const div = document.createElement("div");
+                    div.className = "slide-text-box";
+                    div.innerHTML = `
+                        <h2 class="slide-title" style="color: white !important; font-size: 28px;">${s.title}</h2>
+                        <div class="slide-body" style="color: #cbd5e1 !important; font-size: 14px;">${s.content.replace(/\n/g, '<br>')}</div>
+                    `;
+                    foreign.appendChild(div);
+                    g.appendChild(foreign);
+
+                    // 流程圖渲染區域
+                    const fcG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    fcG.setAttribute("transform", "translate(750, 260)");
+                    if(s.flowchart) {
+                        renderFlowchart(s.flowchart, fcG);
+                    }
+                    g.appendChild(fcG);
+                }
+
                 layer.appendChild(g);
 
                 const thumb = document.createElement('div');
-                thumb.className = `thumb ${i===0?'active':''}`;
-                thumb.id = `thumb-${i}`;
-                thumb.innerText = `P${i+1}`;
+                thumb.className = `thumb flex items-center justify-center text-[10px] text-slate-600 font-black ${i===0?'active':''}`;
+                thumb.id = `thumb-${i}`; thumb.innerText = `P${i+1}`;
                 thumb.onclick = () => switchSlide(i);
                 nav.appendChild(thumb);
             });
             switchSlide(0);
         }
 
+        // ════════════════════════════════════════════════
+        // [Fix 2] 圖片生成與異步載入
+        // ════════════════════════════════════════════════
+        async function loadAndDisplayImage(prompt, imgEl, textEl) {
+            const imgModel = document.getElementById('sel-image-model').value;
+            let key, apiUrl;
+
+            if(imgModel.startsWith('gemini')) {
+                key = State.keys.gemini;
+                if(!key) return;
+                // 這裡模擬 Google 圖片 API，請根據實際情況介接
+                // 目前 Google Generative AI API 的圖片生成仍在預覽或特定端點
+                // 此處做一 placeholder 模擬
+                textEl.textContent = "偵測到 Gemini 圖片指令，但尚未設定專用 API 介面。";
+                return;
+            } else if (imgModel.startsWith('grok')) {
+                key = State.keys.grok;
+                if(!key) return;
+                // Grok Image API (OpenAI compatible assumed)
+                apiUrl = `https://api.x.ai/v1/images/generations`; 
+            }
+
+            try {
+                const res = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${key}` },
+                    body: JSON.stringify({ model: imgModel, prompt: prompt, n: 1, size: "1024x1024", response_format: "url" })
+                });
+
+                const data = await res.json();
+                const url = data.data[0].url;
+
+                imgEl.setAttribute('href', url);
+                imgEl.setAttribute('opacity', '1');
+                textEl.setAttribute('opacity', '0'); // 收起 Spinner
+
+            } catch (e) {
+                textEl.textContent = "Grok 圖片生成失敗";
+                console.error(e);
+            }
+        }
+
+        // ════════════════════════════════════════════════
+        // 簡化流程圖渲染 (Boxes and Lines)
+        // ════════════════════════════════════════════════
+        function renderFlowchart(data, group) {
+            const nodes = data.nodes || [];
+            const links = data.links || [];
+            
+            const nodeWidth = 160; const nodeHeight = 60;
+            const yGap = 120; // 節點間距
+            const startX = 200; // 起始位置
+
+            const nodeMap = {};
+
+            // 1. 繪製節點
+            nodes.forEach((node, i) => {
+                nodeMap[node.id] = { x: startX, y: i * yGap, w: nodeWidth, h: nodeHeight };
+                const nG = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                nG.setAttribute("transform", `translate(${startX}, ${i * yGap})`);
+
+                const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                rect.setAttribute("width", nodeWidth); rect.setAttribute("height", nodeHeight);
+                rect.setAttribute("class", "fc-node");
+                if (node.type === 'decision') { rect.setAttribute("rx", "30"); rect.setAttribute("ry", "30"); rect.style.stroke = "#ec4899"; }
+                
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", nodeWidth / 2); text.setAttribute("y", nodeHeight / 2 + 5);
+                text.setAttribute("class", "fc-text");
+                text.textContent = node.text;
+
+                nG.appendChild(rect); nG.appendChild(text); group.appendChild(nG);
+            });
+
+            // 2. 繪製連線
+            links.forEach(link => {
+                const from = nodeMap[link.from]; const to = nodeMap[link.to];
+                if(from && to) {
+                    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                    const startX_path = from.x + from.w / 2;
+                    const startY_path = from.y + from.h;
+                    const endX_path = to.x + to.w / 2;
+                    const endY_path = to.y;
+
+                    path.setAttribute("d", `M ${startX_path} ${startY_path} L ${endX_path} ${endY_path}`);
+                    path.setAttribute("class", "fc-link");
+                    group.appendChild(path);
+
+                    if(link.text) {
+                        const lText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                        lText.setAttribute("x", startX_path + 10); lText.setAttribute("y", startY_path + (endY_path - startY_path)/2);
+                        lText.setAttribute("fill", "#94a3b8"); lText.setAttribute("font-size", "10");
+                        lText.textContent = link.text;
+                        group.appendChild(lText);
+                    }
+                }
+            });
+        }
+
         function switchSlide(idx) {
             State.slides.forEach((_, i) => {
-                document.getElementById(`slide-${i}`).setAttribute("visibility", i === idx ? "visible" : "hidden");
-                document.getElementById(`thumb-${i}`).classList.toggle('active', i === idx);
+                const s = document.getElementById(`slide-${i}`);
+                const t = document.getElementById(`thumb-${i}`);
+                if(s) s.setAttribute("visibility", i === idx ? "visible" : "hidden");
+                if(t) t.classList.toggle('active', i === idx);
             });
             State.current = idx;
         }
