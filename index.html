@@ -1424,6 +1424,87 @@ async function encodeMp3(audioBuffer) {
         }
         // ─────────────────────────────────────────────────────────────────────
 
+        // ══════════════════════════════════════════════════════════════════════
+        // ── 緊急本地備份（防止 IndexedDB 被手機瀏覽器自動清除）─────────────
+        // ══════════════════════════════════════════════════════════════════════
+        const _EM_BACKUP_KEY = 'nova_em_backup';
+        let _emBackupTimer = null;
+
+        function scheduleEmergencyBackup() {
+            if (_emBackupTimer) clearTimeout(_emBackupTimer);
+            _emBackupTimer = setTimeout(() => {
+                try {
+                    const stripBinary = m => {
+                        const { files, file, audioData, ...rest } = m;
+                        return rest;
+                    };
+                    let backup = {
+                        ts: Date.now(),
+                        messages: appState.messages.slice(-300).map(stripBinary),
+                        notes: appState.notes.slice(0, 150).map(stripBinary),
+                        todos: appState.todos.slice(0, 150),
+                        chatTitles: appState.chatTitles,
+                        pinnedSessions: appState.pinnedSessions,
+                        deletedIds: appState.deletedIds
+                    };
+                    let json = JSON.stringify(backup);
+                    if (json.length > 4 * 1024 * 1024) {
+                        backup.messages = appState.messages.slice(-100).map(stripBinary);
+                        backup.notes = appState.notes.slice(0, 50).map(stripBinary);
+                        json = JSON.stringify(backup);
+                    }
+                    if (json.length < 4.5 * 1024 * 1024) {
+                        localStorage.setItem(_EM_BACKUP_KEY, json);
+                    }
+                } catch(e) { console.warn('⚠️ 緊急備份寫入失敗:', e); }
+            }, 15000);
+        }
+
+        async function restoreFromEmergencyBackup() {
+            try {
+                const raw = localStorage.getItem(_EM_BACKUP_KEY);
+                if (!raw) return false;
+                const backup = JSON.parse(raw);
+                if (!backup || !Array.isArray(backup.messages)) return false;
+                console.log(`🔄 IndexedDB 全空，從緊急備份還原（時間：${new Date(backup.ts).toLocaleString()}）`);
+                const writeToStore = (storeName, items) => new Promise(resolve => {
+                    if (!db || !items.length) return resolve();
+                    try {
+                        const tx = db.transaction(storeName, 'readwrite');
+                        items.forEach(item => tx.objectStore(storeName).put(item));
+                        tx.oncomplete = resolve;
+                        tx.onerror = resolve;
+                    } catch(e) { resolve(); }
+                });
+                const del = backup.deletedIds || {};
+                const validMsgs = backup.messages.filter(m => !del[String(m.id)]);
+                const validNotes = (backup.notes || []).filter(n => !del[String(n.id)]);
+                const validTodos = (backup.todos || []).filter(t => !del[String(t.id)]);
+                await writeToStore('messages', validMsgs);
+                await writeToStore('notes', validNotes);
+                await writeToStore('todos', validTodos);
+                appState.messages = validMsgs.sort((a, b) => a.id - b.id);
+                appState.notes = validNotes.sort((a, b) => b.id - a.id);
+                appState.todos = validTodos.sort((a, b) => b.id - a.id);
+                if (backup.chatTitles) { appState.chatTitles = backup.chatTitles; localStorage.setItem('nova_chat_titles', JSON.stringify(backup.chatTitles)); }
+                if (backup.pinnedSessions) { appState.pinnedSessions = backup.pinnedSessions; localStorage.setItem('nova_pinned_sessions', JSON.stringify(backup.pinnedSessions)); }
+                if (backup.deletedIds) { appState.deletedIds = del; localStorage.setItem('nova_deleted_ids', JSON.stringify(del)); }
+                setTimeout(() => showToast(`✅ 已從緊急備份還原 ${validMsgs.length} 則訊息、${validNotes.length} 筆筆記`), 1000);
+                return true;
+            } catch(e) { console.error('❌ 緊急備份還原失敗:', e); return false; }
+        }
+
+        function pruneDeletedIds() {
+            const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+            const now = Date.now();
+            let pruned = 0;
+            Object.keys(appState.deletedIds).forEach(k => {
+                if (now - appState.deletedIds[k] > THIRTY_DAYS) { delete appState.deletedIds[k]; pruned++; }
+            });
+            if (pruned > 0) localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
+        }
+        // ══════════════════════════════════════════════════════════════════════
+
 // --- 新增：Google Drive 即時同步引擎 ---
         let liveSyncTimeout = null;
         let lastLiveSyncTime = 0;
@@ -1839,8 +1920,14 @@ return html;
                 okText: '刪除對話',
                 onConfirm: function() {
                     const msgsToDelete = appState.messages.filter(m => String(m.sessionId) === String(sessionId) || (!m.sessionId && sessionId === 'legacy'));
-                    msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
+                    msgsToDelete.forEach(m => {
+                        // 寫入 tombstone，防止雲端同步把已刪訊息推回來
+                        appState.deletedIds[String(m.id)] = Date.now();
+                        deleteFromDB('messages', m.id);
+                    });
+                    if (msgsToDelete.length > 0) localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
                     appState.messages = appState.messages.filter(m => String(m.sessionId) !== String(sessionId) && !(!m.sessionId && sessionId === 'legacy'));
+                    scheduleEmergencyBackup();
                     if (String(appState.currentSessionId) === String(sessionId) || (!appState.currentSessionId && sessionId === 'legacy')) {
                         appState.currentSessionId = Date.now().toString();
                         localStorage.setItem('nova_current_session', appState.currentSessionId);
@@ -2399,7 +2486,7 @@ localStorage.setItem('nova_current_session', appState.currentSessionId);
             const msg = { id: genMsgId(), sessionId: appState.currentSessionId, text, sender, model: model ||
 appState.currentModel, time: getTime(), sources, files: filesArr, actionData };
             if(filesArr.length === 1 && !Array.isArray(files)) msg.file = files; // legacy support for DB
-            appState.messages.push(msg); saveToDB('messages', msg); 
+            appState.messages.push(msg); saveToDB('messages', msg); scheduleEmergencyBackup();
             renderMessages();
             if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
 
@@ -2436,8 +2523,13 @@ window.clearChatHistory = function() {
             if(confirm('確定要清空「當前」這筆對話紀錄嗎？(其他對話不會受影響)')) { 
                 const targetSid = String(appState.currentSessionId || 'legacy');
                 const msgsToDelete = appState.messages.filter(m => String(m.sessionId || 'legacy') === targetSid);
-                msgsToDelete.forEach(m => deleteFromDB('messages', m.id));
+                msgsToDelete.forEach(m => {
+                    appState.deletedIds[String(m.id)] = Date.now();
+                    deleteFromDB('messages', m.id);
+                });
+                if (msgsToDelete.length > 0) localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
                 appState.messages = appState.messages.filter(m => String(m.sessionId || 'legacy') !== targetSid);
+                scheduleEmergencyBackup();
                 renderMessages(); 
                 if (typeof renderChatHistoryList === 'function') renderChatHistoryList();
             }
@@ -2455,7 +2547,7 @@ window.clearChatHistory = function() {
 msg.files : (msg.file ? [msg.file] : []);
                 let imageFiles = msgFiles.filter(f => f.category === 'image');
                 if (imageFiles.length > 0) note.images = imageFiles.map(f => f.data);
-                appState.notes.unshift(note); saveToDB('notes', note); renderNotes(); showToast("⭐ 已加入筆記！(表格與格式已保留)");
+                    appState.notes.unshift(note); saveToDB('notes', note); scheduleEmergencyBackup(); renderNotes(); showToast("⭐ 已加入筆記！(表格與格式已保留)");
             } 
         };
         // ===== 通用確認對話框 =====
@@ -2651,7 +2743,7 @@ msg.files : (msg.file ? [msg.file] : []);
                 onConfirm: function() {
                     appState.deletedIds[String(id)] = Date.now(); localStorage.setItem('nova_deleted_ids', JSON.stringify(appState.deletedIds));
                     appState.messages = appState.messages.filter(m => String(m.id) !== String(id));
-                    deleteFromDB('messages', id); renderMessages();
+                    deleteFromDB('messages', id); scheduleEmergencyBackup(); renderMessages();
                 }
             });
         };
@@ -3098,7 +3190,7 @@ handleSendMessage(); }
             const text = prompt('請輸入待辦事項：');
             if(text && text.trim()) {
                 const newTodo = { id: Date.now(), text: text.trim(), done: false, time: '未設定提醒', alerted: false, alertEnabled: false };
-                appState.todos.unshift(newTodo); saveToDB('todos', newTodo); renderTodos(); showToast("✅ 已新增待辦事項");
+                appState.todos.unshift(newTodo); saveToDB('todos', newTodo); scheduleEmergencyBackup(); renderTodos(); showToast("✅ 已新增待辦事項");
             }
         };
 
@@ -8465,10 +8557,17 @@ if (appState.pendingAnalyzeContextId) {
                     } catch(e) { console.warn('還原資料夾 handle 失敗:', e); }
                 }
 
-                appState.messages = (await loadStoreFromDB('messages')).filter(m => !appState.deletedIds[String(m.id)]).sort((a,b)=>a.id-b.id);
-                appState.notes = (await loadStoreFromDB('notes')).sort((a,b)=>b.id-a.id);
-                appState.todos = (await loadStoreFromDB('todos')).sort((a,b)=>b.id-a.id);
+                const _del = appState.deletedIds;
+                appState.messages = (await loadStoreFromDB('messages')).filter(m => !_del[String(m.id)]).sort((a,b)=>a.id-b.id);
+                appState.notes = (await loadStoreFromDB('notes')).filter(n => !_del[String(n.id)]).sort((a,b)=>b.id-a.id);
+                appState.todos = (await loadStoreFromDB('todos')).filter(t => !_del[String(t.id)]).sort((a,b)=>b.id-a.id);
                 appState.audioRecords = (await loadStoreFromDB('audioRecords')).sort((a,b)=>b.id-a.id);
+                // ── IndexedDB 全空 → 嘗試從緊急備份還原（手機低記憶體被清除的情況）
+                if (appState.messages.length === 0 && appState.notes.length === 0 && appState.todos.length === 0) {
+                    await restoreFromEmergencyBackup();
+                }
+                // ── 清理超過 30 天的 tombstone，防止 localStorage 爆滿
+                pruneDeletedIds();
 
                 const migrateLS = (lsKey, storeName, stateArray) => {
                     const oldData = localStorage.getItem(lsKey);
@@ -8501,6 +8600,8 @@ if (appState.pendingAnalyzeContextId) {
             }
             
             renderAll();
+            // ── 啟動完成後執行初始緊急備份（確保有最新快照，以防手機下次清除 IndexedDB）
+            scheduleEmergencyBackup();
             
             const safeSet = (id, val) => { const el = document.getElementById(id); if(el) el.value = val || ''; };
             safeSet('key-gemini', appState.keys.gemini); safeSet('key-groq', appState.keys.groq); safeSet('key-cohere', appState.keys.cohere); safeSet('key-openai', appState.keys.openai); safeSet('key-grok', appState.keys.grok); safeSet('key-serpapi', appState.keys.serpapi); safeSet('key-aws-ak', appState.keys.aws_ak); safeSet('key-aws-sk', appState.keys.aws_sk); safeSet('key-aws-region', appState.keys.aws_region); safeSet('key-doc-url', appState.docMonitorUrl); safeSet('key-drive-url', appState.driveUrl); safeSet('key-gmaps', appState.keys.gmaps);
