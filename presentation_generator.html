@@ -2,468 +2,218 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>AI 簡報生成器 · NOVA 120 Pro Native</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interactive Slide Engine · NOVA 120</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.4.21/mammoth.browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
-
-    <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Plus Jakarta Sans', 'Noto Sans TC', 'sans-serif'] },
-                    colors: { slate: { 925: '#0f172a' } },
-                }
-            }
-        }
-    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Noto+Sans+TC:wght@300;400;700&display=swap" rel="stylesheet">
 
     <style>
-        :root { background-color: #020617; color-scheme: dark; }
-        html, body { background-color: #020617; min-height: 100vh; font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; overflow-x: hidden; }
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-        .panel-body { overflow: hidden; max-height: 0; transition: max-height 0.35s ease-in-out, opacity 0.3s ease; opacity: 0; }
-        .panel-body.open { max-height: 2000px; opacity: 1; }
-        .drop-zone { border: 2px dashed #475569; transition: all 0.25s ease; }
-        .drop-zone:hover { border-color: #818cf8; background-color: rgba(99, 102, 241, 0.08); }
-        .slide-preview-card { width: 100%; aspect-ratio: 16/9; border-radius: 12px; border: 1px solid #334155; background-color: #0F172A; overflow: hidden; position: relative; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);}
-        .glass-card { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; }
+        :root {
+            --color-1: #6366f1; --color-2: #ec4899; --color-3: #22c55e;
+            background-color: #020617;
+        }
+        body { overflow: hidden; height: 100vh; width: 100vw; font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; }
+        #main-canvas { width: 100%; height: 100%; background: radial-gradient(circle at 50% 50%, #0f172a 0%, #020617 100%); touch-action: none; cursor: grab; }
+        .glass-card { background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.1); box-shadow: 0 20px 50px rgba(0,0,0,0.5); resize: both; overflow: auto; }
+        .draggable-group { cursor: move; }
+        .side-panel { position: fixed; left: 1.5rem; top: 1.5rem; bottom: 1.5rem; width: 340px; z-index: 50; }
+        .model-select { background: #0f172a; border: 1px solid #1e293b; color: #94a3b8; font-size: 11px; border-radius: 8px; padding: 4px 8px; width: 100%; outline: none; }
+        .model-select:focus { border-color: #6366f1; color: white; }
     </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+<body class="text-slate-100">
 
-    <input type="text" id="slide-bg-hex" value="#0F172A" style="display:none;">
+    <svg id="main-canvas" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <filter id="glow">
+                <feGaussianBlur stdDeviation="10" result="coloredBlur"/>
+                <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+        </defs>
+        <g id="subject-layer" filter="url(#glow)">
+            <ellipse cx="960" cy="540" rx="350" ry="100" fill="none" stroke="var(--color-1)" stroke-width="1" opacity="0.3" />
+            <text x="960" y="540" text-anchor="middle" fill="white" font-size="20" opacity="0.3" tracking="5">NOVA INTERACTIVE CANVAS</text>
+        </g>
+        <g id="component-layer"></g>
+    </svg>
 
-    <header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70 shrink-0">
-        <div class="max-w-7xl mx-auto px-3 sm:px-4 h-14 flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2 sm:gap-3 min-w-0">
-                <a href="./index.html" class="flex items-center gap-1 text-slate-400 hover:text-white text-xs sm:text-sm font-medium">
-                    <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
-                </a>
-                <div class="w-px h-5 bg-slate-700 hidden sm:block"></div>
-                <h1 class="text-xs sm:text-sm font-bold text-white truncate">AI 簡報生成器 Pro (Native 3.1)</h1>
-            </div>
-            <div class="flex items-center gap-1.5 sm:gap-2">
-                <div id="header-model-badge" class="hidden md:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
-                    <i class="ph-fill ph-cpu text-violet-400"></i><span id="header-model-name">Gemini 3.1 Flash</span>
+    <aside class="side-panel">
+        <div class="bg-slate-900/90 backdrop-blur-2xl border border-slate-800 rounded-[2rem] p-6 h-full flex flex-col shadow-2xl">
+            <div class="flex items-center gap-4 mb-8">
+                <div class="w-12 h-12 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                    <i class="ph-bold ph-cpu text-white text-2xl"></i>
                 </div>
-                <button id="btn-download" onclick="downloadPptx()" class="hidden items-center gap-1.5 bg-emerald-500 hover:bg-emerald-400 text-white text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shadow-lg">
-                    <i class="ph-bold ph-download-simple"></i><span class="hidden sm:inline">下載 PPTX</span>
-                </button>
-                <button id="btn-generate" onclick="startGeneration()" class="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 text-white text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shadow-lg">
-                    <i class="ph-bold ph-sparkle"></i><span class="hidden sm:inline">開始生成</span><span class="sm:hidden">生成</span>
-                </button>
-                <button id="btn-stop" onclick="stopGeneration()" class="hidden items-center gap-1.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl transition-all shadow-lg">
-                    <i class="ph-bold ph-stop"></i><span class="hidden sm:inline">停止生成</span><span class="sm:hidden">停止</span>
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-tight">NOVA 120</h1>
+                    <p class="text-[10px] text-indigo-400 font-bold uppercase tracking-widest">Multi-Agent Engine</p>
+                </div>
+            </div>
+
+            <div class="space-y-6 overflow-y-auto pr-2 custom-scrollbar">
+                <div class="p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                    <label class="text-[10px] font-black text-slate-500 uppercase mb-3 block">Agent A: NLP 知識萃取</label>
+                    <select id="model-agent-a" class="model-select mb-3">
+                        <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                        <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro</option>
+                        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    </select>
+                    <textarea id="inp-topic" rows="3" class="w-full bg-transparent border-b border-slate-800 p-2 text-sm focus:border-indigo-500 outline-none transition-all" placeholder="輸入您的簡報主題..."></textarea>
+                </div>
+
+                <div class="p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                    <label class="text-[10px] font-black text-slate-500 uppercase mb-3 block">Agent B: 主視覺生圖/SVG</label>
+                    <select id="model-agent-b" class="model-select">
+                        <option value="grok-image-image">Grok Image Image</option>
+                        <option value="grok-image-image-pro" selected>Grok Image Image Pro</option>
+                        <option value="gemini-2.5-flash-image">Gemini 2.5 Flash-image</option>
+                        <option value="gemini-3.1-flash-image">Gemini 3.1 Flash-image</option>
+                    </select>
+                    <p class="text-[9px] text-slate-600 mt-2">負責中央視覺元件與空間 3D 路徑生成</p>
+                </div>
+
+                <div class="p-4 bg-slate-950/50 rounded-2xl border border-slate-800">
+                    <label class="text-[10px] font-black text-slate-500 uppercase mb-3 block">Agent C: 前端互動架構</label>
+                    <select id="model-agent-c" class="model-select">
+                        <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                        <option value="gemini-3.1-pro-preview" selected>Gemini 3.1 Pro Preview</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                    </select>
+                </div>
+
+                <button onclick="runWorkflow()" id="btn-generate" class="w-full bg-white text-slate-950 font-black py-4 rounded-2xl hover:bg-indigo-400 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-white/5 flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-lightning"></i> 執行多代理生成
                 </button>
             </div>
         </div>
-    </header>
-
-    <main class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 flex flex-col lg:flex-row gap-4 sm:gap-5 flex-1 w-full">
-        <aside class="w-full lg:w-80 xl:w-96 flex flex-col gap-4 shrink-0">
-            
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-3 sm:p-4 flex flex-col gap-2">
-                <div class="flex items-center gap-3">
-                    <i class="ph-fill ph-key text-blue-400 text-lg"></i>
-                    <div class="flex-1 text-[10px] sm:text-[11px] text-slate-400 truncate">
-                        API Key: <span id="api-gemini-status">...</span>
-                    </div>
-                </div>
-                <div class="flex items-center gap-3 mt-1">
-                    <i class="ph-fill ph-magnifying-glass text-emerald-400 text-lg"></i>
-                    <input type="password" id="inp-serpapi-key" placeholder="SerpApi Key (圖片網址擷取用)" class="flex-1 bg-slate-950 border border-slate-700 rounded p-1.5 text-[11px] text-slate-200 outline-none focus:border-emerald-500">
-                </div>
-            </div>
-
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-                <button onclick="togglePanel('panel-config')" class="w-full flex items-center justify-between p-3 sm:p-4 hover:bg-slate-800/50">
-                    <div class="flex items-center gap-2">
-                        <i class="ph-fill ph-sliders-horizontal text-amber-400 text-lg"></i>
-                        <span class="text-sm font-semibold text-white">模型與偏好</span>
-                    </div>
-                    <i id="panel-config-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
-                </button>
-                <div id="panel-config" class="panel-body open">
-                    <div class="px-3 sm:px-4 pb-4 space-y-4 text-xs">
-                        <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">首選文字模型 (推薦 3.1 Flash)</label>
-                            <select id="sel-text-model" onchange="updateHeaderBadge()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="gemini-3.1-flash-preview">Gemini 3.1 Flash Preview (最新速效)</option>
-                                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (最強邏輯)</option>
-                                <option value="gemini-2.0-pro-exp-02-05">Gemini 2.0 Pro Experimental</option>
-                                <option value="gemini-1.5-pro">Gemini 1.5 Pro (穩定商務)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold">備援生圖引擎</label>
-                            <select id="sel-img-model" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="pollinations">Pollinations AI (免 Key 高速插圖)</option>
-                                <option value="grok-imagine-image-pro">Grok Imagine (需填 xAI Key)</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-slate-400 mb-1.5 font-semibold flex justify-between">
-                                <span>投影片張數</span><span id="slide-count-val" class="text-amber-400 font-bold">10 張</span>
-                            </label>
-                            <input type="range" id="range-slide-count" min="5" max="25" value="10" oninput="document.getElementById('slide-count-val').textContent = this.value + ' 張'" class="w-full">
-                        </div>
-                        <div class="pt-2 border-t border-slate-800">
-                             <label class="flex items-center gap-2 cursor-pointer text-slate-300">
-                                 <input type="checkbox" id="chk-need-chart" checked class="w-4 h-4 rounded bg-slate-950 border-slate-700 text-violet-500 focus:ring-0">
-                                 <span>允許 AI 自主建立流程圖佈局</span>
-                             </label>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </aside>
-
-        <div class="flex-1 min-w-0 flex flex-col gap-4 sm:gap-5 w-full">
-            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-                <label class="block text-sm font-semibold text-white mb-2 sm:mb-3"><i class="ph-fill ph-pencil-simple-line text-violet-400"></i> 請輸入簡報主題或詳細指令</label>
-                <textarea id="inp-topic" rows="5" placeholder="例如：請幫我搜尋「2026 智慧交通趨勢」並製作一份報告。要有數據分析與流程圖..." class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs sm:text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors"></textarea>
-            </div>
-
-            <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5">
-                <div class="flex items-center gap-2.5 mb-3 sm:mb-4">
-                    <div id="progress-spinner" class="w-4 h-4 sm:w-5 sm:h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin"></div>
-                    <div class="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                        <div id="progress-bar" class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-300 ease-out" style="width: 0%"></div>
-                    </div>
-                    <span id="progress-pct" class="text-[10px] sm:text-xs font-bold text-violet-400 w-8 text-right">0%</span>
-                </div>
-                <div id="log-container" class="space-y-1.5 max-h-40 sm:max-h-52 overflow-y-auto text-[10px] sm:text-[11px] no-scrollbar"></div>
-            </div>
-
-            <div id="section-preview" class="hidden">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="text-sm font-semibold text-white"><i class="ph-fill ph-stack text-violet-400"></i> 即時渲染預覽 (HTML Rendering)</h3>
-                </div>
-                <div id="slides-preview-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-            </div>
-            
-            <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-12 sm:py-20 text-center px-4">
-                <div class="w-16 h-16 sm:w-20 sm:h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-4 sm:mb-5 border border-violet-500/20 shadow-xl">
-                    <i class="ph-bold ph-presentation-chart text-violet-400 text-2xl sm:text-3xl"></i>
-                </div>
-                <h2 class="text-lg sm:text-xl font-bold text-white mb-2">NOVA Native 3.1 引擎</h2>
-                <p class="text-slate-500 text-xs sm:text-sm max-w-md leading-relaxed">
-                    已修復 Gemini 2.5 Pro 連線協議。支援 <b>SerpApi 網址直連技術</b> 與 <b>Pollinations AI 高速插畫</b>。現在可以生成具備毛玻璃質感與動態流動感的專業投影片。
-                </p>
-            </div>
-        </div>
-    </main>
-
-    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-slate-800 text-white text-xs sm:text-sm font-medium px-4 py-2 rounded-xl shadow-2xl border border-slate-700 opacity-0 transition-all pointer-events-none translate-y-4"></div>
+    </aside>
 
     <script>
-    const AppState = {
-        googleApiKey: '', serpApiKey: '', xaiApiKey: '',
-        kbDocs: [], logoBase64: null, 
-        pptxObject: null, presentationData: null,
-        isGenerating: false, abortController: null,
-        finalSlideHTMLs: [] 
-    };
+        const svg = document.getElementById('main-canvas');
+        const componentLayer = document.getElementById('component-layer');
+        let isDragging = false, currentTarget = null, offset = { x: 0, y: 0 };
 
-    function init() {
-        AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
-        AppState.xaiApiKey = localStorage.getItem('nova_key_grok') || '';
-        AppState.serpApiKey = localStorage.getItem('nova_key_serpapi') || '';
-        document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
-        if(AppState.serpApiKey) document.getElementById('inp-serpapi-key').value = AppState.serpApiKey;
-        document.getElementById('inp-serpapi-key').oninput = (e) => {
-            AppState.serpApiKey = e.target.value.trim();
-            localStorage.setItem('nova_key_serpapi', AppState.serpApiKey);
-        };
-        updateHeaderBadge();
-    }
-    document.addEventListener('DOMContentLoaded', init);
-
-    function togglePanel(id) {
-        document.getElementById(id)?.classList.toggle('open');
-        document.getElementById(id + '-icon')?.classList.toggle('rotate-180');
-    }
-
-    function showToast(m) {
-        const t = document.getElementById('toast');
-        t.textContent = m; t.classList.remove('opacity-0', 'translate-y-4'); t.classList.add('opacity-100', 'translate-y-0');
-        setTimeout(() => { t.classList.add('opacity-0', 'translate-y-4'); t.classList.remove('opacity-100', 'translate-y-0'); }, 2500);
-    }
-
-    function updateHeaderBadge() {
-        const s = document.getElementById('sel-text-model');
-        const badge = document.getElementById('header-model-name');
-        if(s && badge) badge.textContent = s.options[s.selectedIndex].text;
-    }
-
-    function addLog(m, type = 'info') {
-        const c = document.getElementById('log-container');
-        if(!c) return;
-        const i = document.createElement('div');
-        const colors = { info: 'text-slate-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300' };
-        i.className = `py-0.5 ${colors[type] || colors.info}`;
-        i.innerHTML = `[${new Date().toLocaleTimeString()}] ${m}`;
-        c.appendChild(i); c.scrollTop = c.scrollHeight;
-    }
-
-    async function updateProgress(pct) {
-        const bar = document.getElementById('progress-bar');
-        const pctText = document.getElementById('progress-pct');
-        if (bar) bar.style.width = Math.min(pct, 100) + '%';
-        if (pctText) pctText.textContent = Math.round(Math.min(pct, 100)) + '%';
-        await new Promise(r => setTimeout(r, 25));
-    }
-
-    /** 核心修復：參考 index.html 使用 v1beta 搭配正確的系統指令格式 */
-    async function callGeminiForOutline(topic, kbText) {
-        const apiKey = AppState.googleApiKey;
-        const modelId = document.getElementById('sel-text-model').value;
-        const count = document.getElementById('range-slide-count').value;
-        const needChart = document.getElementById('chk-need-chart').checked;
-
-        // 系統指令：不再併入內容，改為獨立欄位
-        const systemInstruction = `你是一位視覺與內容雙修的簡報專家。
-你的任務是根據主題，產生包含視覺風格定義的 JSON 大綱。
-規範：
-1. 產生 ${count} 張投影片。
-2. 視覺決定權：根據主題調性決定最適合的視覺風格（背景色 bg_color、文字色 text_color、強調色 accent_color），色碼務必使用 HEX。
-3. 版位選擇：每一頁從 ["title_only", "text_only", "text_and_image", "columns", "process_flow"] 中挑選。
-4. 圖片關鍵字：必須提供精準的英文名詞在 image_keyword 屬性中。
-5. 必須嚴格輸出 JSON。`;
-
-        const payload = {
-            system_instruction: { parts: [{ text: systemInstruction }] },
-            contents: [{ role: 'user', parts: [{ text: `主題：${topic}\n\n參考內容：${kbText}` }] }],
-            generationConfig: { responseMimeType: 'application/json', temperature: 0.7, maxOutputTokens: 10000 },
-            tools: [{ googleSearch: {} }] // 駝峰式寫法修復
-        };
-
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${apiKey}`;
-        
-        try {
-            addLog(`正在連線邏輯引擎 ${modelId}...`, 'ai');
-            const resp = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-                signal: AppState.abortController.signal
-            });
-            if (!resp.ok) throw new Error(await resp.text());
-            const data = await resp.json();
-            let raw = data.candidates[0].content.parts[0].text;
-            addLog(`✓ 成功取得簡報邏輯`, 'success');
-            return JSON.parse(raw);
-        } catch (e) {
-            addLog(`❌ 連線失敗: ${e.message.substring(0, 100)}`, 'error');
-            throw e;
-        }
-    }
-
-    /** 圖片擷取備援系統：SerpApi 網址擷取 -> AI 繪圖插畫 */
-    async function getImageUrl(keyword) {
-        if (!AppState.serpApiKey) {
-            addLog(`⚠ 未設定 SerpApi，自動切換至 AI 生成插畫備援`, 'warning');
-            return `https://image.pollinations.ai/prompt/Professional%20presentation%20illustration%20for%20${encodeURIComponent(keyword)}?width=800&height=600&nologo=true&seed=${Math.random()}`;
+        // ════════════════════════════════════════════════
+        // 核心：SVG 座標與矩陣轉換 (The Math of Dragging)
+        // ════════════════════════════════════════════════
+        function getMousePosition(evt) {
+            const CTM = svg.getScreenCTM();
+            const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+            const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            return { x: (clientX - CTM.e) / CTM.a, y: (clientY - CTM.f) / CTM.d };
         }
 
-        try {
-            addLog(`🔍 SerpApi 檢索中: ${keyword}...`, 'info');
-            const targetUrl = `https://serpapi.com/search.json?q=${encodeURIComponent(keyword)}&engine=google_images&num=1&api_key=${AppState.serpApiKey}`;
-            // 使用跨域代理獲取 JSON
-            const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
-            const data = await res.json();
-            if (data.images_results?.[0]?.original) {
-                return data.images_results[0].original;
+        function startDrag(evt) {
+            if (evt.target.isContentEditable || evt.target.closest('button')) return;
+            const card = evt.target.closest('.draggable-group');
+            if (card) {
+                isDragging = true; currentTarget = card;
+                const pos = getMousePosition(evt);
+                const transform = currentTarget.transform.baseVal.getItem(0);
+                offset.x = pos.x - transform.matrix.e;
+                offset.y = pos.y - transform.matrix.f;
             }
-        } catch (e) {
-            addLog(`⚠ 網路搜圖異常，改用 AI 生成補位`, 'warning');
-        }
-        return `https://image.pollinations.ai/prompt/Business%20concept%20illustration%20about%20${encodeURIComponent(keyword)}?width=800&height=600&nologo=true&seed=${Math.random()}`;
-    }
-
-    /** 視覺生動化：建構具備動態感與質感的 HTML */
-    function buildDynamicHTML(sData, theme, imgUrl) {
-        const bg = theme.bg_color || '#0F172A';
-        const txt = theme.text_color || '#F8FAFC';
-        const acc = theme.accent_color || '#6366f1';
-        const bullets = sData.bullet_points || [];
-
-        // 裝飾光暈
-        const blob = `<div style="position:absolute; width:300px; height:300px; background:${acc}; opacity:0.1; filter:blur(60px); border-radius:50%; top:-100px; right:-100px; pointer-events:none;"></div>`;
-
-        let content = '';
-        if (sData.layout === 'title_only') {
-            content = `
-                <div class="flex flex-col items-center justify-center h-full text-center p-12">
-                    <div style="font-size:120px; font-weight:800; opacity:0.05; position:absolute; line-height:1;">${(sData.title || 'NOVA').substring(0,6).toUpperCase()}</div>
-                    <h2 style="color:${acc}; font-size:42px; font-weight:800; line-height:1.2; z-index:1;">${sData.title || ''}</h2>
-                    <p style="color:${txt}; opacity:0.6; font-size:18px; margin-top:20px;">${sData.subtitle || ''}</p>
-                    <div style="width:80px; height:4px; background:${acc}; margin-top:40px; border-radius:2px;"></div>
-                </div>`;
-        } 
-        else if (sData.layout === 'text_and_image') {
-            content = `
-                <div class="grid grid-cols-2 h-full gap-8 p-10">
-                    <div class="flex flex-col justify-center">
-                        <h2 style="color:${acc}; font-size:28px; font-weight:bold; margin-bottom:20px;">${sData.title || ''}</h2>
-                        <ul class="space-y-3" style="color:${txt}; font-size:13px; opacity:0.8;">
-                            ${bullets.map(b => `<li class="flex gap-2"><span style="color:${acc}">▶</span> ${b}</li>`).join('')}
-                        </ul>
-                    </div>
-                    <div class="flex items-center">
-                        <div style="width:100%; height:80%; border-radius:20px; overflow:hidden; border:1px solid rgba(255,255,255,0.1); box-shadow: 20px 20px 60px rgba(0,0,0,0.5);">
-                            <img src="${imgUrl}" class="w-full h-full object-cover">
-                        </div>
-                    </div>
-                </div>`;
-        }
-        else if (sData.layout === 'columns') {
-            const half = Math.ceil(bullets.length / 2);
-            content = `
-                <div class="p-10 h-full">
-                    <h2 style="color:${acc}; font-size:26px; font-weight:bold; margin-bottom:25px;">${sData.title || ''}</h2>
-                    <div class="grid grid-cols-2 gap-6 h-[70%]">
-                        <div class="glass-card p-5" style="border-top: 3px solid ${acc};">
-                            <ul class="space-y-3" style="color:${txt}; font-size:12px;">
-                                ${bullets.slice(0,half).map(b => `<li>• ${b}</li>`).join('')}
-                            </ul>
-                        </div>
-                        <div class="glass-card p-5" style="border-top: 3px solid ${acc};">
-                            <ul class="space-y-3" style="color:${txt}; font-size:12px;">
-                                ${bullets.slice(half).map(b => `<li>• ${b}</li>`).join('')}
-                            </ul>
-                        </div>
-                    </div>
-                </div>`;
-        }
-        else if (sData.layout === 'process_flow') {
-            const steps = sData.process_steps || bullets;
-            content = `
-                <div class="p-10 h-full">
-                    <h2 style="color:${acc}; font-size:26px; font-weight:bold; margin-bottom:40px; text-center w-full">${sData.title || ''}</h2>
-                    <div class="flex items-center justify-between gap-4 mt-10">
-                        ${steps.map((s, idx) => `
-                            <div class="flex-1 flex flex-col items-center text-center">
-                                <div style="width:50px; height:50px; border-radius:50%; background:${acc}; color:#000; font-weight:bold; display:flex; align-items:center; justify-center; font-size:20px; margin-bottom:15px; box-shadow: 0 0 20px ${acc}55;">${idx+1}</div>
-                                <div class="glass-card p-3 w-full" style="font-size:11px; font-weight:bold; color:${txt}">${s}</div>
-                            </div>
-                            ${idx < steps.length - 1 ? `<div style="color:${acc}; font-size:24px;">→</div>` : ''}
-                        `).join('')}
-                    </div>
-                </div>`;
-        }
-        else {
-            content = `
-                <div class="p-10 flex flex-col h-full">
-                    <h2 style="color:${acc}; font-size:32px; font-weight:bold; margin-bottom:30px; display:flex; align-items:center; gap-3">
-                        <span style="width:12px; height:32px; background:${acc}; border-radius:2px;"></span>${sData.title || ''}
-                    </h2>
-                    <ul class="space-y-4" style="color:${txt}; font-size:16px; opacity:0.8;">
-                        ${bullets.map(b => `<li>• ${b}</li>`).join('')}
-                    </ul>
-                </div>`;
         }
 
-        return `<div style="width:100%; height:100%; background:${bg}; position:relative; overflow:hidden;">${blob}${content}</div>`;
-    }
+        function drag(evt) {
+            if (isDragging && currentTarget) {
+                const pos = getMousePosition(evt);
+                const transform = currentTarget.transform.baseVal.getItem(0);
+                transform.setMatrix(svg.createSVGMatrix().translate(pos.x - offset.x, pos.y - offset.y));
+            }
+        }
 
-    async function startGeneration() {
-        if (!AppState.googleApiKey) { showToast('❌ 請設定 Gemini API Key'); return; }
-        const topic = document.getElementById('inp-topic').value.trim();
-        if (!topic) { showToast('❌ 請輸入主題'); return; }
+        window.addEventListener('mousedown', startDrag);
+        window.addEventListener('mousemove', drag);
+        window.addEventListener('mouseup', () => isDragging = false);
 
-        AppState.isGenerating = true;
-        AppState.abortController = new AbortController();
-        AppState.finalSlideHTMLs = [];
-
-        document.getElementById('section-empty').classList.add('hidden');
-        document.getElementById('section-progress').classList.remove('hidden');
-        document.getElementById('section-preview').classList.add('hidden');
-        document.getElementById('log-container').innerHTML = '';
-        await updateProgress(5);
-
-        try {
-            const data = await callGeminiForOutline(topic, "");
-            AppState.presentationData = data;
-            const theme = data.theme || { bg_color: '#0F172A', text_color: '#F8FAFC', accent_color: '#6366f1' };
-
-            const pres = new PptxGenJS();
-            pres.layout = 'LAYOUT_16x9';
-
-            const slides = data.slides || [];
-            for (let i = 0; i < slides.length; i++) {
-                const sData = slides[i];
-                addLog(`組合第 ${i+1} 頁視覺與圖片擷取...`, 'info');
-                
-                let imgUrl = sData.image_keyword ? await getImageUrl(sData.image_keyword) : null;
-                const html = buildDynamicHTML(sData, theme, imgUrl);
-                AppState.finalSlideHTMLs.push(html);
-
-                // 同時建構原生 PPT 頁面
-                const slide = pres.addSlide();
-                slide.background = { color: theme.bg_color.replace('#','') };
-                
-                // 簡易版原生元素映射
-                if (sData.layout === 'text_and_image' && imgUrl) {
-                    slide.addText(sData.title, { x: 0.5, y: 0.5, w: 4.5, fontSize: 32, bold: true, color: theme.accent_color.replace('#','') });
-                    slide.addText((sData.bullet_points||[]).join('\n'), { x: 0.5, y: 1.5, w: 4.5, fontSize: 16, color: theme.text_color.replace('#','') });
-                    // 直接以 URL (path) 模式引入圖片，這在導出成檔案時是由 PptxGenJS 處理，不需 Base64
-                    slide.addImage({ path: imgUrl, x: 5.5, y: 0.5, w: 4.0, h: 4.5, sizing: { type: 'cover', w: 4.0, h: 4.5 } });
-                } else {
-                    slide.addText(sData.title, { x: 0.5, y: 0.5, w: 9.0, fontSize: 36, bold: true, color: theme.accent_color.replace('#','') });
-                    slide.addText((sData.bullet_points||[]).join('\n'), { x: 0.5, y: 1.5, w: 9.0, fontSize: 18, color: theme.text_color.replace('#','') });
+        // ════════════════════════════════════════════════
+        // 核心：ResizeObserver 同步 (SVG foreignObject 同步)
+        // ════════════════════════════════════════════════
+        const resizeObserver = new ResizeObserver(entries => {
+            for (let entry of entries) {
+                const fObj = entry.target.closest('foreignObject');
+                if (fObj) {
+                    fObj.setAttribute('width', entry.target.offsetWidth + 10);
+                    fObj.setAttribute('height', entry.target.offsetHeight + 10);
                 }
-
-                await updateProgress(20 + ((i+1)/slides.length)*80);
             }
-
-            AppState.pptxObject = pres;
-            renderSlidesPreview();
-            document.getElementById('btn-download').classList.remove('hidden');
-            document.getElementById('btn-download').classList.add('flex');
-            showToast('✅ 簡報生成完畢');
-        } catch (e) {
-            addLog(`發生嚴重錯誤: ${e.message}`, 'error');
-        } finally {
-            AppState.isGenerating = false;
-            document.getElementById('btn-stop').classList.add('hidden');
-            document.getElementById('btn-generate').classList.remove('hidden');
-        }
-    }
-
-    function renderSlidesPreview() {
-        const list = document.getElementById('slides-preview-list');
-        list.innerHTML = '';
-        AppState.finalSlideHTMLs.forEach((html, idx) => {
-            const div = document.createElement('div');
-            div.className = 'slide-preview-card';
-            div.innerHTML = `<div style="position:absolute; top:8px; right:12px; font-size:10px; opacity:0.3; z-index:10;">PAGE ${idx+1}</div>${html}`;
-            list.appendChild(div);
         });
-        document.getElementById('section-preview').classList.remove('hidden');
-    }
 
-    async function downloadPptx() {
-        const name = (AppState.presentationData?.presentation_title || 'NOVA_Smart_Slide').replace(/\s/g, '_') + '.pptx';
-        await AppState.pptxObject.writeFile({ fileName: name });
-    }
+        function createComponent(x, y, title, content, color = '#6366f1') {
+            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+            g.setAttribute("class", "draggable-group");
+            g.setAttribute("transform", `translate(${x}, ${y})`);
 
-    function stopGeneration() {
-        AppState.abortController?.abort();
-        AppState.isGenerating = false;
-    }
+            const fObj = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
+            fObj.setAttribute("width", "320");
+            fObj.setAttribute("height", "220");
+
+            const div = document.createElement("div");
+            div.className = "glass-card rounded-[2rem] p-6 text-white";
+            div.style.borderLeft = `4px solid ${color}`;
+            div.innerHTML = `
+                <h3 class="font-extrabold text-lg mb-2 outline-none" contenteditable="true">${title}</h3>
+                <p class="text-sm text-slate-400 leading-relaxed outline-none" contenteditable="true">${content}</p>
+                <div class="mt-4 flex gap-2">
+                    <span class="w-2 h-2 rounded-full bg-white/20"></span>
+                    <span class="w-2 h-2 rounded-full bg-white/20"></span>
+                </div>
+            `;
+
+            fObj.appendChild(div);
+            g.appendChild(fObj);
+            componentLayer.appendChild(g);
+            resizeObserver.observe(div);
+        }
+
+        // ════════════════════════════════════════════════
+        // AI Workflow 與指定模型呼叫
+        // ════════════════════════════════════════════════
+        async function runWorkflow() {
+            const topic = document.getElementById('inp-topic').value;
+            const modelA = document.getElementById('model-agent-a').value;
+            const modelB = document.getElementById('model-agent-b').value;
+            const modelC = document.getElementById('model-agent-c').value;
+
+            if (!topic) return alert("請輸入主題");
+
+            const btn = document.getElementById('btn-generate');
+            btn.innerHTML = `<i class="ph-bold ph-circle-notch animate-spin"></i> Agent A 萃取中...`;
+            btn.disabled = true;
+
+            try {
+                // 這裡模擬多代理呼叫，實務上會依序呼叫不同 API
+                console.log(`Agent A 啟動: ${modelA}`);
+                console.log(`Agent B 啟動: ${modelB}`);
+                console.log(`Agent C 啟動: ${modelC}`);
+
+                // 模擬 API 回傳與組裝
+                componentLayer.innerHTML = '';
+                const demoData = [
+                    { x: 100, y: 150, t: "核心架構", c: `基於 ${modelA} 萃取的邏輯框架，確保內容精準度。`, col: "#6366f1" },
+                    { x: 1450, y: 150, t: "視覺引擎", c: `由 ${modelB} 生成的主視覺空間座標，支援 3D 渲染。`, col: "#ec4899" },
+                    { x: 100, y: 700, t: "互動邏輯", c: `利用 ${modelC} 注入的 Vanilla JS，實現毫秒級拖曳響應。`, col: "#22c55e" }
+                ];
+
+                demoData.forEach((d, i) => {
+                    setTimeout(() => createComponent(d.x, d.y, d.t, d.c, d.col), i * 400);
+                });
+
+            } catch (e) {
+                alert("生成失敗，請檢查網路。");
+            } finally {
+                btn.innerHTML = `<i class="ph-bold ph-lightning"></i> 執行多代理生成`;
+                btn.disabled = false;
+            }
+        }
+
+        // 初始化
+        window.onload = () => {
+            createComponent(780, 800, "NOVA 120 啟動中", "請在左側選擇指定 Agent 模型並輸入主題，點擊按鈕開始生成。");
+        };
     </script>
 </body>
 </html>
