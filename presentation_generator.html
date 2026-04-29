@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NOVA 120 - Pro Interactive Slide Engine</title>
+    <title>NOVA 120 - AI Pro Interactive Engine</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -11,237 +11,251 @@
 
     <style>
         :root {
-            --primary: #6366f1; --bg-canvas: #020617; --card-glass: rgba(15, 23, 42, 0.75);
+            --primary: #6366f1; --bg-canvas: #020617; --card-glass: rgba(15, 23, 42, 0.7);
         }
-        /* 風格切換器樣式 */
-        body.theme-minimalist { --primary: #0f172a; --bg-canvas: #f8fafc; --card-glass: rgba(255, 255, 255, 0.8); }
-        body.theme-cyber { --primary: #00ffcc; --bg-canvas: #0a0a0a; --card-glass: rgba(0, 20, 20, 0.8); }
-        
-        body { font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
-        
-        #viewport { flex: 1; background: var(--bg-canvas); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-        #main-canvas { width: 100%; height: 100%; max-width: 100vw; max-height: 56.25vw; transition: all 0.5s ease; }
+        body.theme-minimalist { --primary: #0f172a; --bg-canvas: #f1f5f9; --card-glass: rgba(255, 255, 255, 0.9); }
+        body.theme-cyber { --primary: #00ffcc; --bg-canvas: #050505; --card-glass: rgba(0, 20, 20, 0.85); }
+        body.theme-executive { --primary: #1e3a8a; --bg-canvas: #0f172a; --card-glass: rgba(30, 41, 59, 0.8); }
 
-        .glass-card { backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 1.5rem; transition: border-color 0.3s; }
-        .theme-minimalist .glass-card { border: 1px solid rgba(0,0,0,0.1); color: #1e293b; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        body { font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        #viewport { flex: 1; background: var(--bg-canvas); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; transition: background 0.5s ease; }
+        #main-canvas { width: 100%; height: 100%; max-width: 100vw; max-height: 56.25vw; }
         
-        #side-panel { width: 360px; height: 100vh; z-index: 100; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .glass-card { backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.1); border-radius: 2rem; color: white; }
+        .theme-minimalist .glass-card { border: 1px solid rgba(0,0,0,0.1); color: #0f172a; }
+        .theme-cyber .glass-card { border: 1px solid var(--primary); box-shadow: 0 0 20px var(--primary); }
+
+        #side-panel { width: 380px; height: 100vh; z-index: 100; transition: transform 0.4s ease; }
         @media (max-width: 1024px) {
             #side-panel { position: fixed; right: 0; transform: translateX(100%); }
             #side-panel.open { transform: translateX(0); }
         }
-        
-        #preview-nav { height: 100px; background: rgba(0,0,0,0.2); display: flex; gap: 10px; padding: 10px; overflow-x: auto; }
-        .thumb { aspect-ratio: 16/9; height: 100%; border: 2px solid transparent; cursor: pointer; border-radius: 6px; overflow: hidden; flex-shrink: 0; }
-        .thumb.active { border-color: var(--primary); }
+
+        #nav-bar { height: 110px; background: rgba(0,0,0,0.4); display: flex; gap: 12px; padding: 15px; overflow-x: auto; border-top: 1px solid rgba(255,255,255,0.1); }
+        .thumb { aspect-ratio: 16/9; height: 100%; background: #0f172a; border-radius: 8px; flex-shrink: 0; cursor: pointer; border: 2px solid transparent; transition: 0.3s; }
+        .thumb.active { border-color: var(--primary); transform: scale(1.05); }
     </style>
 </head>
-<body class="text-slate-100 bg-slate-950">
+<body class="bg-slate-950 text-slate-100">
 
     <div class="flex flex-1 overflow-hidden">
-        <main id="viewport" class="relative">
+        <main id="viewport">
             <svg id="main-canvas" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
                 <defs id="svg-defs"></defs>
-                <image id="canvas-logo" x="50" y="50" width="120" height="60" href="" opacity="0.8" />
+                <image id="canvas-logo" x="60" y="60" width="140" height="70" href="" opacity="0.9" />
                 <g id="slides-layer"></g>
             </svg>
-            
-            <button class="lg:hidden absolute top-6 right-6 p-3 bg-indigo-600 rounded-full shadow-xl" onclick="document.getElementById('side-panel').classList.toggle('open')">
+            <button class="lg:hidden absolute top-6 right-6 p-4 bg-indigo-600 rounded-2xl shadow-2xl z-50" onclick="document.getElementById('side-panel').classList.toggle('open')">
                 <i class="ph-bold ph-list text-white"></i>
             </button>
         </main>
 
-        <aside id="side-panel" class="bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl">
-            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
-                <h1 class="font-extrabold text-xl tracking-tight italic">NOVA <span class="text-indigo-500">120</span></h1>
-                <span class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 font-bold uppercase">Pro Engine</span>
+        <aside id="side-panel" class="bg-slate-900 border-l border-slate-800 flex flex-col">
+            <div class="p-8 border-b border-slate-800">
+                <h1 class="text-2xl font-black italic tracking-tighter">NOVA <span class="text-indigo-500">120 PRO</span></h1>
             </div>
 
             <div class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
                 <section>
-                    <label class="text-[10px] font-black text-slate-500 uppercase mb-3 block">1. 投影片風格設定</label>
-                    <div class="grid grid-cols-3 gap-2">
-                        <button onclick="setTheme('default')" class="p-2 border border-slate-700 rounded-lg text-[10px] hover:border-indigo-500">深邃太空</button>
-                        <button onclick="setTheme('minimalist')" class="p-2 border border-slate-700 rounded-lg text-[10px] hover:border-indigo-500">極簡白</button>
-                        <button onclick="setTheme('cyber')" class="p-2 border border-slate-700 rounded-lg text-[10px] hover:border-indigo-500">賽博霓虹</button>
-                    </div>
-                </section>
-
-                <section class="space-y-3">
-                    <label class="text-[10px] font-black text-slate-500 uppercase block">2. 模型指定 (Agent A/B/C)</label>
-                    <select id="sel-llm" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300">
-                        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                        <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
-                    </select>
-                    <select id="sel-img" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300">
-                        <option value="grok-image-image-pro">Grok Image Image Pro</option>
-                        <option value="gemini-3.1-flash-image">Gemini 3.1 Flash-image</option>
-                    </select>
-                </section>
-
-                <section>
-                    <label class="text-[10px] font-black text-slate-500 uppercase mb-3 block">3. 數據分析來源 (.txt/.csv)</label>
-                    <div class="relative group">
-                        <input type="file" id="data-file" accept=".txt,.csv" class="hidden" onchange="handleFileUpload(this)">
-                        <label for="data-file" class="w-full border-2 border-dashed border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer group-hover:border-indigo-500 transition-all">
-                            <i class="ph-bold ph-cloud-arrow-up text-2xl text-slate-500 mb-2"></i>
-                            <span id="file-name" class="text-xs text-slate-400 text-center">拖放或點擊上傳分析資料</span>
-                        </label>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 block">1. Style Definition 風格設定</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setTheme('default')" class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs hover:border-indigo-500">太空深藍</button>
+                        <button onclick="setTheme('minimalist')" class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs hover:border-indigo-500">商務極簡</button>
+                        <button onclick="setTheme('cyber')" class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs hover:border-indigo-500">賽博霓虹</button>
+                        <button onclick="setTheme('executive')" class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-xs hover:border-indigo-500">政經領袖</button>
                     </div>
                 </section>
 
                 <section class="space-y-4">
-                    <label class="text-[10px] font-black text-slate-500 uppercase block">4. 品牌識別 (Logo)</label>
-                    <input type="file" id="logo-file" accept="image/*" class="text-xs text-slate-500 block w-full mb-3" onchange="handleLogoUpload(this)">
-                    <div class="grid grid-cols-2 gap-2">
-                        <select id="logo-pos" class="col-span-2 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs" onchange="updateLogoPosition()">
-                            <option value="TL">左上 Top-Left</option>
-                            <option value="TR">右上 Top-Right</option>
-                            <option value="BL">左下 Bottom-Left</option>
-                            <option value="BR">右下 Bottom-Right</option>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">2. Agent Model Selection 模型指定</label>
+                    <div class="space-y-2">
+                        <span class="text-[9px] text-slate-600">Agent A/C (LLM)</span>
+                        <select id="sel-llm" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs">
+                            <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                            <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <span class="text-[9px] text-slate-600">Agent B (Vision)</span>
+                        <select id="sel-img" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs">
+                            <option value="grok-image-image-pro">Grok Image Image Pro</option>
+                            <option value="gemini-3.1-flash-image">Gemini 3.1 Flash-image</option>
                         </select>
                     </div>
                 </section>
 
+                <section>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4 block">3. Data Source 數據分析源</label>
+                    <input type="file" id="data-file" accept=".txt,.csv" class="hidden" onchange="handleDataUpload(this)">
+                    <label for="data-file" class="flex flex-col items-center justify-center border-2 border-dashed border-slate-800 rounded-3xl p-8 cursor-pointer hover:border-indigo-500 transition-all">
+                        <i class="ph-bold ph-database text-2xl mb-2 text-slate-500"></i>
+                        <span id="file-status" class="text-[10px] text-slate-400">上傳 TXT/CSV 供 Agent A 分析</span>
+                    </label>
+                </section>
+
                 <section class="space-y-4">
-                    <label class="text-[10px] font-black text-slate-500 uppercase block">5. 內容指令與張數</label>
-                    <div class="flex justify-between text-xs mb-1"><span>生成張數</span><span id="slide-val">5</span></div>
-                    <input type="range" id="slide-num" min="1" max="12" value="5" class="w-full accent-indigo-500 mb-4" oninput="document.getElementById('slide-val').innerText=this.value">
-                    <textarea id="inp-topic" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none" placeholder="描述簡報核心概念..."></textarea>
+                    <label class="text-[10px] font-black text-slate-500 uppercase tracking-widest block">4. Brand Identity 品牌識別</label>
+                    <input type="file" id="logo-input" accept="image/*" class="text-xs text-slate-500 mb-3" onchange="loadLogo(this)">
+                    <select id="logo-pos" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs" onchange="repositionLogo()">
+                        <option value="TL">左上 Top-Left</option>
+                        <option value="TR">右上 Top-Right</option>
+                        <option value="BL">左下 Bottom-Left</option>
+                        <option value="BR">右下 Bottom-Right</option>
+                    </select>
+                </section>
+
+                <section class="space-y-6">
+                    <div>
+                        <div class="flex justify-between text-[10px] font-black text-slate-500 uppercase mb-2">
+                            <span>Slide Count 張數</span>
+                            <span id="num-display" class="text-indigo-400">5</span>
+                        </div>
+                        <input type="range" id="slide-num" min="1" max="15" value="5" class="w-full accent-indigo-500" oninput="document.getElementById('num-display').innerText=this.value">
+                    </div>
                     
-                    <button onclick="startGeneration()" id="btn-run" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
-                        <i class="ph-bold ph-magic-wand"></i> 執行多代理分析生成
+                    <textarea id="inp-topic" rows="4" class="w-full bg-slate-950 border border-slate-800 rounded-3xl p-5 text-sm focus:border-indigo-500 outline-none" placeholder="描述簡報核心概念與目標..."></textarea>
+                    
+                    <button onclick="workflowStart()" id="btn-run" class="w-full bg-indigo-600 hover:bg-indigo-500 py-5 rounded-[2rem] font-black text-sm shadow-2xl shadow-indigo-600/30 flex items-center justify-center gap-3 transition-all">
+                        <i class="ph-bold ph-magic-wand"></i> 啟動多代理生成引擎
                     </button>
                 </section>
             </div>
         </aside>
     </div>
 
-    <nav id="preview-nav" class="custom-scrollbar"></nav>
+    <nav id="nav-bar" class="custom-scrollbar"></nav>
 
     <script>
-        const App = {
-            currentSlide: 0,
-            totalSlides: 0,
-            theme: 'default',
-            logoData: null
+        const State = {
+            total: 0,
+            current: 0,
+            uploadedData: "",
+            logo: null
         };
 
-        const canvas = document.getElementById('main-canvas');
         const slidesLayer = document.getElementById('slides-layer');
-        const nav = document.getElementById('preview-nav');
+        const navBar = document.getElementById('nav-bar');
 
-        // ════════════════════════════════════════════════
-        // 功能 1: 風格設定切換
-        // ════════════════════════════════════════════════
-        function setTheme(theme) {
-            document.body.className = `theme-${theme}`;
-            App.theme = theme;
-        }
+        function setTheme(t) { document.body.className = `theme-${t}`; }
 
-        // ════════════════════════════════════════════════
-        // 功能 2: 資料上傳分析模擬
-        // ════════════════════════════════════════════════
-        function handleFileUpload(input) {
-            if (input.files.length > 0) {
-                document.getElementById('file-name').innerText = `已讀取: ${input.files[0].name}`;
-                // Agent A 此處會模擬讀取 File 內容作為 Context
+        function handleDataUpload(input) {
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    State.uploadedData = e.target.result;
+                    document.getElementById('file-status').innerText = `已讀取數據: ${file.name}`;
+                };
+                reader.readAsText(file);
             }
         }
 
-        // ════════════════════════════════════════════════
-        // 功能 3: Logo 處理與定位
-        // ════════════════════════════════════════════════
-        function handleLogoUpload(input) {
+        function loadLogo(input) {
             const reader = new FileReader();
             reader.onload = (e) => {
-                const logo = document.getElementById('canvas-logo');
-                logo.setAttribute('href', e.target.result);
-                App.logoData = e.target.result;
-                updateLogoPosition();
+                const img = document.getElementById('canvas-logo');
+                img.setAttribute('href', e.target.result);
+                State.logo = e.target.result;
+                repositionLogo();
             };
             reader.readAsDataURL(input.files[0]);
         }
 
-        function updateLogoPosition() {
+        function repositionLogo() {
             const pos = document.getElementById('logo-pos').value;
             const logo = document.getElementById('canvas-logo');
-            const padding = 60;
-            switch(pos) {
-                case 'TL': logo.setAttribute('x', padding); logo.setAttribute('y', padding); break;
-                case 'TR': logo.setAttribute('x', 1920 - 120 - padding); logo.setAttribute('y', padding); break;
-                case 'BL': logo.setAttribute('x', padding); logo.setAttribute('y', 1080 - 60 - padding); break;
-                case 'BR': logo.setAttribute('x', 1920 - 120 - padding); logo.setAttribute('y', 1080 - 60 - padding); break;
+            const p = 80;
+            if (pos === 'TL') { logo.setAttribute('x', p); logo.setAttribute('y', p); }
+            else if (pos === 'TR') { logo.setAttribute('x', 1920-140-p); logo.setAttribute('y', p); }
+            else if (pos === 'BL') { logo.setAttribute('x', p); logo.setAttribute('y', 1080-70-p); }
+            else if (pos === 'BR') { logo.setAttribute('x', 1920-140-p); logo.setAttribute('y', 1080-70-p); }
+        }
+
+        async function workflowStart() {
+            const topic = document.getElementById('inp-topic').value;
+            const num = parseInt(document.getElementById('slide-num').value);
+            const apiKey = localStorage.getItem('nova_key_gemini');
+            const model = document.getElementById('sel-llm').value;
+
+            if (!topic || !apiKey) return alert("請輸入主題內容並確保 NOVA 120 已設定 API Key");
+
+            const btn = document.getElementById('btn-run');
+            btn.innerHTML = `<i class="ph-bold ph-circle-notch animate-spin"></i> Agent A 深度分析中...`;
+            btn.disabled = true;
+
+            try {
+                // Agent A: 真實內容生成
+                const prompt = `你是一位專業簡報策劃師 Agent A。
+                請針對主題「${topic}」以及提供的參考數據「${State.uploadedData.substring(0, 1000)}」，
+                生成一份具有 ${num} 張投影片的大綱。
+                嚴格回傳 JSON 陣列格式，每一項包含 "title" (標題) 與 "content" (詳細內文)。`;
+
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+
+                const data = await res.json();
+                const rawText = data.candidates[0].content.parts[0].text;
+                const cleanJson = JSON.parse(rawText.replace(/```json/g, "").replace(/```/g, "").trim());
+
+                // 渲染投影片
+                renderEngine(cleanJson);
+
+            } catch (e) {
+                console.error(e);
+                alert("生成失敗，請檢查 API Key 或指令。");
+            } finally {
+                btn.innerHTML = `<i class="ph-bold ph-magic-wand"></i> 重新生成`;
+                btn.disabled = false;
             }
         }
 
-        // ════════════════════════════════════════════════
-        // 核心：生成邏輯
-        // ════════════════════════════════════════════════
-        function startGeneration() {
-            const topic = document.getElementById('inp-topic').value || "未命名簡報";
-            const num = parseInt(document.getElementById('slide-num').value);
-            const btn = document.getElementById('btn-run');
-            
-            btn.innerHTML = `<i class="ph-bold ph-circle-notch animate-spin"></i> Agent A 分析中...`;
-            btn.disabled = true;
+        function renderEngine(dataList) {
+            State.total = dataList.length;
+            slidesLayer.innerHTML = '';
+            navBar.innerHTML = '';
 
-            setTimeout(() => {
-                App.totalSlides = num;
-                slidesLayer.innerHTML = '';
-                nav.innerHTML = '';
+            dataList.forEach((data, i) => {
+                const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                g.id = `slide-${i}`;
+                g.setAttribute("visibility", i === 0 ? "visible" : "hidden");
 
-                for(let i=0; i<num; i++) {
-                    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                    g.id = `s-${i}`;
-                    g.setAttribute("visibility", i === 0 ? "visible" : "hidden");
-                    
-                    // 內容節點
-                    createNode(g, 200, 250, `${topic} - Page ${i+1}`, `根據上傳資料分析結果：這是由 Agent A 萃取的關鍵洞察。您可以透過拖曳與縮放來自定義佈局。`);
-                    
-                    slidesLayer.appendChild(g);
-                    createThumb(i);
-                }
-                
-                btn.innerHTML = `<i class="ph-bold ph-magic-wand"></i> 重新生成`;
-                btn.disabled = false;
-                switchSlide(0);
-                if(window.innerWidth < 1024) document.getElementById('side-panel').classList.remove('open');
-            }, 1000);
-        }
+                const x = i % 2 === 0 ? 150 : 1000;
+                const y = 300;
 
-        function createNode(parent, x, y, title, content) {
-            const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.setAttribute("transform", `translate(${x}, ${y})`);
-            g.innerHTML = `
-                <foreignObject width="600" height="400">
-                    <div class="glass-card p-10 text-white h-full shadow-2xl">
-                        <h2 class="text-3xl font-extrabold mb-6 border-b border-white/10 pb-4 outline-none" contenteditable="true">${title}</h2>
-                        <p class="text-lg opacity-70 leading-relaxed outline-none" contenteditable="true">${content}</p>
-                    </div>
-                </foreignObject>
-            `;
-            parent.appendChild(g);
-        }
+                const node = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                node.setAttribute("transform", `translate(${x}, ${y})`);
+                node.innerHTML = `
+                    <foreignObject width="700" height="500">
+                        <div class="glass-card p-12 h-full shadow-2xl">
+                            <h2 class="text-4xl font-extrabold mb-8 border-b border-white/10 pb-6 outline-none" contenteditable="true">${data.title}</h2>
+                            <p class="text-xl leading-relaxed opacity-80 outline-none" contenteditable="true">${data.content}</p>
+                        </div>
+                    </foreignObject>
+                `;
+                g.appendChild(node);
+                slidesLayer.appendChild(g);
 
-        function createThumb(i) {
-            const d = document.createElement('div');
-            d.className = `thumb bg-slate-800 flex items-center justify-center text-[10px] font-bold`;
-            d.id = `t-${i}`;
-            d.innerText = `PAGE ${i+1}`;
-            d.onclick = () => switchSlide(i);
-            nav.appendChild(d);
+                const thumb = document.createElement('div');
+                thumb.className = `thumb flex items-center justify-center text-[11px] font-bold text-slate-500`;
+                thumb.id = `thumb-${i}`;
+                thumb.innerText = `PAGE ${i+1}`;
+                thumb.onclick = () => switchSlide(i);
+                navBar.appendChild(thumb);
+            });
+            switchSlide(0);
         }
 
         function switchSlide(idx) {
-            for(let i=0; i<App.totalSlides; i++) {
-                document.getElementById(`s-${i}`).setAttribute("visibility", i === idx ? "visible" : "hidden");
-                document.getElementById(`t-${i}`).classList.toggle('active', i === idx);
+            for (let i = 0; i < State.total; i++) {
+                document.getElementById(`slide-${i}`).setAttribute("visibility", i === idx ? "visible" : "hidden");
+                document.getElementById(`thumb-${i}`).classList.toggle('active', i === idx);
             }
-            App.currentSlide = idx;
+            State.current = idx;
         }
-
     </script>
 </body>
 </html>
