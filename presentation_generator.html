@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NOVA 120 - AI Interactive Engine</title>
+    <title>NOVA 120 - Pro Interactive Slide Engine</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -11,271 +11,237 @@
 
     <style>
         :root {
-            --color-1: #6366f1; --color-2: #ec4899; --accent: #818cf8;
-            background-color: #020617;
+            --primary: #6366f1; --bg-canvas: #020617; --card-glass: rgba(15, 23, 42, 0.75);
         }
-        body { font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        /* 風格切換器樣式 */
+        body.theme-minimalist { --primary: #0f172a; --bg-canvas: #f8fafc; --card-glass: rgba(255, 255, 255, 0.8); }
+        body.theme-cyber { --primary: #00ffcc; --bg-canvas: #0a0a0a; --card-glass: rgba(0, 20, 20, 0.8); }
         
-        /* 畫布容器 */
-        #viewport-container {
-            flex: 1; position: relative; background: #000; overflow: hidden;
-            display: flex; align-items: center; justify-content: center;
-        }
-        #main-canvas {
-            width: 100%; height: 100%; max-width: 100vw; max-height: 56.25vw; /* 16:9 */
-            background: radial-gradient(circle at 50% 50%, #1e293b 0%, #020617 100%);
-            box-shadow: 0 0 50px rgba(0,0,0,0.5); cursor: grab;
-        }
+        body { font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+        
+        #viewport { flex: 1; background: var(--bg-canvas); position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        #main-canvas { width: 100%; height: 100%; max-width: 100vw; max-height: 56.25vw; transition: all 0.5s ease; }
 
-        /* 縮圖區域 */
-        #preview-bar {
-            height: 120px; background: rgba(15, 23, 42, 0.9);
-            backdrop-filter: blur(20px); border-top: 1px solid rgba(255,255,255,0.1);
-            display: flex; gap: 12px; padding: 12px; overflow-x: auto; scroll-behavior: smooth;
-        }
-        .preview-thumb {
-            aspect-ratio: 16/9; height: 100%; background: #0f172a; border: 2px solid transparent;
-            border-radius: 8px; flex-shrink: 0; cursor: pointer; transition: 0.3s;
-            display: flex; align-items: center; justify-content: center; font-size: 10px; color: #475569;
-        }
-        .preview-thumb.active { border-color: var(--accent); background: #1e293b; color: white; }
-
-        /* 玻璃擬態卡片 */
-        .glass-card {
-            background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 1.5rem;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-        }
-
-        /* 手機適配調校 */
+        .glass-card { backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.1); border-radius: 1.5rem; transition: border-color 0.3s; }
+        .theme-minimalist .glass-card { border: 1px solid rgba(0,0,0,0.1); color: #1e293b; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        
+        #side-panel { width: 360px; height: 100vh; z-index: 100; transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         @media (max-width: 1024px) {
-            #side-panel {
-                position: absolute; bottom: 0; left: 0; right: 0; width: 100%; height: 50%;
-                z-index: 100; border-radius: 2rem 2rem 0 0; transform: translateY(calc(100% - 60px));
-                transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-            }
-            #side-panel.open { transform: translateY(0); }
-            #viewport-container { height: 50%; }
+            #side-panel { position: fixed; right: 0; transform: translateX(100%); }
+            #side-panel.open { transform: translateX(0); }
         }
-
-        .custom-scrollbar::-webkit-scrollbar { height: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        
+        #preview-nav { height: 100px; background: rgba(0,0,0,0.2); display: flex; gap: 10px; padding: 10px; overflow-x: auto; }
+        .thumb { aspect-ratio: 16/9; height: 100%; border: 2px solid transparent; cursor: pointer; border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+        .thumb.active { border-color: var(--primary); }
     </style>
 </head>
-<body class="text-slate-100">
+<body class="text-slate-100 bg-slate-950">
 
-    <div id="viewport-container">
-        <svg id="main-canvas" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-                <filter id="glow"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-            </defs>
-            <g id="slides-container"></g>
-        </svg>
+    <div class="flex flex-1 overflow-hidden">
+        <main id="viewport" class="relative">
+            <svg id="main-canvas" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg">
+                <defs id="svg-defs"></defs>
+                <image id="canvas-logo" x="50" y="50" width="120" height="60" href="" opacity="0.8" />
+                <g id="slides-layer"></g>
+            </svg>
+            
+            <button class="lg:hidden absolute top-6 right-6 p-3 bg-indigo-600 rounded-full shadow-xl" onclick="document.getElementById('side-panel').classList.toggle('open')">
+                <i class="ph-bold ph-list text-white"></i>
+            </button>
+        </main>
 
-        <div class="lg:hidden absolute top-2 left-1/2 -translate-x-1/2 w-12 h-1 bg-slate-700 rounded-full"></div>
-    </div>
-
-    <div id="preview-bar" class="custom-scrollbar">
-        </div>
-
-    <aside id="side-panel" class="bg-slate-900/95 backdrop-blur-3xl border-t lg:border-t-0 lg:border-r border-slate-800 lg:relative lg:w-96 flex flex-col">
-        <button class="lg:hidden w-full py-4 text-slate-500 font-bold text-xs" onclick="document.getElementById('side-panel').classList.toggle('open')">
-            <i class="ph-bold ph-caret-up"></i> 生成設定面板
-        </button>
-        
-        <div class="p-6 flex-1 overflow-y-auto space-y-6">
-            <div class="flex items-center gap-3">
-                <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
-                    <i class="ph-bold ph-sparkle text-white"></i>
-                </div>
-                <h1 class="font-extrabold text-lg">NOVA 120 <span class="text-xs font-normal opacity-50">v2.0</span></h1>
+        <aside id="side-panel" class="bg-slate-900 border-l border-slate-800 flex flex-col shadow-2xl">
+            <div class="p-6 border-b border-slate-800 flex justify-between items-center">
+                <h1 class="font-extrabold text-xl tracking-tight italic">NOVA <span class="text-indigo-500">120</span></h1>
+                <span class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-400 font-bold uppercase">Pro Engine</span>
             </div>
 
-            <div class="space-y-4">
-                <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
-                    <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block">Agent A:主力內容 LLM</label>
-                    <select id="model-llm" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none">
-                        <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
-                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
-                        <option value="gemini-3.1-pro-preview" selected>Gemini 3.1 Pro Preview</option>
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                    </select>
-                </div>
+            <div class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+                <section>
+                    <label class="text-[10px] font-black text-slate-500 uppercase mb-3 block">1. 投影片風格設定</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <button onclick="setTheme('default')" class="p-2 border border-slate-700 rounded-lg text-[10px] hover:border-indigo-500">深邃太空</button>
+                        <button onclick="setTheme('minimalist')" class="p-2 border border-slate-700 rounded-lg text-[10px] hover:border-indigo-500">極簡白</button>
+                        <button onclick="setTheme('cyber')" class="p-2 border border-slate-700 rounded-lg text-[10px] hover:border-indigo-500">賽博霓虹</button>
+                    </div>
+                </section>
 
-                <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
-                    <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block">Agent B:生圖視覺模型</label>
-                    <select id="model-image" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs text-white outline-none">
-                        <option value="grok-image-image">Grok Image Image</option>
-                        <option value="grok-image-image-pro" selected>Grok Image Image Pro</option>
-                        <option value="gemini-2.5-flash-image">Gemini 2.5 Flash-image</option>
+                <section class="space-y-3">
+                    <label class="text-[10px] font-black text-slate-500 uppercase block">2. 模型指定 (Agent A/B/C)</label>
+                    <select id="sel-llm" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300">
+                        <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+                        <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                    </select>
+                    <select id="sel-img" class="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-slate-300">
+                        <option value="grok-image-image-pro">Grok Image Image Pro</option>
                         <option value="gemini-3.1-flash-image">Gemini 3.1 Flash-image</option>
                     </select>
-                </div>
+                </section>
 
-                <div class="bg-slate-950/50 p-4 rounded-2xl border border-slate-800">
-                    <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block">生成張數: <span id="slide-count-val">5</span> 張</label>
-                    <input type="range" id="slide-count" min="1" max="15" value="5" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" oninput="document.getElementById('slide-count-val').innerText = this.value">
-                </div>
+                <section>
+                    <label class="text-[10px] font-black text-slate-500 uppercase mb-3 block">3. 數據分析來源 (.txt/.csv)</label>
+                    <div class="relative group">
+                        <input type="file" id="data-file" accept=".txt,.csv" class="hidden" onchange="handleFileUpload(this)">
+                        <label for="data-file" class="w-full border-2 border-dashed border-slate-800 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer group-hover:border-indigo-500 transition-all">
+                            <i class="ph-bold ph-cloud-arrow-up text-2xl text-slate-500 mb-2"></i>
+                            <span id="file-name" class="text-xs text-slate-400 text-center">拖放或點擊上傳分析資料</span>
+                        </label>
+                    </div>
+                </section>
 
-                <div>
-                    <label class="text-[10px] font-black text-slate-500 uppercase mb-2 block">主題指令</label>
-                    <textarea id="inp-topic" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-sm focus:border-indigo-500 outline-none transition-all" placeholder="例如：2025年火星殖民計畫..."></textarea>
-                </div>
+                <section class="space-y-4">
+                    <label class="text-[10px] font-black text-slate-500 uppercase block">4. 品牌識別 (Logo)</label>
+                    <input type="file" id="logo-file" accept="image/*" class="text-xs text-slate-500 block w-full mb-3" onchange="handleLogoUpload(this)">
+                    <div class="grid grid-cols-2 gap-2">
+                        <select id="logo-pos" class="col-span-2 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs" onchange="updateLogoPosition()">
+                            <option value="TL">左上 Top-Left</option>
+                            <option value="TR">右上 Top-Right</option>
+                            <option value="BL">左下 Bottom-Left</option>
+                            <option value="BR">右下 Bottom-Right</option>
+                        </select>
+                    </div>
+                </section>
 
-                <button onclick="generateSlides()" id="btn-generate" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl transition-all shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-2">
-                    <i class="ph-bold ph-magic-wand"></i> 開始生成引擎
-                </button>
+                <section class="space-y-4">
+                    <label class="text-[10px] font-black text-slate-500 uppercase block">5. 內容指令與張數</label>
+                    <div class="flex justify-between text-xs mb-1"><span>生成張數</span><span id="slide-val">5</span></div>
+                    <input type="range" id="slide-num" min="1" max="12" value="5" class="w-full accent-indigo-500 mb-4" oninput="document.getElementById('slide-val').innerText=this.value">
+                    <textarea id="inp-topic" rows="3" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm focus:border-indigo-500 outline-none" placeholder="描述簡報核心概念..."></textarea>
+                    
+                    <button onclick="startGeneration()" id="btn-run" class="w-full bg-indigo-600 hover:bg-indigo-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20">
+                        <i class="ph-bold ph-magic-wand"></i> 執行多代理分析生成
+                    </button>
+                </section>
             </div>
-        </div>
-    </aside>
+        </aside>
+    </div>
+
+    <nav id="preview-nav" class="custom-scrollbar"></nav>
 
     <script>
-        // ════════════════════════════════════════════════
-        // 核心狀態管理
-        // ════════════════════════════════════════════════
-        const AppState = {
+        const App = {
             currentSlide: 0,
             totalSlides: 0,
-            slidesData: [],
-            isDragging: false,
-            currentTarget: null,
-            offset: { x: 0, y: 0 }
+            theme: 'default',
+            logoData: null
         };
 
         const canvas = document.getElementById('main-canvas');
-        const container = document.getElementById('slides-container');
-        const previewBar = document.getElementById('preview-bar');
+        const slidesLayer = document.getElementById('slides-layer');
+        const nav = document.getElementById('preview-nav');
 
         // ════════════════════════════════════════════════
-        // SVG 互動邏輯 (精準座標轉換)
+        // 功能 1: 風格設定切換
         // ════════════════════════════════════════════════
-        function getMousePos(evt) {
-            const CTM = canvas.getScreenCTM();
-            const clientX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-            const clientY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-            return { x: (clientX - CTM.e) / CTM.a, y: (clientY - CTM.f) / CTM.d };
+        function setTheme(theme) {
+            document.body.className = `theme-${theme}`;
+            App.theme = theme;
         }
 
-        canvas.addEventListener('mousedown', (e) => {
-            const group = e.target.closest('.draggable-node');
-            if (group) {
-                AppState.isDragging = true;
-                AppState.currentTarget = group;
-                const pos = getMousePos(e);
-                const matrix = group.transform.baseVal.getItem(0).matrix;
-                AppState.offset.x = pos.x - matrix.e;
-                AppState.offset.y = pos.y - matrix.f;
+        // ════════════════════════════════════════════════
+        // 功能 2: 資料上傳分析模擬
+        // ════════════════════════════════════════════════
+        function handleFileUpload(input) {
+            if (input.files.length > 0) {
+                document.getElementById('file-name').innerText = `已讀取: ${input.files[0].name}`;
+                // Agent A 此處會模擬讀取 File 內容作為 Context
             }
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (AppState.isDragging && AppState.currentTarget) {
-                const pos = getMousePos(e);
-                AppState.currentTarget.transform.baseVal.getItem(0).setMatrix(
-                    canvas.createSVGMatrix().translate(pos.x - AppState.offset.x, pos.y - AppState.offset.y)
-                );
-            }
-        });
-
-        window.addEventListener('mouseup', () => AppState.isDragging = false);
+        }
 
         // ════════════════════════════════════════════════
-        // 生成邏輯 (Agent A, B, C 工作流)
+        // 功能 3: Logo 處理與定位
         // ════════════════════════════════════════════════
-        async function generateSlides() {
-            const topic = document.getElementById('inp-topic').value;
-            const count = parseInt(document.getElementById('slide-count').value);
-            if (!topic) return alert("請輸入主題內容");
+        function handleLogoUpload(input) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const logo = document.getElementById('canvas-logo');
+                logo.setAttribute('href', e.target.result);
+                App.logoData = e.target.result;
+                updateLogoPosition();
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
 
-            const btn = document.getElementById('btn-generate');
-            btn.innerHTML = `<i class="ph-bold ph-circle-notch animate-spin"></i> Agent A 構思內容中...`;
+        function updateLogoPosition() {
+            const pos = document.getElementById('logo-pos').value;
+            const logo = document.getElementById('canvas-logo');
+            const padding = 60;
+            switch(pos) {
+                case 'TL': logo.setAttribute('x', padding); logo.setAttribute('y', padding); break;
+                case 'TR': logo.setAttribute('x', 1920 - 120 - padding); logo.setAttribute('y', padding); break;
+                case 'BL': logo.setAttribute('x', padding); logo.setAttribute('y', 1080 - 60 - padding); break;
+                case 'BR': logo.setAttribute('x', 1920 - 120 - padding); logo.setAttribute('y', 1080 - 60 - padding); break;
+            }
+        }
+
+        // ════════════════════════════════════════════════
+        // 核心：生成邏輯
+        // ════════════════════════════════════════════════
+        function startGeneration() {
+            const topic = document.getElementById('inp-topic').value || "未命名簡報";
+            const num = parseInt(document.getElementById('slide-num').value);
+            const btn = document.getElementById('btn-run');
+            
+            btn.innerHTML = `<i class="ph-bold ph-circle-notch animate-spin"></i> Agent A 分析中...`;
             btn.disabled = true;
 
-            // 模擬 API 延遲與數據生成 (實務上請介接您的 API)
             setTimeout(() => {
-                AppState.totalSlides = count;
-                container.innerHTML = '';
-                previewBar.innerHTML = '';
-                
-                for (let i = 0; i < count; i++) {
-                    const slideGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
-                    slideGroup.id = `slide-${i}`;
-                    slideGroup.setAttribute("visibility", i === 0 ? "visible" : "hidden");
+                App.totalSlides = num;
+                slidesLayer.innerHTML = '';
+                nav.innerHTML = '';
+
+                for(let i=0; i<num; i++) {
+                    const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                    g.id = `s-${i}`;
+                    g.setAttribute("visibility", i === 0 ? "visible" : "hidden");
                     
-                    // 背景裝飾 (Agent B 邏輯)
-                    const bg = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-                    bg.setAttribute("cx", "960"); bg.setAttribute("cy", "540"); bg.setAttribute("r", "400");
-                    bg.setAttribute("fill", `url(#grad-${i % 2})`); bg.setAttribute("opacity", "0.1");
-                    slideGroup.appendChild(bg);
-
-                    // 加入內容元件 (Agent C 邏輯)
-                    addContentNode(slideGroup, 200, 200, `投影片 ${i+1}: ${topic.substring(0,5)}...`, "這是由 Agent C 注入的前端互動內容。您可以直接在此處編輯文字，或是在畫布上拖動我。");
-                    addContentNode(slideGroup, 1200, 600, "關鍵特點", "1. 響應式佈局\n2. SVG 空間矩陣\n3. 多代理模型調用");
-
-                    container.appendChild(slideGroup);
-                    addPreviewThumb(i);
+                    // 內容節點
+                    createNode(g, 200, 250, `${topic} - Page ${i+1}`, `根據上傳資料分析結果：這是由 Agent A 萃取的關鍵洞察。您可以透過拖曳與縮放來自定義佈局。`);
+                    
+                    slidesLayer.appendChild(g);
+                    createThumb(i);
                 }
                 
                 btn.innerHTML = `<i class="ph-bold ph-magic-wand"></i> 重新生成`;
                 btn.disabled = false;
                 switchSlide(0);
-                if (window.innerWidth < 1024) document.getElementById('side-panel').classList.remove('open');
-            }, 1500);
+                if(window.innerWidth < 1024) document.getElementById('side-panel').classList.remove('open');
+            }, 1000);
         }
 
-        function addContentNode(parent, x, y, title, text) {
+        function createNode(parent, x, y, title, content) {
             const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
-            g.setAttribute("class", "draggable-node");
             g.setAttribute("transform", `translate(${x}, ${y})`);
-
-            const fObj = document.createElementNS("http://www.w3.org/2000/svg", "foreignObject");
-            fObj.setAttribute("width", "500");
-            fObj.setAttribute("height", "300");
-
-            const div = document.createElement("div");
-            div.className = "glass-card p-8 text-white h-full";
-            div.innerHTML = `
-                <h2 class="text-2xl font-black mb-4 border-b border-white/10 pb-2 outline-none" contenteditable="true">${title}</h2>
-                <p class="text-slate-400 leading-relaxed outline-none" contenteditable="true">${text}</p>
+            g.innerHTML = `
+                <foreignObject width="600" height="400">
+                    <div class="glass-card p-10 text-white h-full shadow-2xl">
+                        <h2 class="text-3xl font-extrabold mb-6 border-b border-white/10 pb-4 outline-none" contenteditable="true">${title}</h2>
+                        <p class="text-lg opacity-70 leading-relaxed outline-none" contenteditable="true">${content}</p>
+                    </div>
+                </foreignObject>
             `;
-
-            fObj.appendChild(div);
-            g.appendChild(fObj);
             parent.appendChild(g);
         }
 
-        // ════════════════════════════════════════════════
-        // 導覽邏輯
-        // ════════════════════════════════════════════════
-        function addPreviewThumb(index) {
-            const thumb = document.createElement("div");
-            thumb.className = `preview-thumb ${index === 0 ? 'active' : ''}`;
-            thumb.id = `thumb-${index}`;
-            thumb.innerHTML = `P${index + 1}`;
-            thumb.onclick = () => switchSlide(index);
-            previewBar.appendChild(thumb);
+        function createThumb(i) {
+            const d = document.createElement('div');
+            d.className = `thumb bg-slate-800 flex items-center justify-center text-[10px] font-bold`;
+            d.id = `t-${i}`;
+            d.innerText = `PAGE ${i+1}`;
+            d.onclick = () => switchSlide(i);
+            nav.appendChild(d);
         }
 
-        function switchSlide(index) {
-            for (let i = 0; i < AppState.totalSlides; i++) {
-                document.getElementById(`slide-${i}`).setAttribute("visibility", i === index ? "visible" : "hidden");
-                document.getElementById(`thumb-${i}`).classList.toggle("active", i === index);
+        function switchSlide(idx) {
+            for(let i=0; i<App.totalSlides; i++) {
+                document.getElementById(`s-${i}`).setAttribute("visibility", i === idx ? "visible" : "hidden");
+                document.getElementById(`t-${i}`).classList.toggle('active', i === idx);
             }
-            AppState.currentSlide = index;
+            App.currentSlide = idx;
         }
 
-        // 初始漸層定義
-        const defs = canvas.querySelector('defs');
-        defs.innerHTML += `
-            <linearGradient id="grad-0" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#6366f1;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#a855f7;stop-opacity:1" />
-            </linearGradient>
-            <linearGradient id="grad-1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#ec4899;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#f43f5e;stop-opacity:1" />
-            </linearGradient>
-        `;
     </script>
 </body>
 </html>
