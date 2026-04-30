@@ -2061,6 +2061,13 @@ return html;
             if (isMasterEl) isMasterEl.checked = appState.isMaster;
             const liveSyncEl = document.getElementById('key-live-sync-enabled');
             if (liveSyncEl) liveSyncEl.checked = appState.liveSyncEnabled;
+            // ── 每次開啟設定都從 appState 還原所有開關狀態（防止顯示與實際不符）
+            const longMemEl = document.getElementById('key-long-memory');
+            if (longMemEl) longMemEl.checked = appState.enableLongMemory;
+            const hideLiveCaptureEl = document.getElementById('key-hide-live-capture');
+            if (hideLiveCaptureEl) hideLiveCaptureEl.checked = appState.hideLiveCapture;
+            const autoTTSEl2 = document.getElementById('key-auto-tts');
+            if (autoTTSEl2) autoTTSEl2.checked = appState.autoTTS;
         };
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
 
