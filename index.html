@@ -322,8 +322,13 @@
                                 </div>
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <label class="block text-xs text-cyan-400 font-bold flex items-center gap-1"><i class="ph-fill ph-cloud-arrow-up"></i> 啟用 Live Sync 同步</label>
+                                        <label class="block text-xs text-cyan-400 font-bold flex items-center gap-1"><i class="ph-fill ph-cloud-arrow-up"></i> 啟用 Live Sync 同步 <span id="sync-status-dot" class="w-2 h-2 rounded-full bg-slate-500 inline-block ml-1" title="尚未同步"></span></label>
                                         <p class="text-[10px] text-slate-500 mt-1">關閉後，程式將停止自動讀取及上傳至 Google Drive（錄音上傳功能不受影響）。</p>
+                                        <div class="flex gap-2 mt-2">
+                                            <button onclick="forceLiveSync()" class="px-2 py-1 text-[10px] bg-cyan-700 hover:bg-cyan-600 text-white rounded-md">⬆️ 立即同步</button>
+                                            <button onclick="testSyncConnection()" class="px-2 py-1 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-md">🔍 測試連線</button>
+                                            <button onclick="showGASTemplate()" class="px-2 py-1 text-[10px] bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-md">📋 Apps Script</button>
+                                        </div>
                                     </div>
                                     <label class="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
                                         <input type="checkbox" id="key-live-sync-enabled" class="sr-only peer" checked>
@@ -1517,6 +1522,7 @@ async function encodeMp3(audioBuffer) {
             liveSyncTimeout = setTimeout(async () => {
                 if(isLiveSyncing) return;
                 isLiveSyncing = true;
+                _updateSyncStatus('syncing');
                 const fullBackupData = {
                     timestamp: Date.now(),
                     isMaster: appState.isMaster || false,
@@ -1526,30 +1532,194 @@ async function encodeMp3(audioBuffer) {
                     translateBTimeout: appState.translateBTimeout, vadMultiplier: appState.vadMultiplier, 
                     replyLength: appState.replyLength, ttsRate: appState.ttsRate, ttsVoice: appState.ttsVoice, 
                     hideLiveCapture: appState.hideLiveCapture, autoTTS: appState.autoTTS, noteFolders: appState.noteFolders,
-                    messages: appState.messages, 
+                    enableLongMemory: appState.enableLongMemory, deepDiveMode: appState.deepDiveMode,
+                    messages: appState.messages.map(m => { const {files, file, audioData, imageData, ...rest} = m; return rest; }), 
                     notes: appState.notes.map(n => { const {audioData, ...rest} = n; return rest; }), 
                     todos: appState.todos, 
                     audioRecords: appState.audioRecords.map(r => { const {audioData, ...rest} = r; return rest; }),
                     currentSessionId: appState.currentSessionId, chatTitles: appState.chatTitles, pinnedSessions: appState.pinnedSessions
                 };
                 try {
+                    // 直接 POST 純 JSON（Apps Script 以 e.postData.contents 讀取）
+                    const payload = JSON.stringify({
+                        action: "sync_up",
+                        filename: "NOVA120livebackup",
+                        data: fullBackupData
+                    });
                     const res = await fetch(appState.driveUrl, {
                         method: 'POST',
                         redirect: 'follow',
-                        headers: {
-                            'Content-Type': 'text/plain;charset=utf-8'
-                        },
-                        body: JSON.stringify({ action: "sync_up", filename: "NOVA120livebackup", data: fullBackupData })
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body: payload
                     });
                     if(res.ok) {
-                        lastLiveSyncTime = fullBackupData.timestamp;
-                        // 上傳成功後，延長等待讓雲端寫入穩定，再拉取一次
-                        setTimeout(fetchSyncFromDrive, 2000);
+                        let resText = '';
+                        try { resText = await res.text(); } catch(_){}
+                        // 檢查 Apps Script 是否回傳錯誤訊息
+                        let resJson = null;
+                        try { resJson = JSON.parse(resText); } catch(_){}
+                        if (resJson && resJson.error) {
+                            if (resJson.error === 'payload_too_large') {
+                                const kb = Math.round(resJson.size / 1024);
+                                console.error(`[Sync Up] 超過大小上限 (${kb} KB)，同步失敗`);
+                                _updateSyncStatus('error', `資料太大 (${kb}KB > 5MB)`);
+                            } else {
+                                console.error('[Sync Up] Apps Script 回傳錯誤:', resJson.error);
+                                _updateSyncStatus('error', resJson.error);
+                            }
+                        } else {
+                            lastLiveSyncTime = fullBackupData.timestamp;
+                            _updateSyncStatus('ok', fullBackupData.timestamp);
+                            setTimeout(fetchSyncFromDrive, 2000);
+                        }
+                    } else {
+                        console.error('[Sync Up] HTTP 錯誤:', res.status, res.statusText);
+                        _updateSyncStatus('error', `HTTP ${res.status}`);
                     }
-                } catch(e) { console.error("Live Sync Up Error:", e); }
-                isLiveSyncing = false;
-            }, 500); // 防抖動 3 秒
+                } catch(e) {
+                    console.error('[Sync Up] 網路錯誤:', e.message);
+                    _updateSyncStatus('error', e.message);
+                } finally {
+                    isLiveSyncing = false;
+                }
+            }, 500);
         }
+
+        // ── 同步狀態指示器
+        function _updateSyncStatus(state, detail) {
+            const el = document.getElementById('sync-status-dot');
+            if (!el) return;
+            if (state === 'syncing') {
+                el.title = '同步中...';
+                el.className = 'w-2 h-2 rounded-full bg-yellow-400 animate-pulse';
+            } else if (state === 'ok') {
+                const t = detail ? new Date(detail).toLocaleTimeString() : '';
+                el.title = `上次成功同步：${t}`;
+                el.className = 'w-2 h-2 rounded-full bg-green-400';
+            } else {
+                el.title = `同步失敗：${detail || '未知錯誤'}`;
+                el.className = 'w-2 h-2 rounded-full bg-red-500';
+            }
+        }
+
+        // ── 手動強制立即同步
+        window.forceLiveSync = async function() {
+            if (!appState.driveUrl) { showToast('⚠️ 請先在設定中填入 Google Drive Apps Script URL'); return; }
+            showToast('🔄 正在強制同步至 Google Drive...');
+            isLiveSyncing = false; // 解除鎖定
+            if(liveSyncTimeout) clearTimeout(liveSyncTimeout);
+            await triggerLiveSync();
+        };
+
+        // ── 顯示正確的 Google Apps Script 模板
+        window.showGASTemplate = function() {
+            const gasCode = `// ════════════════════════════════════════════════
+// NOVA Live Sync - Google Apps Script
+// 使用方式：
+// 1. 前往 script.google.com 建立新專案
+// 2. 貼上此程式碼，儲存
+// 3. 部署 → 新增部署 → 網路應用程式
+//    執行身分：我
+//    存取權限：所有人
+// 4. 複製部署網址貼入 NOVA 設定
+// ════════════════════════════════════════════════
+
+const FOLDER_NAME = 'NOVA_Sync';  // Drive 資料夾名稱
+
+function getOrCreateFolder() {
+  const folders = DriveApp.getFoldersByName(FOLDER_NAME);
+  return folders.hasNext() ? folders.next() : DriveApp.createFolder(FOLDER_NAME);
+}
+
+function getOrCreateFile(folder, filename) {
+  const files = folder.getFilesByName(filename);
+  if (files.hasNext()) return files.next();
+  return folder.createFile(filename, '{}', MimeType.PLAIN_TEXT);
+}
+
+function doPost(e) {
+  try {
+    const body = JSON.parse(e.postData.contents);
+    const action = body.action || '';
+    const filename = (body.filename || 'NOVA120livebackup') + '.json';
+    
+    if (action === 'sync_up') {
+      const folder = getOrCreateFolder();
+      const file = getOrCreateFile(folder, filename);
+      // 直接存 body.data（fullBackupData 物件）的 JSON 字串
+      file.setContent(JSON.stringify(body.data));
+      return ContentService
+        .createTextOutput(JSON.stringify({ ok: true, ts: Date.now() }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({ error: 'unknown action: ' + action }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ error: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e) {
+  try {
+    const action = e.parameter.action || '';
+    const filename = (e.parameter.filename || 'NOVA120livebackup') + '.json';
+    
+    if (action === 'sync_down') {
+      const folder = getOrCreateFolder();
+      const files = folder.getFilesByName(filename);
+      if (!files.hasNext()) {
+        return ContentService.createTextOutput('{}').setMimeType(ContentService.MimeType.JSON);
+      }
+      const content = files.next().getBlob().getDataAsString();
+      return ContentService
+        .createTextOutput(content || '{}')
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    return ContentService.createTextOutput('{}').setMimeType(ContentService.MimeType.JSON);
+    
+  } catch(err) {
+    return ContentService.createTextOutput('{}').setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+            // 建立複製對話框
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;padding:16px';
+            modal.innerHTML = `
+                <div style="background:#1e293b;border:1px solid #334155;border-radius:16px;padding:20px;width:100%;max-width:520px;max-height:85vh;display:flex;flex-direction:column;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                        <span style="color:#67e8f9;font-weight:bold;font-size:13px;">📋 Google Apps Script 正確程式碼</span>
+                        <button onclick="this.closest('[style*=fixed]').remove()" style="color:#94a3b8;font-size:20px;background:none;border:none;cursor:pointer;">✕</button>
+                    </div>
+                    <p style="color:#94a3b8;font-size:11px;margin-bottom:10px;">複製以下程式碼 → 貼到 <a href='https://script.google.com' target='_blank' style='color:#38bdf8'>script.google.com</a> → 部署為網路應用程式</p>
+                    <textarea id="gas-code-area" readonly style="flex:1;min-height:300px;background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:8px;padding:12px;font-size:10px;font-family:monospace;resize:none;overflow-y:auto;">${gasCode.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</textarea>
+                    <div style="display:flex;gap:8px;margin-top:12px;">
+                        <button onclick="const el=document.getElementById('gas-code-area');el.select();navigator.clipboard.writeText(el.value).then(()=>{ this.textContent='✅ 已複製！';setTimeout(()=>this.textContent='📋 複製程式碼',2000); })" style="flex:1;padding:10px;background:#0e7490;color:white;border:none;border-radius:8px;font-size:12px;cursor:pointer;font-weight:bold;">📋 複製程式碼</button>
+                        <a href="https://script.google.com/home/start" target="_blank" style="flex:1;padding:10px;background:#334155;color:#94a3b8;border:none;border-radius:8px;font-size:12px;cursor:pointer;text-decoration:none;text-align:center;display:flex;align-items:center;justify-content:center;">🔗 開啟 Apps Script</a>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+        };
+            if (!appState.driveUrl) { alert('請先填寫 Google Drive Apps Script URL'); return; }
+            showToast('🔍 測試 Apps Script 連線中...');
+            try {
+                const testPayload = JSON.stringify({ action: "sync_up", filename: "NOVA120livebackup_test", data: { test: true, ts: Date.now() } });
+                const res = await fetch(appState.driveUrl, {
+                    method: 'POST', redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: testPayload
+                });
+                const text = await res.text();
+                alert(`✅ Apps Script 回應 (HTTP ${res.status}):\n\n${text.slice(0, 500)}`);
+            } catch(e) {
+                alert(`❌ 連線失敗：\n${e.message}\n\n請確認：\n1. Apps Script 已部署為「網路應用程式」\n2. 執行身分為「我」\n3. 存取權限為「所有人」`);
+            }
+        };
 
         async function fetchSyncFromDrive() {
             if (!appState.liveSyncEnabled) return;
