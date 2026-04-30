@@ -165,13 +165,6 @@
                         <button onclick="switchTab('schedule')" id="nav-schedule" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
                         <button onclick="switchTab('notes')" id="nav-notes" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
                         <button onclick="switchTab('audio')" id="nav-audio" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
-                        <!-- ★ 簡報生成器入口：連結至同資料夾的 presentation_generator.html ★ -->
-                        <a href="./presentation_generator.html"
-                           class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-violet-900/40 hover:text-violet-300 transition-all text-sm group border border-transparent hover:border-violet-700/40">
-                            <i class="ph-fill ph-presentation-chart text-lg group-hover:text-violet-400 transition-colors"></i>
-                            <span>簡報生成</span>
-                            <i class="ph-bold ph-arrow-square-out text-xs ml-auto opacity-0 group-hover:opacity-60 transition-opacity"></i>
-                        </a>
                     </nav>
                 </div>
             </div>
@@ -232,13 +225,6 @@
                             <button onclick="switchTab('schedule'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
                             <button onclick="switchTab('notes'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
                             <button onclick="switchTab('audio'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
-                            <!-- ★ 手機版簡報生成器入口 ★ -->
-                            <a href="./presentation_generator.html"
-                               class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-violet-900/40 hover:text-violet-300 transition-all text-sm border border-transparent hover:border-violet-700/40">
-                                <i class="ph-fill ph-presentation-chart text-lg"></i>
-                                <span>簡報生成</span>
-                                <i class="ph-bold ph-arrow-square-out text-xs ml-auto opacity-50"></i>
-                            </a>
                         </nav>
                     </div>
                 </div>
@@ -454,6 +440,32 @@
                                     </button>
                                 </div>
                                 <p class="text-[10px] text-slate-500">⚠️ 需要使用支援 File System Access API 的瀏覽器（Chrome / Edge）。指定後，每次錄音完成會自動將 MP3 存至該資料夾。</p>
+                            </div>
+
+                            <!-- 自動上傳 Google Drive -->
+                            <div class="bg-slate-800/60 p-4 rounded-xl border border-cyan-700/40 space-y-3">
+                                <p class="text-xs font-bold text-cyan-300 flex items-center gap-2"><i class="ph-fill ph-cloud-arrow-up text-cyan-400"></i> 自動上傳 Google Drive</p>
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-xs text-slate-300 font-bold">錄音紀錄完成後自動上傳</p>
+                                        <p class="text-[10px] text-slate-500 mt-1">錄音紀錄頁面的每段錄音儲存後，自動上傳至 Google Drive（需先設定 Drive URL）。</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                        <input type="checkbox" id="rec-auto-upload-audio" class="sr-only peer" onchange="appState.recSettings.autoUploadAudio=this.checked; localStorage.setItem('nova_rec_auto_upload_audio', this.checked);">
+                                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                                    </label>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <div>
+                                        <p class="text-xs text-slate-300 font-bold">筆記/文件頁的分段及合併錄音自動上傳</p>
+                                        <p class="text-[10px] text-slate-500 mt-1">筆記/文件頁的語音分段錄音及合併後的完整錄音，儲存完成後自動上傳至 Google Drive。</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer ml-3 shrink-0">
+                                        <input type="checkbox" id="rec-auto-upload-notes" class="sr-only peer" onchange="appState.recSettings.autoUploadNotes=this.checked; localStorage.setItem('nova_rec_auto_upload_notes', this.checked);">
+                                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"></div>
+                                    </label>
+                                </div>
+                                <p class="text-[10px] text-amber-400/80">⚠️ 自動上傳需已設定 Google Drive Apps Script URL，且音檔 &lt; 10 MB。大檔案請手動上傳。</p>
                             </div>
 
                             <!-- 自動分切設定 -->
@@ -842,12 +854,12 @@
                         <div id="plus-menu" class="hidden absolute bottom-full left-0 mb-1 w-full bg-slate-900 border-t border-slate-800 p-4 grid grid-cols-5 gap-2 z-40 rounded-t-2xl shadow-[0_-10px_20px_rgba(0,0,0,0.5)] transition-all">
                             
                             <button onclick="openAgentModal()" class="flex flex-col items-center justify-center gap-2 p-2 rounded-xl bg-slate-800 border border-purple-500/50 hover:bg-slate-700 text-purple-400 transition-colors active:scale-95 shadow-lg shadow-purple-500/10">
-                                <i class="ph-bold ph-brain text-xl"></i><span class="text-[10px] font-bold">多AI研究</span>
+                                <i class="ph-bold ph-brain text-xl"></i><span class="text-[10px] font-bold">深度研究</span>
                             </button>
 
-                            <button onclick="openDualAIModal()" class="flex flex-col items-center justify-center gap-2 p-2 rounded-xl bg-slate-800 border border-emerald-500/50 hover:bg-slate-700 text-emerald-400 transition-colors active:scale-95 shadow-lg shadow-emerald-500/10">
-                                <i class="ph-bold ph-users-three text-xl"></i><span class="text-[10px] font-bold">雙AI對話</span>
-                            </button>
+                            <a href="./presentation_generator.html" class="flex flex-col items-center justify-center gap-2 p-2 rounded-xl bg-slate-800 border border-violet-500/50 hover:bg-slate-700 text-violet-400 transition-colors active:scale-95 shadow-lg shadow-violet-500/10">
+                                <i class="ph-bold ph-presentation-chart text-xl"></i><span class="text-[10px] font-bold">簡報生成</span>
+                            </a>
 
                             <label for="chat-file-input" class="flex flex-col items-center justify-center gap-2 p-3 rounded-xl bg-slate-800 border border-slate-700 hover:bg-slate-700 cursor-pointer text-slate-300 transition-colors active:scale-95">
                                 <i class="ph-bold ph-paperclip text-2xl text-blue-400"></i><span class="text-[10px] font-bold">多檔上傳</span>
@@ -1885,6 +1897,8 @@ function doGet(e) {
                 autoSplitMins: parseInt(localStorage.getItem('nova_rec_split_mins')) || 60,
                 localSaveDirName: localStorage.getItem('nova_rec_dir_name') || '',
                 localDirHandle: null,  // FileSystemDirectoryHandle（不能放 localStorage）
+                autoUploadAudio: localStorage.getItem('nova_rec_auto_upload_audio') === 'true',
+                autoUploadNotes: localStorage.getItem('nova_rec_auto_upload_notes') === 'true',
             },
             recGroupId: null,      // 目前錄音段落的 groupId（多段共用）
             isAutoSplitting: false, // 是否正在執行自動分切
@@ -2285,6 +2299,10 @@ return html;
                     }
                 }
                 if (reauthBtn) reauthBtn.classList.toggle('hidden', !appState.recSettings._pendingDirHandle);
+                const autoUpAudio = document.getElementById('rec-auto-upload-audio');
+                if (autoUpAudio) autoUpAudio.checked = appState.recSettings.autoUploadAudio;
+                const autoUpNotes = document.getElementById('rec-auto-upload-notes');
+                if (autoUpNotes) autoUpNotes.checked = appState.recSettings.autoUploadNotes;
             }
         };
 
@@ -6271,6 +6289,10 @@ try {
                 appState.notes.unshift(newNote); saveToDB('notes', newNote);
                 const segMsg = isSegment ? ` (自動分切第 ${segIndex} 段)` : '';
                 addMessage(`📝 語音筆記已安全儲存至「筆記/文件」分頁${segMsg}。`, 'system'); renderNotes();
+                // ── 自動上傳 Google Drive（筆記/文件頁分段錄音）
+                if (appState.recSettings.autoUploadNotes && appState.driveUrl) {
+                    setTimeout(() => uploadNoteAudioToDrive(newNote.id), 1500);
+                }
             } else {
                 const segIndex = appState.audioRecords.filter(r => r.groupId === groupId).length + 1;
                 const segLabel = isSegment ? ` (第 ${segIndex} 段)` : '';
@@ -6282,6 +6304,10 @@ try {
                 appState.audioRecords.unshift(newRecord); saveToDB('audioRecords', newRecord);
                 const segMsg = isSegment ? ` (自動分切第 ${segIndex} 段)` : '';
                 addMessage(`📼 錄音已安全儲存至本地「錄音紀錄」分頁${segMsg}。`, 'system'); renderAudioRecords();
+                // ── 自動上傳 Google Drive
+                if (appState.recSettings.autoUploadAudio && appState.driveUrl) {
+                    setTimeout(() => manualUploadToDrive(String(newRecord.id)), 1500);
+                }
             }
         }
 
@@ -6654,6 +6680,10 @@ try {
                         saveToDB('audioRecords', mergedRecord);
                         renderAudioRecords();
                         addMessage(`✅ 已建立「${mergedRecord.title}」：包含完整接合音訊（${Math.round(mergedRecord.duration/60)}分${mergedRecord.duration%60}秒）與 AI 分析結果。`, 'system');
+                        // ── 自動上傳合併錄音至 Google Drive
+                        if (appState.recSettings.autoUploadNotes && appState.driveUrl) {
+                            setTimeout(() => manualUploadToDrive(String(mergedRecord.id)), 2000);
+                        }
                     }
                 } catch(mergeErr) {
                     addMessage(`⚠️ 音訊接合失敗（${mergeErr.message}），但逐字稿與摘要已正常儲存。`, 'system');
@@ -6874,6 +6904,34 @@ try {
             };
             input.addEventListener('blur', save);
             input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } if (e.key === 'Escape') { el.innerHTML = escapeHtml(prev); } });
+        };
+
+        // ── 自動上傳筆記/文件頁音訊至 Google Drive ─────────────────────────
+        window.uploadNoteAudioToDrive = async function(id) {
+            if (!appState.driveUrl) return;
+            const note = appState.notes.find(x => String(x.id) === String(id));
+            if (!note || note.driveUrl) return; // 已上傳則跳過
+            try {
+                let audioBlob = await loadAudioBlob(note.id);
+                if (!audioBlob && note.audioData) audioBlob = base64ToBlob(note.audioData);
+                if (!audioBlob) return;
+                const sizeMB = (audioBlob.size / 1024 / 1024).toFixed(1);
+                if (parseFloat(sizeMB) > 10) { showToast(`⚠️ 音訊 ${sizeMB}MB 超過 10MB 上限，跳過自動上傳`); return; }
+                showToast(`☁️ 自動上傳筆記音訊（${sizeMB} MB）…`);
+                const reader = new FileReader();
+                const base64 = await new Promise(res => { reader.onload = e => res(e.target.result); reader.readAsDataURL(audioBlob); });
+                const res = await fetch(appState.driveUrl, {
+                    method: 'POST', redirect: 'follow',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ filename: note.filename || `note_${note.id}.wav`, mimeType: audioBlob.type, data: base64 })
+                });
+                if (res.ok) {
+                    const json = await res.json().catch(() => ({}));
+                    const url = json.fileUrl || 'https://drive.google.com/';
+                    note.driveUrl = url; saveToDB('notes', note); renderNotes();
+                    showToast(`✅ 筆記音訊已自動上傳至 Google Drive`);
+                }
+            } catch(e) { console.warn('uploadNoteAudioToDrive error:', e); }
         };
 
         // ── 手動上傳 Google Drive ────────────────────────────────────────
