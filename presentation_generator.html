@@ -1,2140 +1,1278 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI HTML 簡報生成器 · NOVA 120 Pro</title>
-
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
-
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    fontFamily: { sans: ['Plus Jakarta Sans', 'Noto Sans TC', 'sans-serif'] },
-                    animation: { 'fade-in': 'fadeIn 0.4s ease-out' }
-                }
-            }
-        }
-    </script>
-
-    <style>
-        :root { background-color: #020617; color-scheme: dark; }
-        html, body { background-color: #020617; min-height: 100vh; font-family: 'Plus Jakarta Sans', 'Noto Sans TC', sans-serif; }
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
-        .panel-body { overflow: hidden; max-height: 0; transition: max-height 0.35s ease-in-out, opacity 0.3s ease; opacity: 0; }
-        .panel-body.open { max-height: 4000px; opacity: 1; }
-        .drop-zone { border: 2px dashed #475569; transition: all 0.25s ease; }
-        .drop-zone.drag-over, .drop-zone:hover { border-color: #818cf8; background-color: rgba(99,102,241,0.08); }
-        .slide-preview-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
-        .slide-preview-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.5); }
-        .slide-iframe-wrap { width: 100%; aspect-ratio: 16/9; overflow: hidden; position: relative; background: #0f172a; border-radius: 6px; }
-        .slide-iframe-wrap iframe { width: 1920px; height: 1080px; border: none; transform: scale(var(--ps)); transform-origin: top left; pointer-events: none; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-in { animation: fadeIn 0.4s ease-out both; }
-        .btn-pulse { animation: pulse 2s infinite; }
-        @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(139,92,246,0.4);} 50%{box-shadow:0 0 0 8px rgba(139,92,246,0);} }
-        /* History modal */
-        #history-modal { display:none; }
-        #history-modal.open { display:flex; }
-        .history-card { transition: background 0.15s; }
-        .history-card:hover { background: rgba(99,102,241,0.06); }
-    </style>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen">
-
-<!-- ── HEADER ───────────────────────────────────────────────────────── -->
-<header class="sticky top-0 z-50 bg-slate-950/90 backdrop-blur-xl border-b border-slate-800/70">
-    <div class="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
-        <div class="flex items-center gap-3 min-w-0">
-            <a href="./index.html" class="flex items-center gap-1.5 text-slate-400 hover:text-white text-sm font-medium">
-                <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
-            </a>
-            <div class="w-px h-5 bg-slate-700"></div>
-            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 Pro</h1>
-        </div>
-        <div class="flex items-center gap-2">
-            <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
-                <i class="ph-fill ph-cpu text-violet-400"></i><span id="header-model-name">檢測中</span>
-            </div>
-            <button onclick="openHistoryModal()" class="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-2 rounded-xl transition-all relative">
-                <i class="ph-bold ph-clock-counter-clockwise"></i>
-                <span class="hidden sm:inline">歷史記錄</span>
-                <span id="history-badge" class="hidden absolute -top-1 -right-1 w-4 h-4 bg-violet-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center"></span>
-            </button>
-            <button id="btn-preview-html" onclick="previewAllSlides()" class="hidden items-center gap-2 bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all">
-                <i class="ph-bold ph-browser"></i><span>預覽</span>
-            </button>
-            <button id="btn-save-html" onclick="saveAllSlidesAsHTML()" class="hidden items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all">
-                <i class="ph-bold ph-file-html"></i><span>存 HTML</span>
-            </button>
-            <!-- PPTX split button -->
-            <div id="btn-pptx-group" class="hidden items-center relative">
-                <button onclick="downloadPptx('image')" class="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-2 rounded-l-xl transition-all shadow-lg border-r border-emerald-700">
-                    <i class="ph-bold ph-download-simple"></i><span>PPTX</span>
-                </button>
-                <button onclick="togglePptxMenu()" class="flex items-center bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-2 py-2 rounded-r-xl transition-all shadow-lg">
-                    <i class="ph-bold ph-caret-down text-xs"></i>
-                </button>
-                <div id="pptx-menu" class="hidden absolute top-full right-0 mt-1 w-48 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden">
-                    <button onclick="downloadPptx('image');togglePptxMenu()" class="w-full flex items-center gap-3 px-4 py-3 text-xs text-slate-200 hover:bg-slate-700 transition-colors">
-                        <i class="ph-fill ph-image text-emerald-400"></i>
-                        <div class="text-left"><div class="font-semibold">圖片 PPTX</div><div class="text-slate-500">高保真截圖版本</div></div>
-                    </button>
-                    <button onclick="downloadPptx('editable');togglePptxMenu()" class="w-full flex items-center gap-3 px-4 py-3 text-xs text-slate-200 hover:bg-slate-700 transition-colors">
-                        <i class="ph-fill ph-pencil text-amber-400"></i>
-                        <div class="text-left"><div class="font-semibold">可編輯 PPTX</div><div class="text-slate-500">文字/形狀可在 PPT 編輯</div></div>
-                    </button>
-                </div>
-            </div>
-            <button id="btn-generate" onclick="startGeneration()" class="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all shadow-lg btn-pulse">
-                <i class="ph-bold ph-sparkle"></i><span>開始生成</span>
-            </button>
-            <button id="btn-stop" onclick="stopGeneration()" class="hidden items-center gap-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-2 rounded-xl transition-all">
-                <i class="ph-bold ph-stop"></i><span>停止生成</span>
-            </button>
-        </div>
-    </div>
-</header>
-
-<!-- ── MAIN LAYOUT ────────────────────────────────────────────────── -->
-<main class="max-w-7xl mx-auto px-4 py-6 flex flex-col lg:flex-row gap-5">
-
-    <!-- SIDEBAR -->
-    <aside class="lg:w-80 xl:w-96 flex flex-col gap-4 shrink-0">
-
-        <!-- API Key Status -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center gap-3">
-            <i class="ph-fill ph-key text-blue-400 shrink-0"></i>
-            <div class="text-[11px] text-slate-400 flex-1 min-w-0">
-                Gemini API Key: <span id="api-gemini-status" class="font-semibold">...</span>
-            </div>
-            <button onclick="promptApiKey()" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors shrink-0">設定</button>
-        </div>
-
-        <!-- Attached Sources -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-            <button onclick="togglePanel('panel-sources')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
-                <div class="flex items-center gap-2.5">
-                    <i class="ph-fill ph-paperclip text-sky-400"></i>
-                    <span class="text-sm font-semibold text-white">附加資料來源</span>
-                    <span id="source-count-badge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400">0</span>
-                </div>
-                <i id="panel-sources-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform rotate-180"></i>
-            </button>
-            <div id="panel-sources" class="panel-body open">
-                <div class="px-4 pb-4 space-y-3 text-xs">
-                    <!-- File Drop Zone -->
-                    <div id="file-drop-zone" class="drop-zone rounded-xl p-4 text-center cursor-pointer select-none"
-                        onclick="document.getElementById('file-input').click()"
-                        ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
-                        <i class="ph-bold ph-upload-simple text-slate-500 text-2xl mb-1.5 block"></i>
-                        <p class="text-slate-400 font-medium">拖曳或點擊上傳</p>
-                        <p class="text-slate-600 mt-1">TXT · PDF · DOCX · XLSX · PPTX · CSV</p>
-                        <input type="file" id="file-input" multiple accept=".txt,.md,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv" class="hidden" onchange="handleFileSelect(event)">
-                    </div>
-                    <!-- URL Input -->
-                    <div class="flex gap-2">
-                        <input type="text" id="url-input" placeholder="貼入網頁連結或 YouTube URL..."
-                            class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-[11px] outline-none focus:border-sky-500 transition-colors"
-                            onkeydown="if(event.key==='Enter')addURLSource()">
-                        <button onclick="addURLSource()" class="bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-2 rounded-xl transition-colors shrink-0">
-                            <i class="ph-bold ph-plus"></i>
-                        </button>
-                    </div>
-                    <!-- Sources List -->
-                    <div id="sources-list" class="space-y-2 max-h-52 overflow-y-auto"></div>
-                    <p id="no-sources-hint" class="text-slate-600 text-center py-2">尚未附加任何資料來源</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Advanced Config -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-            <button onclick="togglePanel('panel-config')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
-                <div class="flex items-center gap-2.5">
-                    <i class="ph-fill ph-sliders-horizontal text-amber-400"></i>
-                    <span class="text-sm font-semibold text-white">進階設定</span>
-                </div>
-                <i id="panel-config-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform rotate-180"></i>
-            </button>
-            <div id="panel-config" class="panel-body open">
-                <div class="px-4 pb-4 space-y-4 text-xs">
-
-                    <div>
-                        <label class="block text-slate-400 mb-1.5 font-semibold">首選文字模型 (LLM)</label>
-                        <select id="sel-text-model" onchange="updateHeaderBadge()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                            <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (最新旗艦)</option>
-                            <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (最新快速)</option>
-                            <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro (深度邏輯推薦)</option>
-                            <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速均衡)</option>
-                            <option value="gemini-2.0-flash-exp">Gemini 2.0 Flash Exp</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-slate-400 mb-1.5 font-semibold">首選配圖模型 (Image)</label>
-                        <select id="sel-img-model" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                            <option value="grok-imagine-image-pro">Grok Imagine Image Pro (推薦)</option>
-                            <option value="grok-imagine-image">Grok Imagine Image</option>
-                            <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
-                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
-                        </select>
-                        <p class="text-slate-500 mt-1">若失敗會自動依序降級調用其他模型</p>
-                    </div>
-
-                    <div class="border-t border-slate-800 pt-3">
-                        <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格</label>
-                        <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                            <option value="modern">現代極簡 (Modern Dark)</option>
-                            <option value="tech">科技未來 (Tech Cyber)</option>
-                            <option value="corporate">商務專業 (Corporate Blue)</option>
-                            <option value="creative">活潑創意 (Creative Vivid)</option>
-                            <option value="elegant">高雅精緻 (Elegant Light)</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-slate-400 mb-1.5 font-semibold">AI 圖片插入模式</label>
-                        <select id="sel-image-mode" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                            <option value="auto">自動判斷（AI 決定哪頁需要圖片）</option>
-                            <option value="all">強制每張都插入圖片</option>
-                            <option value="none">不插入圖片（純 HTML/CSS）</option>
-                        </select>
-                    </div>
-
-                    <div class="border-t border-slate-800 pt-3">
-                        <label class="block text-slate-400 mb-1.5 font-semibold">Logo / 浮水印</label>
-                        <div class="flex items-center gap-2">
-                            <button onclick="document.getElementById('logo-upload').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2 text-slate-300 transition-colors">上傳圖片</button>
-                            <select id="sel-logo-pos" class="bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="TR">右上角</option>
-                                <option value="BR">右下角</option>
-                                <option value="TL">左上角</option>
-                                <option value="BL">左下角</option>
-                            </select>
-                            <input type="file" id="logo-upload" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
-                        </div>
-                        <div id="logo-preview-wrapper" class="hidden mt-2 relative inline-block">
-                            <img id="logo-preview" class="h-10 object-contain bg-white/10 rounded p-1">
-                            <button onclick="removeLogo()" class="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">&times;</button>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label class="block text-slate-400 mb-1.5 font-semibold flex justify-between">
-                            <span>投影片張數</span>
-                            <span id="slide-count-val" class="text-amber-400 font-bold">10 張</span>
-                        </label>
-                        <input type="range" id="range-slide-count" min="2" max="50" value="10"
-                            oninput="document.getElementById('slide-count-val').textContent=this.value+' 張'" class="w-full">
-                        <div class="flex justify-between text-slate-600 text-[10px] mt-1"><span>2</span><span>50</span></div>
-                    </div>
-
-                </div>
-            </div>
-        </div>
-
-        <!-- Generation History Panel -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-            <button onclick="togglePanel('panel-history')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
-                <div class="flex items-center gap-2.5">
-                    <i class="ph-fill ph-clock-counter-clockwise text-violet-400"></i>
-                    <span class="text-sm font-semibold text-white">生成歷史</span>
-                    <span id="history-count-badge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400">0</span>
-                </div>
-                <i id="panel-history-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
-            </button>
-            <div id="panel-history" class="panel-body">
-                <div class="px-4 pb-4">
-                    <div id="history-list" class="space-y-2 max-h-80 overflow-y-auto"></div>
-                    <p id="no-history-hint" class="text-slate-600 text-[11px] text-center py-4">尚無生成記錄</p>
-                    <button id="btn-clear-history" onclick="clearAllHistory()" class="hidden w-full mt-2 text-[11px] text-rose-500 hover:text-rose-400 transition-colors py-1">清除全部記錄</button>
-                </div>
-            </div>
-        </div>
-
-    </aside>
-
-    <!-- MAIN CONTENT -->
-    <div class="flex-1 min-w-0 flex flex-col gap-5">
-
-        <!-- Topic Input -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <label class="block text-sm font-semibold text-white mb-3">
-                <i class="ph-fill ph-pencil-simple-line text-violet-400 mr-1"></i>簡報主題 / 指令
-            </label>
-            <textarea id="inp-topic" rows="4"
-                placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告，需包含大量數據、具體案例與未來預測...&#10;&#10;也可附加左側資料來源，AI 會先摘要分析後製作簡報。"
-                class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors resize-none"></textarea>
-        </div>
-
-        <!-- Progress -->
-        <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5">
-            <div class="flex items-center gap-2.5 mb-3">
-                <div id="progress-spinner" class="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
-                <div class="flex-1 bg-slate-800 rounded-full h-1.5">
-                    <div id="progress-bar" class="h-1.5 bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full transition-all duration-500" style="width:0%"></div>
-                </div>
-                <span id="progress-pct" class="text-xs font-bold text-violet-400 w-9 text-right">0%</span>
-            </div>
-            <div id="log-container" class="space-y-1 max-h-52 overflow-y-auto text-[11px]"></div>
-        </div>
-
-        <!-- Slide Preview Grid -->
-        <div id="section-preview" class="hidden">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-bold text-white">生成結果預覽</h3>
-                <span id="preview-slide-count" class="text-xs text-slate-500"></span>
-            </div>
-            <div id="slides-preview-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-        </div>
-
-        <!-- Empty State -->
-        <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-16 text-center">
-            <div class="w-20 h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-5 border border-violet-500/20">
-                <i class="ph-bold ph-presentation-chart text-violet-400 text-3xl"></i>
-            </div>
-            <h2 class="text-xl font-bold text-white mb-2">AI HTML 簡報生成器</h2>
-            <p class="text-slate-500 text-sm max-w-md">輸入主題，可選擇性附加資料來源，AI 將生成精美的 HTML/CSS 投影片並可一鍵轉為 PPTX 下載。</p>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-lg">
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
-                    <i class="ph-fill ph-file-text text-sky-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">TXT · PDF<br>DOCX · XLSX · PPTX</p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
-                    <i class="ph-fill ph-globe text-emerald-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">網頁連結<br>YouTube 影片</p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
-                    <i class="ph-fill ph-code text-amber-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">LLM 生成<br>HTML/CSS 投影片</p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
-                    <i class="ph-fill ph-file-ppt text-violet-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">一鍵轉換<br>PPTX 下載</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</main>
-
-<!-- ── HISTORY MODAL ─────────────────────────────────────────────── -->
-<div id="history-modal" class="fixed inset-0 z-[100] items-center justify-center bg-black/70 backdrop-blur-sm p-4" onclick="if(event.target===this)closeHistoryModal()">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">
-        <div class="flex items-center justify-between p-5 border-b border-slate-800 shrink-0">
-            <div class="flex items-center gap-3">
-                <i class="ph-fill ph-clock-counter-clockwise text-violet-400 text-xl"></i>
-                <h2 class="text-base font-bold text-white">簡報生成歷史</h2>
-                <span id="modal-history-count" class="text-xs text-slate-500"></span>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="clearAllHistory()" class="text-xs text-rose-500 hover:text-rose-400 px-3 py-1.5 rounded-lg hover:bg-rose-500/10 transition-colors">清除全部</button>
-                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
-                    <i class="ph-bold ph-x text-base"></i>
-                </button>
-            </div>
-        </div>
-        <div id="modal-history-list" class="flex-1 overflow-y-auto p-5 space-y-3">
-            <p class="text-slate-500 text-sm text-center py-10">尚無任何生成記錄</p>
-        </div>
-    </div>
-</div>
-
-<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[200] bg-slate-800 text-white text-sm font-medium px-4 py-2.5 rounded-xl shadow-2xl border border-slate-700 opacity-0 transition-all pointer-events-none translate-y-4"></div>
-
-<!-- ── JAVASCRIPT ──────────────────────────────────────────────────── -->
-<script>
-// ═══════════════════════════════════════════════════════════════════
-// APP STATE
-// ═══════════════════════════════════════════════════════════════════
-const AppState = {
-    googleApiKey: '', xaiApiKey: '',
-    attachedSources: [],      // [{id,type,icon,name,content,status}]
-    logoBase64: null,
-    generatedSlides: [],      // [{slideNumber,title,html}]
-    presentationData: null,
-    isGenerating: false,
-    cancelRequested: false,
-    abortController: null
-};
-
-// ─── PRESERVED CONSTANTS ────────────────────────────────────────────
-const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
-const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
-
-// ─── THEME DEFINITIONS ──────────────────────────────────────────────
-const HTML_THEMES = {
-    modern: {
-        label: '現代極簡 (Modern Dark)',
-        bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        titleColor: '#f8fafc', accent: '#818cf8', text: '#cbd5e1',
-        muted: '#475569', card: 'rgba(30,41,59,0.85)', border: 'rgba(99,102,241,0.35)'
-    },
-    tech: {
-        label: '科技未來 (Tech Cyber)',
-        bg: 'linear-gradient(135deg, #020617 0%, #082844 50%, #061830 100%)',
-        titleColor: '#38bdf8', accent: '#0ea5e9', text: '#bae6fd',
-        muted: '#0369a1', card: 'rgba(14,165,233,0.12)', border: 'rgba(56,189,248,0.35)'
-    },
-    corporate: {
-        label: '商務專業 (Corporate Blue)',
-        bg: 'linear-gradient(160deg, #1e3a8a 0%, #1e40af 60%, #1d4ed8 100%)',
-        titleColor: '#ffffff', accent: '#93c5fd', text: '#dbeafe',
-        muted: '#60a5fa', card: 'rgba(255,255,255,0.09)', border: 'rgba(147,197,253,0.3)'
-    },
-    creative: {
-        label: '活潑創意 (Creative Vivid)',
-        bg: 'linear-gradient(135deg, #18021a 0%, #3b0764 50%, #4a044e 100%)',
-        titleColor: '#fdf4ff', accent: '#e879f9', text: '#f0abfc',
-        muted: '#a21caf', card: 'rgba(232,121,249,0.1)', border: 'rgba(232,121,249,0.3)'
-    },
-    elegant: {
-        label: '高雅精緻 (Elegant Light)',
-        bg: 'linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%)',
-        titleColor: '#0f172a', accent: '#3b82f6', text: '#374151',
-        muted: '#6b7280', card: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.2)'
-    }
-};
-
-// ═══════════════════════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════════════════════
-function init() {
-    AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
-    AppState.xaiApiKey    = localStorage.getItem('nova_key_grok')   || '';
-    document.getElementById('api-gemini-status').textContent = AppState.googleApiKey ? '✓ 已設定' : '❌ 未設定';
-    updateHeaderBadge();
-
-    if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-
-    renderHistoryPanels();
-
-    // Close PPTX menu on outside click
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('#btn-pptx-group')) {
-            document.getElementById('pptx-menu')?.classList.add('hidden');
-        }
-    });
-}
-document.addEventListener('DOMContentLoaded', init);
-
-// ═══════════════════════════════════════════════════════════════════
-// UI HELPERS
-// ═══════════════════════════════════════════════════════════════════
-function togglePanel(id) {
-    const el = document.getElementById(id);
-    const icon = document.getElementById(id + '-icon');
-    el.classList.toggle('open');
-    icon && icon.classList.toggle('rotate-180');
-}
-
-function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.remove('opacity-0', 'translate-y-4');
-    t.classList.add('opacity-100', 'translate-y-0');
-    setTimeout(() => {
-        t.classList.add('opacity-0', 'translate-y-4');
-        t.classList.remove('opacity-100', 'translate-y-0');
-    }, 3500);
-}
-
-function updateHeaderBadge() {
-    const s = document.getElementById('sel-text-model');
-    document.getElementById('header-model-name').textContent =
-        s.options[s.selectedIndex].text.split('(')[0].trim();
-}
-
-function setProgress(pct) {
-    document.getElementById('progress-bar').style.width = pct + '%';
-    document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
-}
-
-function addLog(msg, type = 'info') {
-    const c = document.getElementById('log-container');
-    const el = document.createElement('div');
-    const colors = {
-        info: 'text-slate-300', success: 'text-emerald-300',
-        warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300'
-    };
-    el.className = `py-0.5 ${colors[type] || 'text-slate-300'}`;
-    el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    c.appendChild(el);
-    c.scrollTop = c.scrollHeight;
-}
-
-function promptApiKey() {
-    const key = prompt('請輸入 Gemini API Key:');
-    if (key) {
-        localStorage.setItem('nova_key_gemini', key.trim());
-        AppState.googleApiKey = key.trim();
-        document.getElementById('api-gemini-status').textContent = '✓ 已設定';
-        showToast('✅ API Key 已更新');
-    }
-}
-
-// ─── Logo ─────────────────────────────────────────────────────────
-function handleLogoUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        AppState.logoBase64 = ev.target.result;
-        document.getElementById('logo-preview').src = AppState.logoBase64;
-        document.getElementById('logo-preview-wrapper').classList.remove('hidden');
-        showToast('✅ Logo 上傳成功');
-    };
-    reader.readAsDataURL(file);
-}
-function removeLogo() {
-    AppState.logoBase64 = null;
-    document.getElementById('logo-upload').value = '';
-    document.getElementById('logo-preview-wrapper').classList.add('hidden');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SOURCE MANAGEMENT
-// ═══════════════════════════════════════════════════════════════════
-function handleDragOver(e) {
-    e.preventDefault();
-    document.getElementById('file-drop-zone').classList.add('drag-over');
-}
-function handleDragLeave() {
-    document.getElementById('file-drop-zone').classList.remove('drag-over');
-}
-function handleFileDrop(e) {
-    e.preventDefault();
-    document.getElementById('file-drop-zone').classList.remove('drag-over');
-    Array.from(e.dataTransfer.files).forEach(processFile);
-}
-function handleFileSelect(e) {
-    Array.from(e.target.files).forEach(processFile);
-    e.target.value = '';
-}
-
-async function processFile(file) {
-    const ext  = file.name.split('.').pop().toLowerCase();
-    const icons = { txt:'📄', md:'📄', pdf:'📕', doc:'📘', docx:'📘',
-                    xls:'📗', xlsx:'📗', csv:'📊', ppt:'📙', pptx:'📙' };
-    const id = 'src_' + Date.now() + Math.random().toString(36).slice(2,5);
-    const src = { id, type:'file', icon: icons[ext]||'📄', name: file.name, content: null, status: 'loading' };
-    AppState.attachedSources.push(src);
-    renderSources();
-    try {
-        src.content = await extractFileContent(file);
-        src.status = 'ready';
-    } catch(e) {
-        src.status = 'error';
-        src.content = `[解析失敗: ${e.message}]`;
-    }
-    renderSources();
-}
-
-async function addURLSource() {
-    const input = document.getElementById('url-input');
-    const url = input.value.trim();
-    if (!url) return;
-    if (!/^https?:\/\//i.test(url)) { showToast('❌ 請輸入完整 URL（含 http://）'); return; }
-    input.value = '';
-
-    const isYT = /youtu(be\.com|\.be)/i.test(url);
-    const id = 'src_' + Date.now();
-    const src = {
-        id, type: isYT ? 'youtube' : 'url',
-        icon: isYT ? '▶️' : '🌐',
-        name: url.length > 48 ? url.slice(0,45) + '...' : url,
-        url, content: null, status: 'loading'
-    };
-    AppState.attachedSources.push(src);
-    renderSources();
-    try {
-        src.content = await extractURLContent(url, isYT);
-        src.status = 'ready';
-    } catch(e) {
-        src.status = 'error';
-        src.content = `[連結: ${url}]`;
-    }
-    renderSources();
-}
-
-function removeSource(id) {
-    AppState.attachedSources = AppState.attachedSources.filter(s => s.id !== id);
-    renderSources();
-}
-
-function renderSources() {
-    const list  = document.getElementById('sources-list');
-    const hint  = document.getElementById('no-sources-hint');
-    const badge = document.getElementById('source-count-badge');
-    const count = AppState.attachedSources.length;
-
-    badge.textContent = count;
-    badge.classList.toggle('hidden', count === 0);
-    hint.classList.toggle('hidden', count > 0);
-    list.innerHTML = '';
-
-    AppState.attachedSources.forEach(src => {
-        const dot   = src.status === 'loading' ? '⏳' : src.status === 'error' ? '❌' : '✓';
-        const color = src.status === 'loading' ? 'text-amber-400' : src.status === 'error' ? 'text-rose-400' : 'text-emerald-400';
-        const el = document.createElement('div');
-        el.className = 'flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2';
-        el.innerHTML = `
-            <span class="text-base shrink-0">${src.icon}</span>
-            <span class="flex-1 text-[11px] text-slate-300 truncate min-w-0">${src.name}</span>
-            <span class="text-[10px] font-bold ${color} shrink-0">${dot}</span>
-            <button onclick="removeSource('${src.id}')" class="text-slate-500 hover:text-rose-400 shrink-0 text-sm leading-none ml-1 transition-colors">×</button>
-        `;
-        list.appendChild(el);
-    });
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// CONTENT EXTRACTION
-// ═══════════════════════════════════════════════════════════════════
-async function extractFileContent(file) {
-    const ext = file.name.split('.').pop().toLowerCase();
-    switch(ext) {
-        case 'txt': case 'md': case 'csv': return await readAsText(file);
-        case 'pdf':  return await extractPDF(file);
-        case 'doc': case 'docx': return await extractDOCX(file);
-        case 'xls': case 'xlsx': return await extractXLSX(file);
-        case 'ppt': case 'pptx': return await extractPPTX(file);
-        default: return `[檔案 ${file.name} 格式不支援自動解析，僅供參考]`;
-    }
-}
-
-function readAsText(file) {
-    return new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload  = e => res(e.target.result.slice(0, 60000));
-        r.onerror = rej;
-        r.readAsText(file, 'UTF-8');
-    });
-}
-
-async function extractPDF(file) {
-    if (typeof pdfjsLib === 'undefined') return `[PDF.js 未載入，無法解析 PDF: ${file.name}]`;
-    const ab  = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-    let text = `[PDF: ${file.name} | ${pdf.numPages} 頁]\n`;
-    for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
-        const page    = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        text += content.items.map(it => it.str).join(' ') + '\n';
-    }
-    return text.slice(0, 80000);
-}
-
-async function extractDOCX(file) {
-    if (typeof mammoth === 'undefined') return `[Mammoth.js 未載入，無法解析 DOCX: ${file.name}]`;
-    const ab     = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer: ab });
-    return `[DOCX: ${file.name}]\n${result.value.slice(0, 80000)}`;
-}
-
-async function extractXLSX(file) {
-    if (typeof XLSX === 'undefined') return `[SheetJS 未載入，無法解析 XLSX: ${file.name}]`;
-    const ab = await file.arrayBuffer();
-    const wb = XLSX.read(ab, { type: 'array' });
-    let text = `[XLSX: ${file.name}]\n`;
-    wb.SheetNames.slice(0, 5).forEach(name => {
-        text += `\n=== Sheet: ${name} ===\n`;
-        text += XLSX.utils.sheet_to_csv(wb.Sheets[name]).slice(0, 12000) + '\n';
-    });
-    return text.slice(0, 80000);
-}
-
-async function extractPPTX(file) {
-    if (typeof JSZip === 'undefined') return `[JSZip 未載入，無法解析 PPTX: ${file.name}]`;
-    const ab  = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(ab);
-    const slideFiles = Object.keys(zip.files)
-        .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
-        .sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
-    let text = `[PPTX: ${file.name} | ${slideFiles.length} 張投影片]\n`;
-    for (const path of slideFiles.slice(0, 20)) {
-        const xml   = await zip.files[path].async('string');
-        const plain = xml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-        text += plain.slice(0, 2000) + '\n';
-    }
-    return text.slice(0, 80000);
-}
-
-async function extractURLContent(url, isYouTube) {
-    if (isYouTube) {
-        const videoId = url.match(/(?:v=|youtu\.be\/)([^&\s?]+)/)?.[1] || '';
-        return `[YouTube 影片 URL: ${url}\n影片 ID: ${videoId}\n請根據此 YouTube 影片的主題與相關知識生成簡報內容]`;
-    }
-    try {
-        const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
-        if (resp.ok) {
-            const data = await resp.json();
-            const div  = document.createElement('div');
-            div.innerHTML = data.contents || '';
-            const text = (div.innerText || div.textContent || '').replace(/\s+/g,' ').trim();
-            return `[網頁: ${url}]\n${text.slice(0, 40000)}`;
-        }
-    } catch(e) {}
-    return `[網頁 URL: ${url}\n請根據此網址的已知內容生成簡報]`;
-}
-
-async function buildContextFromSources() {
-    const ready = AppState.attachedSources.filter(s => s.content);
-    if (!ready.length) return '';
-    return ready.map(s => `\n\n━━━ 來源: ${s.name} ━━━\n${s.content}`).join('');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// API HELPERS  ── PRESERVED FROM ORIGINAL ──
-// ═══════════════════════════════════════════════════════════════════
-function getGeminiApiVersion(modelName) {
-    if (modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3')) {
-        return 'v1alpha';
-    }
-    return 'v1beta';
-}
-
-function stopGeneration() {
-    if (AppState.isGenerating) {
-        AppState.cancelRequested = true;
-        if (AppState.abortController) AppState.abortController.abort();
-        addLog('⚠️ 使用者要求中斷生成...', 'warning');
-        const btn = document.getElementById('btn-stop');
-        btn.disabled = true;
-        btn.querySelector('span').textContent = '正在中止...';
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// LLM: OUTLINE GENERATION  ── PRESERVED API CALL PATTERN ──
-// ═══════════════════════════════════════════════════════════════════
-async function callGeminiForOutline(topic, context) {
-    if (AppState.cancelRequested) throw new Error('CanceledByUser');
-
-    const apiKey    = AppState.googleApiKey;
-    const userModel = document.getElementById('sel-text-model').value;
-    const slideCount = document.getElementById('range-slide-count').value;
-    const templateKey = document.getElementById('sel-template').value;
-    const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-    const imageMode = document.getElementById('sel-image-mode').value;
-
-    const FALLBACK_MODELS = [
-        userModel, 'gemini-3.1-pro-preview', 'gemini-2.5-pro',
-        'gemini-3-flash-preview', 'gemini-2.5-flash'
-    ];
-    const uniqueModels = [...new Set(FALLBACK_MODELS)];
-
-    const imageModeHint = {
-        auto: 'AI 自行判斷哪些投影片適合圖文並排（text_and_image），其餘用 text_only 或 diagram_slide',
-        all:  '大多數投影片使用 text_and_image 版型',
-        none: '禁止使用 text_and_image，只用 text_only、title_only、diagram_slide'
-    }[imageMode];
-
-    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。
-
-視覺風格主題：${theme.label}
-投影片張數：${slideCount} 張
-圖片使用策略：${imageModeHint}
-
-【內容品質要求】
-1. 拒絕空泛：必須含具體案例、數據預估、深度邏輯推演
-2. 每張的 bullet_points 必須 3~5 點，每點 15~40 字
-3. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
-4. diagram_slide 表示需要流程圖、圖表、架構圖的頁面
-5. image_prompt 為具體英文 AI 繪圖提示詞 (text_and_image 時必填)
-6. diagram_description 描述圖解內容 (diagram_slide 時必填)
-7. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
-
-JSON Schema:
-{
-  "presentation_title": "string",
-  "slides": [
-    {
-      "slide_number": 1,
-      "layout": "title_only",
-      "title": "string",
-      "subtitle": "string or null",
-      "bullet_points": ["string"],
-      "image_prompt": "English prompt or null",
-      "diagram_description": "描述要畫什麼圖 or null"
-    }
-  ]
-}`;
-
-    let lastErr = null;
-    for (const modelId of uniqueModels) {
-        if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        const ver = getGeminiApiVersion(modelId);
-        const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${apiKey}`;
-        try {
-            addLog(`嘗試呼叫大綱引擎 ${modelId} (${ver})...`, 'ai');
-            const resp = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        role: 'user',
-                        parts: [{ text: systemPrompt + '\n\n主題指令：' + topic + (context ? '\n\n參考資料：' + context.slice(0, 80000) : '') }]
-                    }],
-                    generationConfig: {
-                        responseMimeType: 'application/json',
-                        temperature: 0.85,
-                        maxOutputTokens: 8192
-                    }
-                }),
-                signal: AppState.abortController.signal
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const data = await resp.json();
-            let raw = data.candidates[0].content.parts[0].text;
-            const m = raw.match(/\{[\s\S]*\}/);
-            if (m) raw = m[0];
-            addLog(`✓ 成功使用 ${modelId} 生成大綱`, 'success');
-            return JSON.parse(raw);
-        } catch(e) {
-            lastErr = e;
-            if (e.name === 'AbortError') throw new Error('CanceledByUser');
-            addLog(`⚠ ${modelId} 失敗: ${e.message}，準備降級...`, 'warning');
-        }
-    }
-    throw new Error(`所有文字引擎皆失敗。最後錯誤: ${lastErr?.message}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SHARED INTERACTION SCRIPT  (injected into every slide)
-// ═══════════════════════════════════════════════════════════════════
-const SLIDE_INTERACTION_SCRIPT = `
-<script>
-(function(){
-  var svg = document.getElementById('slide-svg');
-  if (!svg) return;
-  var sel = null, offset = {x:0,y:0}, xf = null;
-
-  function hexToRgb(h){
-    var r=/^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(h);
-    return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:null;
-  }
-  window.updateThemeColor = function(id, hex){
-    document.documentElement.style.setProperty('--c'+id, hex);
-    var rgb = hexToRgb(hex);
-    if(rgb) document.documentElement.style.setProperty('--c'+id+'-rgb', rgb.r+','+rgb.g+','+rgb.b);
-  };
-  window.adjustFontSize = function(btn, delta){
-    var box = btn.closest('.rb');
-    var cur = parseFloat(box.style.fontSize)||16;
-    cur = Math.max(10, Math.min(32, cur + delta*2));
-    box.style.fontSize = cur+'px';
-  };
-
-  new ResizeObserver(function(entries){
-    entries.forEach(function(e){
-      var fo = e.target.closest('foreignObject');
-      if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
-    });
-  }).observe.call(new ResizeObserver(function(entries){
-    entries.forEach(function(e){
-      var fo = e.target.closest('foreignObject');
-      if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
-    });
-  }), document.createTextNode(''));
-
-  document.querySelectorAll('.rb').forEach(function(b){
-    (new ResizeObserver(function(entries){
-      entries.forEach(function(e){
-        var fo = e.target.closest('foreignObject');
-        if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
-      });
-    })).observe(b);
-  });
-
-  function mpt(evt){
-    var ctm = svg.getScreenCTM();
-    var src = evt.touches?evt.touches[0]:evt;
-    return {x:(src.clientX-ctm.e)/ctm.a, y:(src.clientY-ctm.f)/ctm.d};
-  }
-  function startDrag(evt){
-    if(evt.target.closest('.ctrl') || evt.target.tagName.toLowerCase()==='input' || evt.target.isContentEditable) return;
-    var dg = evt.target.closest('.dg');
-    if(!dg) return;
-    var box = evt.target.closest('.rb');
-    if(box){
-      var rc=box.getBoundingClientRect();
-      if(evt.clientX>rc.right-25&&evt.clientY>rc.bottom-25) return;
-    }
-    sel = dg; sel.parentNode.appendChild(sel);
-    var tl = sel.transform.baseVal;
-    if(tl.length===0||tl.getItem(0).type!==SVGTransform.SVG_TRANSFORM_TRANSLATE){
-      var t=svg.createSVGTransform(); t.setTranslate(0,0); sel.transform.baseVal.insertItemBefore(t,0);
-    }
-    xf = tl.getItem(0);
-    var mp=mpt(evt); offset.x=mp.x-xf.matrix.e; offset.y=mp.y-xf.matrix.f;
-  }
-  function onDrag(evt){
-    if(!sel) return; evt.preventDefault();
-    var mp=mpt(evt);
-    xf.setMatrix(xf.matrix.translate(mp.x-offset.x-xf.matrix.e, mp.y-offset.y-xf.matrix.f));
-  }
-  function endDrag(){ sel=null; }
-  svg.addEventListener('mousedown',startDrag);
-  svg.addEventListener('mousemove',onDrag);
-  window.addEventListener('mouseup',endDrag);
-  svg.addEventListener('touchstart',startDrag,{passive:false});
-  svg.addEventListener('touchmove',onDrag,{passive:false});
-  window.addEventListener('touchend',endDrag);
-})();
-<\/script>`;
-
-// ═══════════════════════════════════════════════════════════════════
-// LLM: HTML/CSS SLIDE GENERATION  ── SVG+foreignObject Architecture ──
-// ═══════════════════════════════════════════════════════════════════
-async function generateSlideHTML(slideData, theme, imageB64) {
-    if (AppState.cancelRequested) throw new Error('CanceledByUser');
-
-    const apiKey    = AppState.googleApiKey;
-    const userModel = document.getElementById('sel-text-model').value;
-    const FALLBACK_MODELS = [
-        userModel, 'gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-2.0-flash-exp'
-    ];
-    const uniqueModels = [...new Set(FALLBACK_MODELS)];
-
-    const hasImage = !!imageB64;
-    const imgInstruction = hasImage
-        ? `本投影片有圖片可使用。在 SVG 內使用 <image href="REPLACE_IMAGE_SRC" .../> 標籤放置圖片，或在 foreignObject 的 <img> 中使用 src="REPLACE_IMAGE_SRC"。`
-        : `本投影片無圖片，請以純 SVG 圖形、漸層、幾何裝飾填補視覺。`;
-
-    const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師，專精 SVG+foreignObject 架構。
-請為以下投影片資料生成一份完整的、視覺上令人驚豔的 HTML 單頁投影片。
-
-【投影片資料】
-${JSON.stringify(slideData, null, 2)}
-
-【圖片】${imgInstruction}
-
-【核心架構規範 — 必須嚴格遵守】
-
-1. 完整 HTML 結構，從 <!DOCTYPE html> 到 </html>
-2. body 固定為 1920×1080px，overflow:hidden，margin/padding:0
-3. 字體只用系統字體棧："Segoe UI","PingFang SC","Microsoft YaHei",sans-serif
-4. 禁止引用任何外部 CSS 或 JS 資源（CDN / Google Fonts 等）
-5. 必須使用 CSS 變數主題系統，在 :root 定義（可根據投影片色彩創意調整，但需符合主題風格）：
-   :root {
-     --c1: [強調主色]; --c1-rgb: [R,G,B];
-     --c2: [輔助色2]; --c2-rgb: [R,G,B];
-     --c3: [輔助色3]; --c3-rgb: [R,G,B];
-     --c4: [輔助色4]; --c4-rgb: [R,G,B];
-   }
-
-6. 主畫布必須是一個 SVG，id="slide-svg"，viewBox="0 0 1920 1080"，填滿 body。
-   SVG 內部結構：
-   a) <defs> — 定義所有漸層(linearGradient/radialGradient)、濾鏡(filter: shadow, glow)、pattern
-   b) 背景層 — 全尺寸矩形或複雜背景圖形
-   c) 裝飾層 — 幾何形狀、光暈、動態線條等視覺元素（直接在 SVG 內繪製，非 foreignObject）
-   d) 內容 <g class="dg"> 元素 — 每個可拖曳的文字卡片或圖解區塊
-
-7. 文字卡片用 <g class="dg" transform="translate(x,y)"> 包裹，內含 <foreignObject>：
-   <g class="dg" transform="translate(X,Y)">
-     <foreignObject x="0" y="0" width="W" height="H">
-       <div class="rb" style="width:Wpx;height:Hpx;font-size:16px; ...可拖曳、可縮放的卡片樣式...">
-         <!-- 拖曳把手 -->
-         <div class="dh">⋯⋯⋯</div>
-         <!-- 控制列（hover 顯示）-->
-         <div class="ctrl">
-           <input type="color" value="#HEXVAL" oninput="updateThemeColor(1,this.value)">
-           <button onclick="adjustFontSize(this,-1)">A−</button>
-           <button onclick="adjustFontSize(this,+1)">A+</button>
-         </div>
-         <!-- 可編輯標題 -->
-         <h3 contenteditable="true" spellcheck="false" style="color:var(--c1)">標題</h3>
-         <!-- 可編輯內容 -->
-         <p contenteditable="true" spellcheck="false">內容...</p>
-       </div>
-     </foreignObject>
-   </g>
-
-8. 卡片 CSS（.rb class）需包含：resize:both; overflow:auto; min-width:280px; min-height:150px;
-   控制列（.ctrl）預設 opacity:0，hover 時 opacity:1。
-   所有可編輯文字（h3/p/span）加 contenteditable="true" spellcheck="false"。
-
-9. 在 SVG 主體之外（</svg>之後）插入一個特殊 placeholder：
-   <!--SLIDE_INTERACTION_SCRIPT-->
-   這個 placeholder 將被替換為互動 JS（拖曳、縮放同步、色彩更新）。
-
-10. layout 版型設計指引：
-
-  ★ title_only（封面）：
-    - 全螢幕震撼視覺，不需要 foreignObject 卡片
-    - 使用大型 SVG 文字元素 <text> 直接在 SVG 繪製標題
-    - 背景要極具視覺衝擊（漸層+光暈+幾何形狀）
-    - 副標題、頁碼等可用小型 <text>
-
-  ★ text_only（純文字）：
-    - 左側大面積裝飾 SVG 插圖（幾何抽象、圖標群組）
-    - 右側 1~2 個 foreignObject 文字卡，含編號、標題、要點清單
-    - 要點清單每項前面要有自訂 SVG bullet
-
-  ★ text_and_image（圖文）：
-    - 圖片佔 50% 畫面（左或右），用 SVG <image> 或 foreignObject <img> 放置
-    - 圖片區要有 clip-path 或遮罩裝飾（斜切、波浪等）
-    - 文字側含 1~2 個 foreignObject 卡片
-    - 圖片 src 用 "REPLACE_IMAGE_SRC"
-
-  ★ diagram_slide（圖解）：
-    - 根據 diagram_description 在 SVG 內用純 SVG 繪製精美的流程圖/架構圖/時間軸
-    - 使用箭頭（marker）、圓角矩形、連接線、圖示
-    - 頂部小型 foreignObject 顯示標題與說明
-    - 整體佔滿畫面，資訊豐富
-
-11. 視覺品質要求：
-    - 善用 SVG filter：<feDropShadow>、<feGaussianBlur>（glow 效果）
-    - 大膽使用漸層填充（linearGradient/radialGradient）
-    - 裝飾元素要有層次感（前中後景）
-    - 每張投影片的視覺風格要有獨特性，不千篇一律
-
-12. 整體配色風格參考（可創意演繹）：
-    背景基調: ${theme.bg}
-    主標題色: ${theme.titleColor}
-    主強調色: ${theme.accent}
-    正文色: ${theme.text}
-    卡片背景: ${theme.card}
-
-13. 最後只輸出純 HTML 程式碼，不含任何 markdown 標記或說明文字。
-
-請開始輸出完整 HTML：`;
-
-    let lastErr = null;
-    for (const modelId of uniqueModels) {
-        if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        const ver = getGeminiApiVersion(modelId);
-        const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${apiKey}`;
-        try {
-            const resp = await fetch(endpoint, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    generationConfig: { temperature: 0.75, maxOutputTokens: 16384 }
-                }),
-                signal: AppState.abortController.signal
-            });
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            const data = await resp.json();
-            let html = data.candidates[0].content.parts[0].text;
-
-            // Clean markdown fences
-            html = html.replace(/^```html\s*/im, '').replace(/^```\s*/im, '').replace(/\s*```$/im, '').trim();
-            if (!html.toLowerCase().startsWith('<!doctype')) {
-                const m = html.match(/<html[\s\S]*<\/html>/i);
-                if (m) html = '<!DOCTYPE html>\n' + m[0];
-            }
-
-            // Inject interaction script
-            html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', SLIDE_INTERACTION_SCRIPT);
-            // If placeholder was omitted by LLM, append before </body>
-            if (!html.includes(SLIDE_INTERACTION_SCRIPT.slice(0, 30))) {
-                html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
-            }
-
-            // Inject actual image src
-            if (hasImage) {
-                html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
-            }
-
-            return html;
-        } catch(e) {
-            lastErr = e;
-            if (e.name === 'AbortError') throw new Error('CanceledByUser');
-            addLog(`⚠ HTML 生成 ${modelId} 失敗: ${e.message}`, 'warning');
-        }
-    }
-    throw new Error(`HTML 投影片生成失敗: ${lastErr?.message}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// IMAGE GENERATION  ── PRESERVED FROM ORIGINAL ──
-// ═══════════════════════════════════════════════════════════════════
-async function buildImagePrompt(contextText) {
-    const gKey = AppState.googleApiKey;
-    if (!gKey) return `Professional modern presentation illustration about: ${contextText}`;
-    try {
-        const r = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`,
-            {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ role: 'user', parts: [{ text: `Extract the core concept from this slide context and create a HIGHLY SPECIFIC, visually concrete English image generation prompt (max 40 words). Focus on tangible objects, explicit scenes, and actions that PERFECTLY align with the context. DO NOT use abstract words. Style: Professional, minimalist corporate illustration, highly detailed, 4k. Return ONLY the prompt text.\n\nSlide Context:\n${contextText}` }] }],
-                    generationConfig: { maxOutputTokens: 100, temperature: 0.5 }
-                }),
-                signal: AppState.abortController.signal
-            }
-        );
-        return (await r.json()).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${contextText}`;
-    } catch { return `Professional business illustration: ${contextText}`; }
-}
-
-async function generateImage(contextText, slideNum) {
-    if (AppState.cancelRequested) throw new Error('CanceledByUser');
-    addLog(`為第 ${slideNum} 頁提取精準繪圖提示詞...`, 'info');
-    const finalPrompt = await buildImagePrompt(contextText);
-
-    const preferredModel = document.getElementById('sel-img-model').value;
-    const fallbackQueue  = [
-        preferredModel, 'grok-imagine-image-pro', 'grok-imagine-image',
-        'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'
-    ];
-    const uniqueModels = [...new Set(fallbackQueue)];
-
-    for (const model of uniqueModels) {
-        if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        try {
-            addLog(`🎨 嘗試呼叫配圖引擎 ${model}...`, 'ai');
-            if (model.startsWith('grok')) {
-                if (!AppState.xaiApiKey) { addLog(`⚠ 缺少 Grok Key，跳過 ${model}`, 'warning'); continue; }
-                const r = await fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${AppState.xaiApiKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model, prompt: finalPrompt, response_format: 'b64_json' }),
-                    signal: AppState.abortController.signal
-                });
-                if (r.ok) {
-                    const item = (await r.json()).data?.[0];
-                    if (item?.b64_json) {
-                        addLog(`✓ 成功使用 ${model} 生成配圖`, 'success');
-                        return `data:image/png;base64,${item.b64_json}`;
-                    }
-                }
-            } else if (model.startsWith('gemini')) {
-                if (!AppState.googleApiKey) continue;
-                const ver = model.includes('preview') ? 'v1alpha' : 'v1beta';
-                const r = await fetch(
-                    `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${AppState.googleApiKey}`,
-                    {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
-                            generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
-                        }),
-                        signal: AppState.abortController.signal
-                    }
-                );
-                if (r.ok) {
-                    const imgPart = (await r.json()).candidates?.[0]?.content?.parts
-                        ?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-                    if (imgPart?.inlineData?.data) {
-                        addLog(`✓ 成功使用 ${model} 生成配圖`, 'success');
-                        return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
-                    }
-                }
-            }
-        } catch(e) {
-            if (e.name === 'AbortError') throw new Error('CanceledByUser');
-            addLog(`⚠ ${model} 失敗: ${e.message}`, 'warning');
-        }
-    }
-    addLog(`⚠ 所有配圖引擎失敗，此頁改用純 HTML/CSS 設計`, 'warning');
-    return null;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SLIDE PREVIEW RENDERING
-// ═══════════════════════════════════════════════════════════════════
-function renderSlidePreviewCard(slideData, html, index) {
-    const grid = document.getElementById('slides-preview-grid');
-    const card = document.createElement('div');
-    card.className = 'slide-preview-card bg-slate-900 border border-slate-800 rounded-xl overflow-hidden fade-in';
-    card.style.animationDelay = `${Math.min(index * 50, 400)}ms`;
-
-    // Escape for srcdoc attribute
-    const escaped = html.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-
-    card.innerHTML = `
-        <div class="slide-iframe-wrap" style="--ps:0.25">
-            <iframe srcdoc="${escaped}" sandbox="allow-scripts" loading="lazy"></iframe>
-        </div>
-        <div class="px-3 py-2.5 flex items-start justify-between gap-2">
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1.5 mb-1">
-                    <span class="text-[10px] font-bold text-violet-400">PAGE ${slideData.slide_number}</span>
-                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${slideData.layout}</span>
-                </div>
-                <p class="text-xs font-semibold text-slate-200 truncate">${slideData.title || '（無標題）'}</p>
-            </div>
-            <div class="flex gap-1.5 shrink-0">
-                <button onclick="previewSingleSlide(${index})" title="全螢幕預覽"
-                    class="text-slate-500 hover:text-sky-400 transition-colors p-1">
-                    <i class="ph-bold ph-arrows-out text-base"></i>
-                </button>
-                <button onclick="copySlideHTML(${index})" title="複製 HTML"
-                    class="text-slate-500 hover:text-amber-400 transition-colors p-1">
-                    <i class="ph-bold ph-code text-base"></i>
-                </button>
-            </div>
-        </div>
-    `;
-    grid.appendChild(card);
-}
-
-function previewSingleSlide(index) {
-    const s = AppState.generatedSlides[index];
-    if (!s) return;
-    const win = window.open('', '_blank', `width=1280,height=720,scrollbars=no`);
-    if (win) { win.document.write(s.html); win.document.close(); }
-}
-
-function copySlideHTML(index) {
-    const s = AppState.generatedSlides[index];
-    if (!s) return;
-    navigator.clipboard.writeText(s.html).then(() => showToast(`✓ 第 ${s.slideNumber} 頁 HTML 已複製`));
-}
-
-function previewAllSlides() {
-    if (!AppState.generatedSlides.length) return;
-    const viewer = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>投影片全覽 · ${AppState.presentationData?.presentation_title || ''}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#111;display:flex;flex-direction:column;align-items:center;padding:24px;gap:16px;font-family:sans-serif;}
-h1{color:#e2e8f0;font-size:18px;font-weight:700;margin-bottom:8px;}
-.slide-wrap{width:960px;height:540px;overflow:hidden;border-radius:10px;box-shadow:0 4px 32px rgba(0,0,0,0.6);position:relative;}
-.slide-wrap iframe{width:1920px;height:1080px;border:none;transform:scale(0.5);transform-origin:top left;}
-.slide-label{color:#64748b;font-size:11px;margin-bottom:4px;align-self:flex-start;width:960px;}
-</style></head><body>
-<h1>${AppState.presentationData?.presentation_title || '簡報預覽'}</h1>
-${AppState.generatedSlides.map((s,i) => `
-<div class="slide-label">Page ${s.slideNumber}: ${s.title || ''}</div>
-<div class="slide-wrap"><iframe srcdoc="${s.html.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" sandbox="allow-scripts"></iframe></div>
-`).join('')}
-</body></html>`;
-    const win = window.open('', '_blank');
-    if (win) { win.document.write(viewer); win.document.close(); }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// HTML → PPTX CONVERSION
-// ═══════════════════════════════════════════════════════════════════
-async function slideHTMLToBase64(html, slideNum) {
-    return new Promise((resolve) => {
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;width:1920px;height:1080px;top:-99999px;left:-99999px;border:none;visibility:hidden;z-index:-999;';
-        document.body.appendChild(iframe);
-
-        const cleanup = () => {
-            if (document.body.contains(iframe)) document.body.removeChild(iframe);
-        };
-        const timeout = setTimeout(() => {
-            cleanup();
-            addLog(`⚠ 第 ${slideNum} 頁截圖超時，將使用文字備用`, 'warning');
-            resolve(null);
-        }, 20000);
-
-        iframe.addEventListener('load', async () => {
-            try {
-                // Wait for fonts & SVG rendering
-                await new Promise(r => setTimeout(r, 700));
-                const canvas = await html2canvas(iframe.contentDocument.body, {
-                    width: 1920, height: 1080,
-                    scale: 1,
-                    backgroundColor: null,
-                    logging: false,
-                    useCORS: true,
-                    allowTaint: true
-                });
-                clearTimeout(timeout);
-                resolve(canvas.toDataURL('image/jpeg', 0.93));
-            } catch(e) {
-                clearTimeout(timeout);
-                addLog(`⚠ 第 ${slideNum} 頁截圖失敗: ${e.message}`, 'warning');
-                resolve(null);
-            } finally {
-                cleanup();
-            }
-        });
-
-        iframe.srcdoc = html;
-    });
-}
-
-function togglePptxMenu() {
-    document.getElementById('pptx-menu').classList.toggle('hidden');
-}
-
-async function downloadPptx(mode = 'image') {
-    if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
-    if (mode === 'editable') {
-        await downloadEditablePptx();
-        return;
-    }
-
-    const groupBtn = document.getElementById('btn-pptx-group');
-    const origHTML = groupBtn.innerHTML;
-    groupBtn.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;color:white;font-size:12px;font-weight:700;"><i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i>截圖轉換中...</div>';
-    groupBtn.style.pointerEvents = 'none';
-
-    // Add spin keyframe if not present
-    if (!document.getElementById('spin-style')) {
-        const s = document.createElement('style');
-        s.id = 'spin-style';
-        s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
-        document.head.appendChild(s);
-    }
-
-    try {
-        const pres = new PptxGenJS();
-        pres.layout = 'LAYOUT_16x9';
-
-        const logoPos = document.getElementById('sel-logo-pos').value;
-        const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
-        const [lx, ly] = logoPosMap[logoPos] || [8.5, 0.2];
-
-        for (let i = 0; i < AppState.generatedSlides.length; i++) {
-            const s = AppState.generatedSlides[i];
-            addLog(`📸 截圖第 ${s.slideNumber}/${AppState.generatedSlides.length} 頁...`, 'info');
-
-            const imgB64 = await slideHTMLToBase64(s.html, s.slideNumber);
-            const slide  = pres.addSlide();
-
-            if (imgB64) {
-                slide.addImage({ data: imgB64, x: 0, y: 0, w: '100%', h: '100%' });
-                addLog(`✓ 第 ${s.slideNumber} 頁轉換成功`, 'success');
-            } else {
-                // Text fallback
-                slide.addShape('rect', { x:0,y:0,w:10,h:5.625, fill:{color:'0f172a'} });
-                slide.addText(s.title || `Slide ${s.slideNumber}`, {
-                    x:0.5, y:2.0, w:9.0, h:1.5,
-                    fontSize: 36, bold: true, color: 'FFFFFF', align: 'center'
-                });
-            }
-
-            // Overlay Logo
-            if (AppState.logoBase64) {
-                slide.addImage({ data: AppState.logoBase64, x: lx, y: ly, w: 1.0, h: 0.5,
-                    sizing: { type:'contain', w:1.0, h:0.5 } });
-            }
-        }
-
-        const fileName = (AppState.presentationData?.presentation_title || 'AI_HTML_Presentation')
-            .replace(/[^\w\u4e00-\u9fa5\s-]/g, '').replace(/\s+/g, '_').slice(0, 80) + '.pptx';
-
-        await pres.writeFile({ fileName });
-        showToast(`✅ ${fileName} 下載完成！`);
-
-    } catch(e) {
-        showToast('❌ PPTX 轉換失敗: ' + e.message);
-        console.error(e);
-    } finally {
-        groupBtn.innerHTML = origHTML;
-        groupBtn.style.pointerEvents = '';
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// FALLBACK HTML  ── SVG + foreignObject quality fallback ──
-// ═══════════════════════════════════════════════════════════════════
-function buildFallbackSlideHTML(slideData, theme) {
-    const title   = (slideData.title || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const subtitle= (slideData.subtitle || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const bullets = slideData.bullet_points || [];
-    const accent  = theme.accent;
-    const accentRgb = hexToRgbStr(accent);
-    const isCover = slideData.layout === 'title_only';
-
-    // Helper: extract a pure hex from any CSS color string for SVG
-    function hexToRgbStr(c) {
-        // try to find a hex-like value
-        const m = (c||'').match(/#([0-9a-fA-F]{6})/);
-        if (m) {
-            const n = parseInt(m[1], 16);
-            return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
-        }
-        return '99,102,241';
-    }
-
-    if (isCover) {
-        return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
-:root{--c1:${accent};--c1-rgb:${accentRgb};}
-.rb{resize:both;overflow:auto;min-width:280px;min-height:120px;}
-.ctrl{opacity:0;transition:opacity .2s;position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.9);border-radius:6px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);}
-.dg:hover .ctrl{opacity:1;}
-.dh{text-align:center;color:rgba(255,255,255,.3);font-size:10px;letter-spacing:4px;padding:2px 0 6px;cursor:grab;}
-input[type=color]{width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;}
-input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
-input[type=color]::-webkit-color-swatch{border:1px solid rgba(0,0,0,.15);border-radius:3px;}
-.ctrl button{font-size:10px;font-weight:700;padding:2px 6px;border:none;background:#f1f5f9;border-radius:3px;cursor:pointer;color:#475569;}
-.ctrl button:hover{background:#e2e8f0;}
-[contenteditable]:focus{outline:2px solid rgba(var(--c1-rgb),.4);border-radius:3px;}
-</style></head>
-<body>
-<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
-<defs>
-  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#0a0a1a"/>
-    <stop offset="50%" stop-color="#12122a"/>
-    <stop offset="100%" stop-color="#0f0f20"/>
-  </linearGradient>
-  <radialGradient id="glow1" cx="75%" cy="50%" r="55%">
-    <stop offset="0%" stop-color="${accent}" stop-opacity="0.18"/>
-    <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
-  </radialGradient>
-  <radialGradient id="glow2" cx="15%" cy="80%" r="40%">
-    <stop offset="0%" stop-color="${accent}" stop-opacity="0.10"/>
-    <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
-  </radialGradient>
-  <filter id="blur5"><feGaussianBlur stdDeviation="5"/></filter>
-  <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  <clipPath id="diagClip"><polygon points="1100,0 1920,0 1920,1080 900,1080"/></clipPath>
-</defs>
-<!-- Background -->
-<rect width="1920" height="1080" fill="url(#bg)"/>
-<rect width="1920" height="1080" fill="url(#glow1)"/>
-<rect width="1920" height="1080" fill="url(#glow2)"/>
-<!-- Diagonal accent band -->
-<polygon points="1200,0 1920,0 1920,1080 950,1080" fill="${accent}" opacity="0.07"/>
-<polygon points="1260,0 1320,0 1070,1080 1010,1080" fill="${accent}" opacity="0.06"/>
-<!-- Decorative circles -->
-<circle cx="1680" cy="200" r="280" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.15"/>
-<circle cx="1680" cy="200" r="180" fill="none" stroke="${accent}" stroke-width="1" opacity="0.10"/>
-<circle cx="150" cy="950" r="200" fill="${accent}" opacity="0.05" filter="url(#blur5)"/>
-<!-- Grid lines -->
-<line x1="0" y1="540" x2="1920" y2="540" stroke="${accent}" stroke-width="0.5" opacity="0.06"/>
-<line x1="960" y1="0" x2="960" y2="1080" stroke="${accent}" stroke-width="0.5" opacity="0.06"/>
-<!-- Accent left bar -->
-<rect x="80" y="200" width="6" height="480" rx="3" fill="${accent}" opacity="0.8" filter="url(#glow)"/>
-<!-- Slide number -->
-<text x="110" y="190" font-family="Segoe UI,sans-serif" font-size="13" font-weight="700" fill="${accent}" letter-spacing="5" opacity="0.7">SLIDE ${slideData.slide_number || '01'}</text>
-<!-- Main title -->
-<text x="110" y="460" font-family="Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="108" font-weight="900" fill="white" filter="url(#glow)">${title}</text>
-<!-- Subtitle -->
-${subtitle ? `<text x="114" y="560" font-family="Segoe UI,sans-serif" font-size="34" font-weight="300" fill="${accent}" opacity="0.85">${subtitle}</text>` : ''}
-<!-- Bottom line -->
-<rect x="110" y="630" width="200" height="5" rx="2.5" fill="${accent}"/>
-<rect x="322" y="632" width="80" height="1.5" rx="0.75" fill="${accent}" opacity="0.4"/>
-</svg>
-${SLIDE_INTERACTION_SCRIPT}
-</body></html>`;
-    }
-
-    // ── Non-cover: SVG canvas + foreignObject card ──────────────────
-    const bulletItems = bullets.map((b, i) => {
-        const safe = b.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        return `<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;">
-          <div style="width:28px;height:28px;border-radius:50%;background:rgba(${accentRgb},0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
-            <span style="color:${accent};font-size:13px;font-weight:700;">${i+1}</span>
-          </div>
-          <p contenteditable="true" spellcheck="false" style="color:#cbd5e1;font-size:1em;line-height:1.6;flex:1;margin:0;cursor:text;">${safe}</p>
-        </div>`;
-    }).join('');
-
-    // Layout variations
-    const isDiagram = slideData.layout === 'diagram_slide';
-    const diagDesc  = (slideData.diagram_description || title).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
-:root{--c1:${accent};--c1-rgb:${accentRgb};}
-.rb{resize:both;overflow:auto;min-width:320px;min-height:180px;background:rgba(15,23,42,.75);border:1px solid rgba(${accentRgb},0.3);border-top:4px solid ${accent};border-radius:16px;padding:28px 32px;position:relative;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 20px 60px rgba(0,0,0,.4);}
-.ctrl{opacity:0;transition:opacity .2s;position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:4px;background:rgba(15,23,42,.9);border:1px solid rgba(${accentRgb},.3);border-radius:6px;padding:4px 6px;z-index:20;}
-.dg:hover .ctrl{opacity:1;}
-.dh{text-align:center;color:rgba(255,255,255,.2);font-size:10px;letter-spacing:4px;padding-bottom:10px;cursor:grab;user-select:none;}
-input[type=color]{width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;}
-input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
-input[type=color]::-webkit-color-swatch{border:1px solid rgba(255,255,255,.2);border-radius:3px;}
-.ctrl button{font-size:10px;font-weight:700;padding:2px 7px;border:none;background:rgba(${accentRgb},.15);border-radius:3px;cursor:pointer;color:${accent};}
-.ctrl button:hover{background:rgba(${accentRgb},.3);}
-[contenteditable]:hover{background:rgba(${accentRgb},.06);border-radius:4px;}
-[contenteditable]:focus{outline:2px solid rgba(${accentRgb},.5);border-radius:4px;}
-</style></head>
-<body>
-<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
-<defs>
-  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#060a18"/>
-    <stop offset="100%" stop-color="#0e1628"/>
-  </linearGradient>
-  <radialGradient id="aura" cx="80%" cy="20%" r="60%">
-    <stop offset="0%" stop-color="${accent}" stop-opacity="0.10"/>
-    <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
-  </radialGradient>
-  <filter id="shadow"><feDropShadow dx="0" dy="15" stdDeviation="20" flood-color="#000" flood-opacity="0.35"/></filter>
-  <filter id="glow"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  <filter id="blur10"><feGaussianBlur stdDeviation="10"/></filter>
-</defs>
-<rect width="1920" height="1080" fill="url(#bg)"/>
-<rect width="1920" height="1080" fill="url(#aura)"/>
-<!-- Decorative bg elements -->
-<circle cx="1800" cy="100" r="300" fill="${accent}" opacity="0.04" filter="url(#blur10)"/>
-<circle cx="100" cy="1000" r="200" fill="${accent}" opacity="0.05" filter="url(#blur10)"/>
-<!-- Top accent line -->
-<rect x="0" y="0" width="1920" height="4" fill="${accent}" opacity="0.5"/>
-<!-- Left accent pillar -->
-<rect x="60" y="60" width="5" height="960" rx="2.5" fill="${accent}" opacity="0.25"/>
-<!-- Page number -->
-<text x="1840" y="1050" font-family="Segoe UI,sans-serif" font-size="16" fill="${accent}" opacity="0.4" text-anchor="end">${slideData.slide_number || 1} / —</text>
-
-${isDiagram ? `
-<!-- Diagram: boxes and arrows from description -->
-<g transform="translate(200,180)">
-  <!-- Title bar -->
-  <rect x="0" y="0" width="1500" height="60" rx="8" fill="${accent}" opacity="0.15"/>
-  <text x="20" y="42" font-family="Segoe UI,PingFang SC,sans-serif" font-size="28" font-weight="700" fill="${accent}">${diagDesc}</text>
-  <!-- Box row -->
-  <g transform="translate(0,100)">
-    ${bullets.slice(0,4).map((b,i) => {
-        const safe2 = (b||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0,40);
-        const bx = i * 380;
-        return `<rect x="${bx}" y="0" width="340" height="180" rx="12" fill="rgba(${accentRgb},0.12)" stroke="${accent}" stroke-width="1.5" opacity="0.9"/>
-<text x="${bx+170}" y="70" font-size="16" font-weight="700" fill="${accent}" text-anchor="middle" font-family="Segoe UI,sans-serif">${i+1}</text>
-<text x="${bx+170}" y="110" font-size="15" fill="white" text-anchor="middle" font-family="Segoe UI,PingFang SC,sans-serif" opacity="0.85">${safe2}</text>
-${i<3?`<polygon points="${bx+350},90 ${bx+370},90 ${bx+360},100" fill="${accent}" opacity="0.7"/>
-<line x1="${bx+340}" y1="90" x2="${bx+375}" y2="90" stroke="${accent}" stroke-width="2" opacity="0.7"/>
-<line x1="${bx+375}" y1="90" x2="${bx+380}" y2="90" stroke="${accent}" stroke-width="2" opacity="0.7"/>`:''}`;
-    }).join('')}
-  </g>
-  <!-- Connection lines -->
-  <line x1="340" y1="190" x2="380" y2="190" stroke="${accent}" stroke-width="2" opacity="0.5"/>
-  <line x1="720" y1="190" x2="760" y2="190" stroke="${accent}" stroke-width="2" opacity="0.5"/>
-  <line x1="1100" y1="190" x2="1140" y2="190" stroke="${accent}" stroke-width="2" opacity="0.5"/>
-</g>
-` : ''}
-
-<!-- Title text (SVG native for crisp rendering) -->
-<text x="110" y="120" font-family="Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="62" font-weight="800" fill="white">${title}</text>
-<rect x="110" y="138" width="120" height="4" rx="2" fill="${accent}" opacity="0.9"/>
-
-${!isDiagram ? `
-<!-- foreignObject: content card -->
-<g class="dg" transform="translate(110, 180)" filter="url(#shadow)">
-  <foreignObject x="0" y="0" width="1680" height="820">
-    <div class="rb" style="width:1680px;height:820px;font-size:18px;">
-      <div class="dh">· · · · ·</div>
-      <div class="ctrl">
-        <input type="color" value="${accent.startsWith('#') ? accent : '#6366f1'}" oninput="updateThemeColor(1,this.value)" title="主題色">
-        <div style="width:1px;height:16px;background:rgba(255,255,255,.15);margin:0 3px;"></div>
-        <button onclick="adjustFontSize(this,-1)">A−</button>
-        <button onclick="adjustFontSize(this,+1)">A+</button>
-      </div>
-      <div style="margin-bottom:24px;">
-        ${bullets.map((b,i) => {
-            const safe2 = b.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            return `<div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:22px;">
-              <div style="width:32px;height:32px;border-radius:50%;background:rgba(${accentRgb},.2);border:1.5px solid rgba(${accentRgb},.5);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
-                <span style="color:${accent};font-size:14px;font-weight:700;">${i+1}</span>
-              </div>
-              <p contenteditable="true" spellcheck="false" style="color:#cbd5e1;font-size:1em;line-height:1.65;flex:1;margin:0;">${safe2}</p>
-            </div>`;
-        }).join('')}
-      </div>
-    </div>
-  </foreignObject>
-</g>
-` : ''}
-</svg>
-${SLIDE_INTERACTION_SCRIPT}
-</body></html>`;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SAVE ALL SLIDES AS INTERACTIVE HTML FILE
-// ═══════════════════════════════════════════════════════════════════
-function saveAllSlidesAsHTML() {
-    if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
-
-    const title = AppState.presentationData?.presentation_title || 'Presentation';
-    const totalSlides = AppState.generatedSlides.length;
-
-    // Build slide iframes content as data URIs embedded inline (no external deps)
-    const slideContents = AppState.generatedSlides.map((s, i) => {
-        // Escape for use in JS string inside the viewer
-        const encoded = encodeURIComponent(s.html);
-        return `{ title: ${JSON.stringify(s.title || '')}, src: decodeURIComponent(${JSON.stringify(encoded)}) }`;
-    }).join(',\n');
-
-    const viewer = `<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title.replace(/</g,'&lt;')}</title>
+<title>Nova 簡報生成器</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@phosphor-icons/web"></script>
+<script src="https://cdn.jsdelivr.net/gh/gitbrent/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script>tailwind.config={theme:{extend:{fontFamily:{sans:['Inter','sans-serif']}}}}</script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#020617;font-family:"Segoe UI","PingFang SC",sans-serif;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
-header{background:#0f172a;border-bottom:1px solid #1e293b;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;shrink:0;}
-.title{font-size:14px;font-weight:700;color:#fff;truncate:hidden;}
-.nav-controls{display:flex;align-items:center;gap:8px;}
-.nav-btn{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;}
-.nav-btn:hover{background:#334155;color:#fff;}
-.nav-btn:disabled{opacity:0.35;cursor:not-allowed;}
-.slide-counter{font-size:13px;color:#64748b;min-width:80px;text-align:center;}
-.slide-viewport{flex:1;display:flex;align-items:center;justify-content:center;background:#020617;padding:16px;overflow:hidden;}
-.slide-frame-wrap{position:relative;background:#0f172a;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.6);aspect-ratio:16/9;max-height:calc(100vh - 130px);}
-.slide-frame-wrap iframe{width:1920px;height:1080px;border:none;transform-origin:top left;}
-footer{background:#0f172a;border-top:1px solid #1e293b;padding:8px 20px;display:flex;align-items:center;gap:8px;overflow-x:auto;}
-.thumb{width:80px;height:45px;background:#1e293b;border:2px solid #334155;border-radius:5px;overflow:hidden;cursor:pointer;shrink:0;position:relative;}
-.thumb iframe{width:800px;height:450px;border:none;transform:scale(0.1);transform-origin:top left;pointer-events:none;}
-.thumb.active{border-color:#818cf8;}
-.thumb:hover{border-color:#64748b;}
+:root{color-scheme:dark}
+html,body{margin:0;padding:0;background:#020617;color:#f1f5f9;font-family:'Inter',sans-serif;height:100vh;overflow:hidden}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:#1e293b}
+::-webkit-scrollbar-thumb{background:#475569;border-radius:3px}
+.no-scrollbar::-webkit-scrollbar{display:none}
+.no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn .3s ease-in-out}
+@keyframes dp{0%,80%,100%{transform:scale(0);opacity:.3}40%{transform:scale(1);opacity:1}}
+.dot-pulse{display:inline-flex;gap:4px}
+.dot-pulse span{width:6px;height:6px;border-radius:50%;background:#818cf8;animation:dp 1.2s infinite}
+.dot-pulse span:nth-child(2){animation-delay:.2s}
+.dot-pulse span:nth-child(3){animation-delay:.4s}
+
+.slide-thumb{width:200px;height:112px;border:2px solid #334155;border-radius:8px;cursor:pointer;overflow:hidden;transition:all .2s;flex-shrink:0;background:#fff}
+.slide-thumb:hover{border-color:#818cf8;transform:scale(1.02)}
+.slide-thumb.active{border-color:#818cf8;box-shadow:0 0 0 3px rgba(129,140,248,.3)}
+.slide-thumb iframe{width:1280px;height:720px;transform:scale(0.15625);transform-origin:top left;pointer-events:none;border:none}
+
+.drop-zone{border:2px dashed #334155;border-radius:12px;transition:all .2s}
+.drop-zone.drag-over{border-color:#818cf8;background:rgba(129,140,248,.05)}
+
+.slide-preview-wrapper{width:100%;aspect-ratio:16/9;overflow:hidden;background:#fff;border-radius:8px;position:relative}
+.slide-preview-wrapper iframe{width:1280px;height:720px;transform-origin:top left;border:none;position:absolute;top:0;left:0}
+
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#334155;color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+
+.progress-bar{height:4px;background:#1e293b;border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;background:linear-gradient(90deg,#818cf8,#a78bfa);border-radius:2px;transition:width .5s ease}
+
+.img-result-card{border:1px solid #334155;border-radius:8px;overflow:hidden;cursor:pointer;transition:all .2s;aspect-ratio:4/3;background:#0f172a}
+.img-result-card:hover{border-color:#818cf8;transform:scale(1.02)}
+
+/* History card */
+.hist-card{border:1px solid #1e293b;border-radius:10px;cursor:pointer;padding:10px 12px;transition:all .18s;margin-bottom:8px}
+.hist-card:hover{border-color:#4338ca;background:#0f172a}
+
+/* Status dot */
+.kdot{width:8px;height:8px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* Section toggle */
+.sec-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;background:none;border:none;color:#64748b;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;padding:2px 0;transition:color .15s}
+.sec-toggle:hover{color:#e2e8f0}
+.sec-toggle i{transition:transform .2s}
+.sec-toggle.open i{transform:rotate(180deg)}
 </style>
 </head>
-<body>
-<header>
-  <div class="title">${title.replace(/</g,'&lt;')}</div>
-  <div class="nav-controls">
-    <button class="nav-btn" id="btn-prev" onclick="go(-1)">◀ 上一頁</button>
-    <span class="slide-counter" id="counter">1 / ${totalSlides}</span>
-    <button class="nav-btn" id="btn-next" onclick="go(1)">下一頁 ▶</button>
-    <button class="nav-btn" onclick="toggleFullscreen()" title="全螢幕">⛶</button>
+<body class="bg-slate-950 overflow-hidden">
+<div id="toast"></div>
+
+<div class="flex h-screen w-full">
+
+<!-- ══════════════════════════════════════
+     LEFT SIDEBAR
+══════════════════════════════════════ -->
+<aside class="w-72 bg-slate-900 border-r border-slate-800 flex flex-col flex-shrink-0 overflow-hidden">
+
+  <!-- Header -->
+  <div class="p-4 border-b border-slate-800 flex items-center gap-3 flex-shrink-0">
+    <a href="./Nova_120_SSP_Claude_V7.html"
+       class="flex items-center gap-1 text-slate-400 hover:text-white transition-colors text-sm mr-1" title="返回 NOVA 120">
+      <i class="ph-bold ph-arrow-left"></i>
+    </a>
+    <div class="w-8 h-8 bg-gradient-to-tr from-violet-500 to-fuchsia-500 rounded-lg flex items-center justify-center shadow-lg">
+      <i class="ph-bold ph-presentation-chart text-white text-lg"></i>
+    </div>
+    <div>
+      <h1 class="text-sm font-bold text-white">Nova 簡報生成器</h1>
+      <p class="text-[10px] text-slate-500">AI Presentation Studio v3</p>
+    </div>
   </div>
-</header>
-<div class="slide-viewport" id="viewport">
-  <div class="slide-frame-wrap" id="frame-wrap">
-    <iframe id="main-frame" sandbox="allow-scripts"></iframe>
+
+  <!-- Scrollable body -->
+  <div class="flex-1 overflow-y-auto no-scrollbar divide-y divide-slate-800/50">
+
+    <!-- ① API 狀態（自動讀取 NOVA） -->
+    <div class="p-3">
+      <button class="sec-toggle open w-full mb-2" onclick="toggleSec(this,'s-api')">
+        <span>API 狀態 <span id="api-ok-badge" class="text-emerald-400 font-normal normal-case tracking-normal"></span></span>
+        <i class="ph-bold ph-caret-down"></i>
+      </button>
+      <div id="s-api" class="space-y-2">
+        <div class="flex items-center gap-2">
+          <span id="dot-gemini" class="kdot bg-slate-600"></span>
+          <span class="text-[11px] text-slate-400 flex-1">Gemini（文字生成）</span>
+          <span id="val-gemini" class="text-[10px] text-slate-600">未讀取</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="dot-grok" class="kdot bg-slate-600"></span>
+          <span class="text-[11px] text-slate-400 flex-1">Grok（生圖）</span>
+          <span id="val-grok" class="text-[10px] text-slate-600">未讀取</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span id="dot-serpapi" class="kdot bg-slate-600"></span>
+          <span class="text-[11px] text-slate-400 flex-1">SerpApi（圖片搜尋）</span>
+          <span id="val-serpapi" class="text-[10px] text-slate-600">未讀取</span>
+        </div>
+        <button onclick="reloadKeys()"
+                class="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 transition-colors mt-1">
+          <i class="ph-bold ph-arrows-clockwise"></i> 重新讀取 NOVA 金鑰
+        </button>
+      </div>
+    </div>
+
+    <!-- ② 文字生成模型 -->
+    <div class="p-3">
+      <button class="sec-toggle open w-full mb-2" onclick="toggleSec(this,'s-textm')">
+        <span>文字生成模型</span><i class="ph-bold ph-caret-down"></i>
+      </button>
+      <div id="s-textm">
+        <select id="gemini-model" onchange="saveCfg()"
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-indigo-500">
+          <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview ⭐</option>
+          <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+          <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash</option>
+          <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite（快）</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ③ 生圖模型選單 -->
+    <div class="p-3">
+      <button class="sec-toggle open w-full mb-2" onclick="toggleSec(this,'s-imgm')">
+        <span>生圖模型</span><i class="ph-bold ph-caret-down"></i>
+      </button>
+      <div id="s-imgm" class="space-y-2">
+        <select id="img-model" onchange="saveCfg()"
+                class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white outline-none focus:border-indigo-500">
+          <optgroup label="── 智慧循序 ──">
+            <option value="auto" selected>🤖 Auto（Grok→Gemini→Picsum）</option>
+          </optgroup>
+          <optgroup label="── Grok ──">
+            <option value="grok-imagine-image-pro">Grok Imagine Image Pro</option>
+            <option value="grok-imagine-image">Grok Imagine Image</option>
+          </optgroup>
+          <optgroup label="── Gemini ──">
+            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash-Image</option>
+            <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash-Image</option>
+          </optgroup>
+          <optgroup label="── Imagen ──">
+            <option value="imagen-4.0-ultra-generate-001">Imagen 4.0 Ultra</option>
+            <option value="imagen-4.0-generate-001">Imagen 4.0 Standard</option>
+            <option value="imagen-4.0-fast-generate-001">Imagen 4.0 Fast</option>
+          </optgroup>
+          <optgroup label="── 圖片搜尋 ──">
+            <option value="serpapi">SerpApi（Google 圖片）</option>
+            <option value="unsplash">Unsplash（免費圖庫）</option>
+          </optgroup>
+          <optgroup label="── 停用 ──">
+            <option value="none">❌ 不產生圖片</option>
+          </optgroup>
+        </select>
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" id="auto-image" checked onchange="saveCfg()" class="accent-indigo-500">
+          <span class="text-[11px] text-slate-400">每張投影片自動生成配圖</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ④ 附加檔案 -->
+    <div class="p-3">
+      <div class="flex items-center justify-between mb-2">
+        <button class="sec-toggle open" onclick="toggleSec(this,'s-files')" style="width:auto">
+          <span>附加資料分析</span>
+        </button>
+        <div class="flex items-center gap-2">
+          <span id="file-badge" class="text-[10px] text-indigo-400 font-bold"></span>
+          <button onclick="clearFiles()" class="text-[10px] text-slate-500 hover:text-red-400">清除</button>
+          <i class="ph-bold ph-caret-down text-slate-600 text-xs" id="s-files-caret"></i>
+        </div>
+      </div>
+      <div id="s-files" class="space-y-2">
+        <div id="drop-zone" class="drop-zone p-3 text-center cursor-pointer rounded-xl"
+             onclick="document.getElementById('file-input').click()"
+             ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+          <i class="ph-bold ph-upload-simple text-slate-500 text-xl"></i>
+          <p class="text-[11px] text-slate-500 mt-1">拖曳或點擊上傳</p>
+          <p class="text-[9px] text-slate-600 mt-0.5">PDF · XLSX · CSV · TXT · 圖片</p>
+        </div>
+        <input type="file" id="file-input" multiple
+               accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.md,.png,.jpg,.jpeg,.gif,.webp"
+               class="hidden" onchange="handleFiles(event)">
+        <div id="file-list" class="space-y-1 max-h-28 overflow-y-auto no-scrollbar"></div>
+      </div>
+    </div>
+
+    <!-- ⑤ Logo -->
+    <div class="p-3">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-[11px] font-bold tracking-wider text-slate-400 uppercase">品牌 Logo</span>
+        <button onclick="clearLogo()" class="text-[10px] text-slate-500 hover:text-red-400">移除</button>
+      </div>
+      <div class="flex gap-2 items-center">
+        <div id="logo-preview"
+             class="w-14 h-14 bg-slate-800 border border-slate-700 rounded-lg flex items-center justify-center flex-shrink-0 cursor-pointer overflow-hidden hover:border-indigo-500 transition-colors"
+             onclick="document.getElementById('logo-input').click()">
+          <i class="ph-bold ph-image text-slate-600 text-xl" id="logo-ph"></i>
+        </div>
+        <div class="text-[10px] text-slate-500 space-y-1">
+          <p>PNG / SVG / JPG</p>
+          <p>建議透明背景</p>
+          <p class="text-[9px] text-slate-600">將出現在每張投影片</p>
+        </div>
+      </div>
+      <input type="file" id="logo-input" accept="image/*" class="hidden" onchange="handleLogo(event)">
+    </div>
+
+    <!-- ⑥ PPTX 樣板上傳 -->
+    <div class="p-3">
+      <div class="flex items-center justify-between mb-2">
+        <button class="sec-toggle open" onclick="toggleSec(this,'s-tpl')" style="width:auto">
+          <span>PPTX 樣板</span>
+        </button>
+        <div class="flex items-center gap-2">
+          <span id="tpl-badge" class="text-[10px] text-emerald-400 font-bold"></span>
+          <i class="ph-bold ph-caret-down text-slate-600 text-xs"></i>
+        </div>
+      </div>
+      <div id="s-tpl" class="space-y-2">
+        <p class="text-[10px] text-slate-500 leading-relaxed">上傳 .pptx 作為排版樣板，AI 生成時將模仿其風格</p>
+        <div class="drop-zone p-3 text-center cursor-pointer rounded-xl" id="pptx-dz"
+             onclick="document.getElementById('pptx-input').click()"
+             ondrop="handlePptxDrop(event)"
+             ondragover="e=>{e.preventDefault();document.getElementById('pptx-dz').classList.add('drag-over')}"
+             ondragleave="e=>document.getElementById('pptx-dz').classList.remove('drag-over')">
+          <i class="ph-bold ph-file-ppt text-slate-500 text-xl"></i>
+          <p class="text-[11px] text-slate-500 mt-1">拖曳或點擊上傳 .pptx</p>
+        </div>
+        <input type="file" id="pptx-input" accept=".pptx" class="hidden" onchange="handlePptxTpl(event)">
+        <div id="pptx-status" class="text-[10px] text-slate-600"></div>
+        <button onclick="clearPptxTpl()" id="pptx-clear-btn"
+                class="hidden text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1">
+          <i class="ph-bold ph-trash"></i> 移除樣板
+        </button>
+      </div>
+    </div>
+
+    <!-- ⑦ 生成設定（無風格選擇） -->
+    <div class="p-3">
+      <button class="sec-toggle open w-full mb-2" onclick="toggleSec(this,'s-cfg')">
+        <span>生成設定</span><i class="ph-bold ph-caret-down"></i>
+      </button>
+      <div id="s-cfg" class="space-y-2">
+        <div>
+          <div class="flex justify-between mb-1">
+            <label class="text-[10px] text-slate-400">投影片數量</label>
+            <span id="slide-count-val" class="text-[10px] text-indigo-400 font-bold">8</span>
+          </div>
+          <input type="range" id="slide-count" min="3" max="20" value="8" class="w-full accent-indigo-500"
+                 oninput="document.getElementById('slide-count-val').textContent=this.value;saveCfg()">
+        </div>
+        <div>
+          <label class="text-[10px] text-slate-400 mb-1 block">語言</label>
+          <select id="lang-select" onchange="saveCfg()"
+                  class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white outline-none focus:border-indigo-500">
+            <option value="zh-TW">繁體中文</option>
+            <option value="zh-CN">簡體中文</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ⑧ 歷史紀錄 -->
+    <div class="p-3">
+      <div class="flex items-center justify-between mb-2">
+        <button class="sec-toggle open" onclick="toggleSec(this,'s-hist')" style="width:auto">
+          <span>歷史紀錄</span>
+        </button>
+        <div class="flex items-center gap-2">
+          <span id="hist-count" class="text-[10px] text-slate-500"></span>
+          <button onclick="clearAllHistory()" class="text-[10px] text-red-500/50 hover:text-red-400">全清</button>
+          <i class="ph-bold ph-caret-down text-slate-600 text-xs"></i>
+        </div>
+      </div>
+      <div id="s-hist" class="max-h-56 overflow-y-auto no-scrollbar">
+        <p class="text-[11px] text-slate-600 text-center py-3">生成後自動儲存</p>
+      </div>
+    </div>
+
+  </div><!-- end scrollable -->
+
+  <!-- Bottom Export -->
+  <div class="p-3 border-t border-slate-800 flex-shrink-0 space-y-2">
+    <div class="flex gap-2">
+      <button onclick="exportPPTX()"
+              class="flex-1 flex items-center justify-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold py-2 rounded-lg transition-colors">
+        <i class="ph-bold ph-download-simple"></i> 匯出 PPTX
+      </button>
+      <button onclick="exportHTML()"
+              class="flex items-center justify-center gap-1 bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 px-3 rounded-lg transition-colors" title="下載 HTML">
+        <i class="ph-bold ph-code"></i>
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════
+     MAIN AREA
+══════════════════════════════════════ -->
+<main class="flex-1 flex flex-col overflow-hidden">
+
+  <!-- Top Toolbar -->
+  <div class="bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center gap-3 flex-shrink-0">
+    <div class="flex-1 flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 focus-within:border-violet-500 transition-colors">
+      <i class="ph-bold ph-sparkle text-violet-400 flex-shrink-0"></i>
+      <input type="text" id="topic-input"
+             placeholder="輸入簡報主題（例如：Q3 銷售策略、AI 技術趨勢分析）"
+             class="flex-1 bg-transparent text-sm text-white outline-none placeholder-slate-500"
+             onkeydown="if(event.key==='Enter')generatePresentation()">
+    </div>
+
+    <!-- Image search toggle -->
+    <button onclick="toggleImgPanel()" id="img-search-btn"
+            class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs px-3 py-2 rounded-xl transition-colors">
+      <i class="ph-bold ph-image-square text-green-400"></i>
+      <span>圖片搜尋</span>
+    </button>
+
+    <!-- Generate -->
+    <button onclick="generatePresentation()" id="gen-btn"
+            class="flex items-center gap-2 bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white text-sm font-bold px-5 py-2 rounded-xl transition-all shadow-lg shadow-violet-500/20">
+      <i class="ph-bold ph-magic-wand"></i>
+      <span>AI 生成簡報</span>
+    </button>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-container" class="hidden px-4 py-2 bg-slate-900 border-b border-slate-800 flex-shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="dot-pulse"><span></span><span></span><span></span></div>
+      <span id="progress-text" class="text-xs text-slate-400 flex-1">AI 正在生成簡報...</span>
+      <span id="progress-pct" class="text-xs text-violet-400 font-bold">0%</span>
+    </div>
+    <div class="progress-bar mt-2">
+      <div id="progress-fill" class="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- Thumbnails -->
+    <div class="w-52 bg-slate-900/50 border-r border-slate-800 flex flex-col overflow-hidden flex-shrink-0">
+      <div class="p-2 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
+        <span class="text-xs text-slate-500 font-medium" id="slide-count-label">0 張投影片</span>
+        <button onclick="addSlide()" class="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-700 transition-colors" title="新增">
+          <i class="ph-bold ph-plus text-sm"></i>
+        </button>
+      </div>
+      <div id="thumbs-container" class="flex-1 overflow-y-auto no-scrollbar p-2 space-y-2">
+        <div class="text-center py-8 text-slate-600">
+          <i class="ph-bold ph-presentation-chart text-3xl mb-2 block"></i>
+          <p class="text-xs">輸入主題後點擊<br>「AI 生成簡報」</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Preview -->
+    <div class="flex-1 flex flex-col overflow-hidden bg-slate-950">
+      <div class="flex-1 flex items-center justify-center p-6 overflow-auto">
+        <div class="w-full max-w-5xl">
+          <div id="slide-preview-container" class="slide-preview-wrapper shadow-2xl">
+            <div class="absolute inset-0 flex items-center justify-center bg-slate-100">
+              <div class="text-center text-slate-400">
+                <i class="ph-bold ph-presentation-chart text-6xl mb-4 block text-slate-300"></i>
+                <p class="text-lg font-medium text-slate-600">預覽區域</p>
+                <p class="text-sm text-slate-400 mt-1">生成簡報後在此預覽</p>
+              </div>
+            </div>
+            <iframe id="slide-preview" class="hidden"></iframe>
+          </div>
+          <!-- Nav -->
+          <div class="flex items-center justify-between mt-4">
+            <button onclick="prevSlide()"
+                    class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm px-4 py-2 rounded-lg transition-colors">
+              <i class="ph-bold ph-caret-left"></i> 上一頁
+            </button>
+            <div class="flex items-center gap-3">
+              <span id="slide-nav-label" class="text-sm text-slate-400">- / -</span>
+              <button onclick="editCurrentSlide()" class="text-xs text-slate-500 hover:text-violet-400 transition-colors">
+                <i class="ph-bold ph-pencil-simple"></i> 編輯
+              </button>
+              <button onclick="regenerateCurrentSlide()" class="text-xs text-slate-500 hover:text-violet-400 transition-colors">
+                <i class="ph-bold ph-arrows-clockwise"></i> 重生成
+              </button>
+              <button onclick="deleteCurrentSlide()" class="text-xs text-slate-500 hover:text-red-400 transition-colors">
+                <i class="ph-bold ph-trash"></i> 刪除
+              </button>
+            </div>
+            <button onclick="nextSlide()"
+                    class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm px-4 py-2 rounded-lg transition-colors">
+              下一頁 <i class="ph-bold ph-caret-right"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Search Panel (right) -->
+    <div id="img-panel" class="hidden w-64 bg-slate-900 border-l border-slate-800 flex flex-col overflow-hidden flex-shrink-0">
+      <div class="p-3 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
+        <span class="text-xs font-bold text-slate-300">圖片搜尋</span>
+        <button onclick="toggleImgPanel()" class="text-slate-500 hover:text-white"><i class="ph-bold ph-x"></i></button>
+      </div>
+      <div class="p-3 flex-shrink-0">
+        <div class="flex gap-2">
+          <input type="text" id="img-search-input" placeholder="關鍵字（英文效果佳）"
+                 class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:border-green-500 outline-none"
+                 onkeydown="if(event.key==='Enter')searchImages()">
+          <button onclick="searchImages()" class="bg-green-600 hover:bg-green-500 text-white px-3 py-1.5 rounded-lg text-xs transition-colors">
+            <i class="ph-bold ph-magnifying-glass"></i>
+          </button>
+        </div>
+      </div>
+      <div id="img-results" class="flex-1 overflow-y-auto no-scrollbar p-3">
+        <div class="text-center py-8 text-slate-600 text-xs">點擊圖片插入投影片</div>
+      </div>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- ══════════════════════════════════════
+     EDIT MODAL
+══════════════════════════════════════ -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+    <div class="p-4 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
+      <h2 class="text-base font-bold text-white">✏️ 編輯投影片 HTML</h2>
+      <div class="flex gap-2">
+        <button onclick="previewEditedSlide()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs rounded-lg transition-colors">預覽</button>
+        <button onclick="saveEditedSlide()" class="px-3 py-1.5 bg-violet-600 hover:bg-violet-500 text-white text-xs rounded-lg transition-colors font-bold">儲存</button>
+        <button onclick="closeEditModal()" class="text-slate-400 hover:text-white text-xl"><i class="ph-bold ph-x"></i></button>
+      </div>
+    </div>
+    <div class="flex-1 overflow-hidden flex">
+      <textarea id="edit-code"
+                class="flex-1 bg-slate-950 text-green-300 font-mono text-xs p-4 outline-none resize-none border-r border-slate-800"
+                spellcheck="false"></textarea>
+      <div class="w-80 flex-shrink-0 bg-slate-950 overflow-hidden">
+        <iframe id="edit-preview-frame" class="w-full h-full border-none"></iframe>
+      </div>
+    </div>
   </div>
 </div>
-<footer id="thumb-bar"></footer>
+
 <script>
-const slides = [${slideContents}];
-let cur = 0;
-function scaleFrame(){
-  const wrap = document.getElementById('frame-wrap');
-  const vp = document.getElementById('viewport');
-  const maxW = vp.clientWidth - 32;
-  const maxH = vp.clientHeight - 32;
-  const scale = Math.min(maxW/1920, maxH/1080);
-  wrap.style.width = (1920*scale)+'px';
-  wrap.style.height = (1080*scale)+'px';
-  document.getElementById('main-frame').style.transform = 'scale('+scale+')';
-  document.querySelectorAll('.thumb iframe').forEach(f=>f.style.transform='scale('+80/1920+')');
-}
-function show(n){
-  cur = Math.max(0, Math.min(slides.length-1, n));
-  document.getElementById('main-frame').srcdoc = slides[cur].src;
-  document.getElementById('counter').textContent = (cur+1)+' / '+slides.length;
-  document.getElementById('btn-prev').disabled = cur===0;
-  document.getElementById('btn-next').disabled = cur===slides.length-1;
-  document.querySelectorAll('.thumb').forEach((t,i)=>t.classList.toggle('active',i===cur));
-  document.querySelectorAll('.thumb')[cur]?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
-}
-function go(d){ show(cur+d); }
-function toggleFullscreen(){
-  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
-  else document.exitFullscreen();
-}
-// Build thumbnails
-const bar = document.getElementById('thumb-bar');
-slides.forEach((s,i)=>{
-  const d = document.createElement('div');
-  d.className='thumb'+(i===0?' active':'');
-  d.title = s.title;
-  d.onclick=()=>show(i);
-  const f=document.createElement('iframe');
-  f.sandbox='allow-scripts';
-  f.srcdoc=s.src;
-  d.appendChild(f);
-  bar.appendChild(d);
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+const ST = {
+  slides: [],      // [{html, title}]
+  cur: 0,
+  generating: false,
+  keys: { gemini:'', grok:'', serpapi:'' },
+  logo: null, logoMime: 'image/png',
+  files: [],
+  pptxTpl: null,   // {name, data(b64), size}
+  history: [],     // [{id,topic,slideCount,slides,ts}]
+  imgCache: {}
+};
+
+const GROK_PROXY = 'https://grokcaller.kirishimatoka00.workers.dev/';
+const GROK_IMG   = 'https://api.x.ai/v1/images/generations';
+const SERP_PROXY = 'https://serpapi.kirishimatoka00.workers.dev/';
+
+const LS = {
+  HIST:'nsg3_hist', LOGO:'nsg3_logo', TPL:'nsg3_pptx_tpl', CFG:'nsg3_cfg'
+};
+
+// ══════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════
+window.addEventListener('load', () => {
+  reloadKeys();
+  loadPersisted();
+  setupPreviewResize();
+  setupKeyboard();
 });
-show(0);
-window.addEventListener('resize', scaleFrame);
-scaleFrame();
-document.addEventListener('keydown', e=>{
-  if(e.key==='ArrowRight'||e.key==='ArrowDown') go(1);
-  if(e.key==='ArrowLeft'||e.key==='ArrowUp') go(-1);
-  if(e.key==='f'||e.key==='F') toggleFullscreen();
-});
-<\/script>
-</body>
-</html>`;
 
-    const blob = new Blob([viewer], { type: 'text/html;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = (title.replace(/[^\w\u4e00-\u9fa5\s-]/g,'').replace(/\s+/g,'_').slice(0,60) || 'presentation') + '.html';
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('✅ HTML 投影片檔案已儲存');
+function reloadKeys() {
+  try {
+    ST.keys.gemini  = localStorage.getItem('nova_key_gemini')  || '';
+    ST.keys.grok    = localStorage.getItem('nova_key_grok')    || '';
+    ST.keys.serpapi = localStorage.getItem('nova_key_serpapi') || '';
+  } catch(e) { toast('⚠️ 無法讀取 NOVA 金鑰（需同源）'); }
+  updateKeyUI();
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// EDITABLE PPTX  (text + shapes, not screenshot)
-// ═══════════════════════════════════════════════════════════════════
-async function downloadEditablePptx() {
-    if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
-
-    const groupBtn = document.getElementById('btn-pptx-group');
-    const origHTML = groupBtn.innerHTML;
-    groupBtn.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;color:white;font-size:12px;font-weight:700;"><i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i>建立可編輯 PPTX...</div>';
-    groupBtn.style.pointerEvents = 'none';
-
-    try {
-        const pres = new PptxGenJS();
-        pres.layout = 'LAYOUT_16x9';
-
-        const templateKey = document.getElementById('sel-template').value;
-        const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-
-        // Extract a usable hex from theme accent
-        const accentHex = (theme.accent.match(/#([0-9a-fA-F]{6})/)?.[1] || '818cf8');
-        const bgHex     = (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[1] || '0f172a');
-        const titleHex  = (theme.titleColor.match(/#([0-9a-fA-F]{6})/)?.[1] || 'ffffff');
-        const textHex   = (theme.text.match(/#([0-9a-fA-F]{6})/)?.[1] || 'cbd5e1');
-
-        const logoPos    = document.getElementById('sel-logo-pos').value;
-        const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
-        const [lx, ly]   = logoPosMap[logoPos] || [8.5, 0.2];
-
-        for (const s of AppState.generatedSlides) {
-            const sd    = s.slideData || {};
-            const slide = pres.addSlide();
-
-            // Background
-            slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
-            // Accent bar
-            slide.addShape('rect', { x:0, y:0, w:10, h:0.06, fill:{ color: accentHex } });
-            slide.addShape('rect', { x:0, y:0, w:0.08, h:5.625, fill:{ color: accentHex, transparency: 60 } });
-
-            if (sd.layout === 'title_only') {
-                // Large diagonal accent
-                slide.addShape('rect', {
-                    x:5.5, y:0, w:4.5, h:5.625,
-                    fill:{ color: accentHex, transparency: 92 },
-                    line:{ color: accentHex, transparency: 80, width: 0 }
-                });
-                slide.addText(sd.title || '', {
-                    x:0.5, y:1.5, w:8.5, h:2.0,
-                    fontSize: 52, bold: true, color: titleHex,
-                    fontFace: 'Arial', lineSpacingMultiple: 1.15
-                });
-                if (sd.subtitle) {
-                    slide.addText(sd.subtitle, {
-                        x:0.5, y:3.7, w:6, h:0.8,
-                        fontSize: 24, color: accentHex, fontFace: 'Arial'
-                    });
-                }
-                // Accent line
-                slide.addShape('rect', { x:0.5, y:4.6, w:1.5, h:0.06, fill:{ color: accentHex } });
-
-            } else {
-                // Title
-                slide.addText(sd.title || '', {
-                    x:0.3, y:0.25, w:9.4, h:0.75,
-                    fontSize: 30, bold: true, color: titleHex, fontFace: 'Arial'
-                });
-                // Underline accent
-                slide.addShape('rect', { x:0.3, y:1.05, w:1.2, h:0.05, fill:{ color: accentHex } });
-
-                // Bullet points
-                const bullets = (sd.bullet_points || []).map(b => ({
-                    text: b,
-                    options: {
-                        bullet: { type: 'number' },
-                        color: textHex,
-                        fontSize: 18,
-                        paraSpaceAfter: 14,
-                        fontFace: 'Arial'
-                    }
-                }));
-
-                if (bullets.length > 0) {
-                    // Background card
-                    slide.addShape('rect', {
-                        x:0.3, y:1.2, w:9.4, h:4.1,
-                        fill:{ color: accentHex, transparency: 94 },
-                        line:{ color: accentHex, transparency: 75, width: 1.5 },
-                        rectRadius: 0.1
-                    });
-                    slide.addText(bullets, {
-                        x:0.5, y:1.35, w:9.0, h:3.9,
-                        valign: 'top', fontFace: 'Arial'
-                    });
-                }
-
-                // Diagram note for diagram slides
-                if (sd.layout === 'diagram_slide' && sd.diagram_description) {
-                    slide.addText(`📊 ${sd.diagram_description}`, {
-                        x:0.5, y:4.8, w:9.0, h:0.6,
-                        fontSize:11, color:accentHex, italic:true, fontFace:'Arial'
-                    });
-                }
-            }
-
-            // Page number
-            slide.addText(`${s.slideNumber}`, {
-                x:9.2, y:5.3, w:0.6, h:0.25,
-                fontSize:10, color:accentHex, align:'right', fontFace:'Arial'
-            });
-
-            // Logo overlay
-            if (AppState.logoBase64) {
-                slide.addImage({ data: AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
-                    sizing:{ type:'contain', w:1.0, h:0.5 } });
-            }
-        }
-
-        const fileName = (AppState.presentationData?.presentation_title || 'Editable_Presentation')
-            .replace(/[^\w\u4e00-\u9fa5\s-]/g,'').replace(/\s+/g,'_').slice(0,60) + '_可編輯.pptx';
-
-        await pres.writeFile({ fileName });
-        showToast(`✅ 可編輯 PPTX「${fileName}」已下載`);
-
-    } catch(e) {
-        showToast('❌ 可編輯 PPTX 生成失敗: ' + e.message);
-        console.error(e);
-    } finally {
-        groupBtn.innerHTML = origHTML;
-        groupBtn.style.pointerEvents = '';
-    }
+function updateKeyUI() {
+  let ok = 0;
+  ['gemini','grok','serpapi'].forEach(n => {
+    const has = !!ST.keys[n];
+    if(has) ok++;
+    const dot = document.getElementById('dot-'+n);
+    const val = document.getElementById('val-'+n);
+    if(dot) dot.style.background = has ? '#22c55e' : '#334155';
+    if(val) { val.textContent = has ? '···'+ST.keys[n].slice(-4) : '未設定'; val.style.color = has ? '#22c55e' : '#475569'; }
+  });
+  const badge = document.getElementById('api-ok-badge');
+  if(badge) badge.textContent = ok ? `(${ok}/3)` : '';
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// GENERATION HISTORY  (localStorage)
-// ═══════════════════════════════════════════════════════════════════
-const HISTORY_KEY   = 'nova_ppt_history';
-const HISTORY_LIMIT = 20;  // max sessions stored
-const SLIDE_HTML_SIZE_LIMIT = 150000; // per-slide HTML chars for storage
-
-function saveToHistory() {
-    if (!AppState.generatedSlides.length || !AppState.presentationData) return;
-    try {
-        const history = loadRawHistory();
-        const id = 'h_' + Date.now();
-
-        // Trim each slide HTML to stay within storage budget
-        const slidesForStorage = AppState.generatedSlides.map(s => ({
-            slideNumber: s.slideNumber,
-            title: s.title,
-            layout: s.layout,
-            slideData: s.slideData,
-            html: (s.html || '').slice(0, SLIDE_HTML_SIZE_LIMIT)
-        }));
-
-        const entry = {
-            id,
-            date: new Date().toLocaleString('zh-TW'),
-            title: AppState.presentationData.presentation_title || '未命名簡報',
-            slideCount: AppState.generatedSlides.length,
-            templateKey: document.getElementById('sel-template').value,
-            slides: slidesForStorage
-        };
-
-        history.unshift(entry);
-        if (history.length > HISTORY_LIMIT) history.splice(HISTORY_LIMIT);
-
-        try {
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-            addLog(`📁 已儲存至歷史記錄（共 ${history.length} 筆）`, 'success');
-        } catch(storageErr) {
-            // Storage full: keep only last 5 entries, strip HTML
-            const slim = history.slice(0, 5).map(e => ({ ...e, slides: e.slides.map(s => ({ ...s, html: '' })) }));
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
-            addLog(`⚠ 儲存空間不足，已儲存精簡版歷史`, 'warning');
-        }
-
-        renderHistoryPanels();
-    } catch(e) {
-        console.warn('History save failed:', e);
-    }
+function loadPersisted() {
+  // Config
+  try {
+    const c = JSON.parse(localStorage.getItem(LS.CFG)||'{}');
+    if(c.gm) document.getElementById('gemini-model').value = c.gm;
+    if(c.im) document.getElementById('img-model').value    = c.im;
+    if(c.sc) { document.getElementById('slide-count').value=c.sc; document.getElementById('slide-count-val').textContent=c.sc; }
+    if(c.la) document.getElementById('lang-select').value  = c.la;
+    if(c.ai!==undefined) document.getElementById('auto-image').checked = c.ai;
+  } catch(e){}
+  // Logo
+  try {
+    const raw = localStorage.getItem(LS.LOGO);
+    if(raw) { const o=JSON.parse(raw); ST.logo=o.d; ST.logoMime=o.m||'image/png'; renderLogoPreview(ST.logo); }
+  } catch(e){}
+  // PPTX template
+  try {
+    const raw = localStorage.getItem(LS.TPL);
+    if(raw) { const o=JSON.parse(raw); ST.pptxTpl=o; showTplStatus(o.name); }
+  } catch(e){}
+  // History
+  try {
+    const raw = localStorage.getItem(LS.HIST);
+    if(raw) ST.history = JSON.parse(raw);
+  } catch(e){}
+  renderHistory();
 }
 
-function loadRawHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
-    catch { return []; }
+function saveCfg() {
+  try {
+    localStorage.setItem(LS.CFG, JSON.stringify({
+      gm: document.getElementById('gemini-model').value,
+      im: document.getElementById('img-model').value,
+      sc: document.getElementById('slide-count').value,
+      la: document.getElementById('lang-select').value,
+      ai: document.getElementById('auto-image').checked
+    }));
+  } catch(e){}
 }
 
-function renderHistoryPanels() {
-    const history = loadRawHistory();
-    const count   = history.length;
+// ══════════════════════════════════════════
+// SECTION TOGGLE
+// ══════════════════════════════════════════
+function toggleSec(btn, bodyId) {
+  const body = document.getElementById(bodyId);
+  const hidden = body.classList.contains('hidden');
+  body.classList.toggle('hidden', !hidden);
+  btn.classList.toggle('open', hidden);
+  const i = btn.querySelector('i');
+  if(i) i.style.transform = hidden ? '' : 'rotate(180deg)';
+}
 
-    // Update badges
-    const badge    = document.getElementById('history-badge');
-    const sideBadge = document.getElementById('history-count-badge');
-    if (badge)    { badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
-    if (sideBadge){ sideBadge.textContent = count; sideBadge.classList.toggle('hidden', count === 0); }
+// ══════════════════════════════════════════
+// FILES
+// ══════════════════════════════════════════
+function handleDragOver(e) { e.preventDefault(); document.getElementById('drop-zone').classList.add('drag-over'); }
+function handleDragLeave()  { document.getElementById('drop-zone').classList.remove('drag-over'); }
+function handleDrop(e) { e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag-over'); procFiles(e.dataTransfer.files); }
+function handleFiles(e) { procFiles(e.target.files); e.target.value=''; }
 
-    // Modal count
-    const modalCount = document.getElementById('modal-history-count');
-    if (modalCount) modalCount.textContent = count > 0 ? `共 ${count} 筆記錄` : '';
+function procFiles(list) {
+  Array.from(list).forEach(f => {
+    const r = new FileReader();
+    r.onload = ev => {
+      const idx = ST.files.findIndex(x=>x.name===f.name);
+      const entry = {name:f.name,type:f.type,data:ev.target.result,mime:f.type,size:f.size};
+      if(idx>=0) ST.files[idx]=entry; else ST.files.push(entry);
+      renderFileList();
+    };
+    r.readAsDataURL(f);
+  });
+}
+function clearFiles() { ST.files=[]; renderFileList(); }
+function removeFile(i) { ST.files.splice(i,1); renderFileList(); }
+function renderFileList() {
+  const el = document.getElementById('file-list');
+  const badge = document.getElementById('file-badge');
+  if(badge) badge.textContent = ST.files.length ? `(${ST.files.length})` : '';
+  if(!ST.files.length) { el.innerHTML=''; return; }
+  el.innerHTML = ST.files.map((f,i)=>{
+    const ic = f.type.startsWith('image/')?'ph-image':f.type.includes('pdf')?'ph-file-pdf':f.type.includes('sheet')||f.type.includes('csv')?'ph-file-xls':'ph-file-text';
+    const sz = f.size>1048576?`${(f.size/1048576).toFixed(1)}MB`:`${Math.round(f.size/1024)}KB`;
+    return `<div class="flex items-center gap-2 bg-slate-800 rounded-lg px-2 py-1.5">
+      <i class="ph-bold ${ic} text-violet-400 flex-shrink-0 text-sm"></i>
+      <span class="text-[11px] text-white flex-1 truncate">${f.name}</span>
+      <span class="text-[9px] text-slate-500">${sz}</span>
+      <button onclick="removeFile(${i})" class="text-slate-500 hover:text-red-400 text-xs"><i class="ph-bold ph-x"></i></button>
+    </div>`;
+  }).join('');
+}
 
-    // Sidebar panel
-    const sideList   = document.getElementById('history-list');
-    const sideHint   = document.getElementById('no-history-hint');
-    const clearBtn   = document.getElementById('btn-clear-history');
-    if (sideList && sideHint && clearBtn) {
-        sideHint.classList.toggle('hidden', count > 0);
-        clearBtn.classList.toggle('hidden', count === 0);
-        sideList.innerHTML = '';
-        history.slice(0, 6).forEach(entry => {
-            sideList.appendChild(buildHistoryCard(entry, 'sidebar'));
-        });
+// ══════════════════════════════════════════
+// LOGO
+// ══════════════════════════════════════════
+function handleLogo(e) {
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    ST.logo=ev.target.result; ST.logoMime=f.type;
+    renderLogoPreview(ST.logo);
+    try{localStorage.setItem(LS.LOGO,JSON.stringify({d:ST.logo,m:ST.logoMime}));}catch(er){}
+    toast('✅ Logo 已儲存');
+  };
+  r.readAsDataURL(f); e.target.value='';
+}
+function renderLogoPreview(src) {
+  const box=document.getElementById('logo-preview');
+  document.getElementById('logo-ph').classList.add('hidden');
+  let img=box.querySelector('img'); if(img) img.remove();
+  img=document.createElement('img');
+  img.src=src; img.className='w-full h-full object-contain p-1';
+  box.appendChild(img);
+}
+function clearLogo() {
+  ST.logo=null;
+  const box=document.getElementById('logo-preview'); const img=box.querySelector('img'); if(img) img.remove();
+  document.getElementById('logo-ph').classList.remove('hidden');
+  try{localStorage.removeItem(LS.LOGO);}catch(e){}
+  toast('Logo 已移除');
+}
+
+// ══════════════════════════════════════════
+// PPTX TEMPLATE
+// ══════════════════════════════════════════
+function handlePptxDrop(e) {
+  e.preventDefault(); document.getElementById('pptx-dz').classList.remove('drag-over');
+  const f=e.dataTransfer.files[0]; if(f&&f.name.endsWith('.pptx')) loadPptxTpl(f);
+}
+function handlePptxTpl(e) { const f=e.target.files[0]; if(f) loadPptxTpl(f); e.target.value=''; }
+function loadPptxTpl(file) {
+  const r=new FileReader();
+  r.onload=ev=>{
+    const b64=ev.target.result.split(',')[1];
+    ST.pptxTpl={name:file.name,data:b64,size:file.size};
+    showTplStatus(file.name);
+    if(file.size<4*1024*1024) { try{localStorage.setItem(LS.TPL,JSON.stringify(ST.pptxTpl));}catch(e){} }
+    toast(`✅ 樣板已載入：${file.name}`);
+  };
+  r.readAsDataURL(file);
+}
+function showTplStatus(name) {
+  const s=document.getElementById('pptx-status');
+  const badge=document.getElementById('tpl-badge');
+  const btn=document.getElementById('pptx-clear-btn');
+  if(s){s.textContent=`✅ ${name}`;s.style.color='#4ade80';}
+  if(badge) badge.textContent='✓';
+  if(btn) btn.classList.remove('hidden');
+}
+function clearPptxTpl() {
+  ST.pptxTpl=null;
+  const s=document.getElementById('pptx-status'); if(s){s.textContent='';s.style.color='';}
+  const b=document.getElementById('tpl-badge'); if(b) b.textContent='';
+  const btn=document.getElementById('pptx-clear-btn'); if(btn) btn.classList.add('hidden');
+  try{localStorage.removeItem(LS.TPL);}catch(e){}
+  toast('樣板已移除');
+}
+
+// ══════════════════════════════════════════
+// GENERATE
+// ══════════════════════════════════════════
+async function generatePresentation() {
+  const topic = document.getElementById('topic-input').value.trim();
+  if(!topic) { toast('請輸入簡報主題'); return; }
+  if(!ST.keys.gemini) { toast('❌ 請先在 NOVA 主程式設定 Gemini API Key'); return; }
+  if(ST.generating) return;
+  ST.generating=true; setGenBtn(true); saveCfg();
+  showProgress(5,'分析主題，生成大綱…');
+
+  try {
+    const cnt  = parseInt(document.getElementById('slide-count').value);
+    const lang = document.getElementById('lang-select').value;
+    const gm   = document.getElementById('gemini-model').value;
+    const im   = document.getElementById('img-model').value;
+    const aiImg= document.getElementById('auto-image').checked;
+
+    // 1. Outline
+    const outline = await genOutline(topic, cnt, lang, gm);
+    showProgress(12,`大綱完成，${outline.slides.length} 張，開始生成 HTML…`);
+
+    // 2. Slides
+    ST.slides=[];
+    for(let i=0;i<outline.slides.length;i++) {
+      const pct = 12+Math.round((i/outline.slides.length)*78);
+      showProgress(pct,`第 ${i+1}/${outline.slides.length} 張：${outline.slides[i].title}`);
+      let imgData=null;
+      if(aiImg&&im!=='none') imgData=await getImage(outline.slides[i],im,i,outline.slides.length);
+      const html=await genSlideHTML(outline.slides[i],i,outline.slides.length,ST.logo,imgData,lang,topic,gm,ST.pptxTpl);
+      ST.slides.push({html,title:outline.slides[i].title});
+      renderThumbs();
     }
 
-    // Modal panel
-    const modalList = document.getElementById('modal-history-list');
-    if (modalList) {
-        if (count === 0) {
-            modalList.innerHTML = '<p class="text-slate-500 text-sm text-center py-10">尚無任何生成記錄</p>';
-        } else {
-            modalList.innerHTML = '';
-            history.forEach(entry => {
-                modalList.appendChild(buildHistoryCard(entry, 'modal'));
-            });
-        }
+    showProgress(96,'儲存歷史紀錄…');
+    saveHistory(topic,ST.slides);
+    renderHistory();
+
+    showProgress(100,'完成！');
+    ST.cur=0; renderThumbs(); showSlide(0);
+    setTimeout(hideProgress,1200);
+    toast(`✅ ${ST.slides.length} 張投影片生成完畢`);
+
+  } catch(e) {
+    hideProgress(); toast('❌ 生成失敗：'+e.message); console.error(e);
+  } finally {
+    ST.generating=false; setGenBtn(false);
+  }
+}
+
+// ── OUTLINE ──────────────────────────────
+async function genOutline(topic, cnt, lang, model) {
+  const lname={'zh-TW':'繁體中文','zh-CN':'簡體中文',en:'English',ja:'日本語'}[lang]||'繁體中文';
+  let fCtx='';
+  for(const f of ST.files) {
+    if(f.type.startsWith('text/')||f.type.includes('csv')||f.name.endsWith('.md')) {
+      try{fCtx+=`\n\n📄【${f.name}】\n`+decodeURIComponent(escape(atob(f.data.split(',')[1]))).substring(0,2000);}catch(e){}
     }
+  }
+  const tplNote = ST.pptxTpl ? `\n使用者上傳了 PPTX 樣板「${ST.pptxTpl.name}」，請在 visualStyle 中指定要模仿的 PowerPoint 商務排版風格。` : '';
+
+  const prompt = `你是頂尖簡報設計顧問。為下列主題生成完整簡報大綱，只輸出純 JSON，不含任何說明或 markdown。
+
+主題：${topic}
+語言：${lname}
+張數：${cnt}（第1張封面，最後1張結語）
+${fCtx?'參考資料：'+fCtx:''}${tplNote}
+
+JSON格式（嚴格遵守）：
+{"title":"完整標題","subtitle":"副標題","slides":[{"title":"標題","type":"title|content|data|image|timeline|comparison|twoCol|quote|conclusion","points":["重點1","重點2"],"imageQuery":"English keywords max 5 words","hasChart":false,"chartType":"bar|line|pie|radar|none","chartData":null,"visualStyle":"具體視覺設計描述"}]}
+
+每張 visualStyle 要具體且多樣，確保整套簡報視覺豐富。`;
+
+  const res=await callGemini(prompt,model,null);
+  const clean=res.replace(/```json|```/g,'').trim();
+  try{return JSON.parse(clean);}
+  catch(e){const m=clean.match(/\{[\s\S]*\}/);if(m)return JSON.parse(m[0]);throw new Error('大綱解析失敗');}
 }
 
-function buildHistoryCard(entry, mode) {
-    const card = document.createElement('div');
-    card.className = 'history-card border border-slate-800 rounded-xl p-3 cursor-pointer';
-    const hasHTML = entry.slides?.some(s => s.html && s.html.length > 100);
+// ── SLIDE HTML ───────────────────────────
+async function genSlideHTML(sd, idx, total, logo, imgData, lang, topic, model, pptxTpl) {
+  const logoHTML = logo
+    ? `<div style="position:absolute;bottom:16px;right:20px;z-index:30;pointer-events:none;"><img src="${logo}" style="height:32px;max-width:110px;object-fit:contain;opacity:.85;" alt="logo"></div>`
+    : '';
+  const imgSrc = imgData||'';
+  const tplNote = pptxTpl ? `\n※ 模仿 PowerPoint 商務樣板「${pptxTpl.name}」：清晰標題欄、結構化區塊、乾淨配色。` : '';
 
-    card.innerHTML = `
-        <div class="flex items-start justify-between gap-2">
-            <div class="flex-1 min-w-0">
-                <p class="text-[13px] font-semibold text-slate-200 truncate">${entry.title || '未命名'}</p>
-                <p class="text-[11px] text-slate-500 mt-0.5">${entry.date} · ${entry.slideCount} 張 · ${entry.templateKey || 'modern'}</p>
-            </div>
-            <div class="flex gap-1 shrink-0">
-                <button onclick="loadFromHistory('${entry.id}')" title="載入此記錄"
-                    class="text-[10px] font-bold px-2 py-1 bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 rounded-lg transition-colors">載入</button>
-                ${hasHTML ? `<button onclick="redownloadHTML('${entry.id}')" title="重新下載 HTML"
-                    class="text-[10px] font-bold px-2 py-1 bg-teal-600/20 hover:bg-teal-600/40 text-teal-400 rounded-lg transition-colors">HTML</button>` : ''}
-                <button onclick="deleteHistoryEntry('${entry.id}')" title="刪除此記錄"
-                    class="text-[10px] font-bold px-2 py-1 bg-slate-700 hover:bg-rose-600/30 text-slate-500 hover:text-rose-400 rounded-lg transition-colors">✕</button>
-            </div>
-        </div>
-    `;
-    return card;
+  const prompt = `你是世界頂尖 HTML/CSS 投影片設計師。生成精美 HTML 投影片（從 <html> 到 </html>），品質達商業簡報水準。
+
+【投影片】
+主題：${topic} ｜ ${idx+1}/${total} ｜ 類型：${sd.type}
+標題：${sd.title} ｜ 語言：${lang}
+重點：${JSON.stringify(sd.points||[])}
+圖表：${sd.hasChart?sd.chartType+' '+JSON.stringify(sd.chartData||{}):'無'}
+視覺設計：${sd.visualStyle||'專業商務風'}
+${tplNote}
+
+【圖片資源】
+${imgSrc?`可用，在合適位置嵌入（不可全頁蓋版）：\n<img src="${imgSrc.substring(0,80)}..." style="..." onerror="this.style.display='none'">` :'無圖片 → 用 CSS 幾何圓形、漸層、色塊裝飾'}
+
+${logoHTML?'【Logo 置於 </body> 前】\n'+logoHTML:''}
+
+【技術規格（必須遵守）】
+1. 外層容器：width:1280px; min-height:720px; position:relative; overflow:hidden
+2. 引用 CDN：
+   • Tailwind CSS v2: https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css
+   • Google Fonts: Noto Sans TC, Inter（按需選擇）
+   ${sd.hasChart?'• Chart.js 3.9.1: https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js':''}
+3. 所有內容在 720px 高度內，絕不溢出
+4. <script> 字串內的 </script> 寫成 <\/script>
+5. 只輸出完整 HTML，不含任何說明文字
+
+【設計品質標準】
+• 視覺層次：主標≥48px → 副標≥24px → 內文≥16px
+• 版面飽滿：幾何裝飾元素（圓形、線條、漸層色塊）填充空白
+• 配色：AI 根據主題「${topic}」自主選最合適色系，不使用固定色
+• 整套簡報視覺語言一致
+• ${sd.type==='title'?'封面：震撼大標題、全版背景設計、副標題、日期欄位':''}
+• ${sd.type==='conclusion'?'結語：有力 CTA、行動號召、回呼主題':''}`;
+
+  const imgFiles = ST.files.filter(f=>f.type.startsWith('image/'));
+  const res = await callGemini(prompt, model, imgFiles[0]||null);
+  const m = res.match(/<html[\s\S]*?<\/html>/i);
+  return m ? m[0] : res;
 }
 
-function loadFromHistory(id) {
-    const history = loadRawHistory();
-    const entry   = history.find(e => e.id === id);
-    if (!entry) { showToast('❌ 找不到此記錄'); return; }
+// ══════════════════════════════════════════
+// GEMINI API
+// ══════════════════════════════════════════
+async function callGemini(prompt, model, imgFile) {
+  if(!ST.keys.gemini) throw new Error('Gemini API Key 未設定');
+  const ver = model.includes('preview')||model.startsWith('gemini-3') ? 'v1alpha' : 'v1beta';
+  const url = `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${ST.keys.gemini}`;
 
-    // Restore state
-    AppState.generatedSlides   = entry.slides || [];
-    AppState.presentationData  = { presentation_title: entry.title, slides: entry.slides?.map(s => s.slideData) };
+  let fullPrompt = prompt;
+  for(const f of ST.files) {
+    if((f.type.startsWith('text/')||f.type.includes('csv')||f.name.endsWith('.md'))&&!fullPrompt.includes(f.name)) {
+      try{fullPrompt+=`\n\n【${f.name}】\n`+decodeURIComponent(escape(atob(f.data.split(',')[1]))).substring(0,1500);}catch(e){}
+    }
+  }
 
-    // Re-render preview grid
-    document.getElementById('section-empty').classList.add('hidden');
-    document.getElementById('section-preview').classList.remove('hidden');
-    const grid = document.getElementById('slides-preview-grid');
-    grid.innerHTML = '';
-    entry.slides?.forEach((s, i) => renderSlidePreviewCard(s.slideData || { slide_number: s.slideNumber, title: s.title, layout: s.layout }, s.html, i));
+  const parts=[{text:fullPrompt}];
+  if(imgFile?.data) {
+    const b64=imgFile.data.split(',')[1];
+    parts.push({inlineData:{mimeType:imgFile.mime||'image/jpeg',data:b64}});
+  }
 
-    document.getElementById('preview-slide-count').textContent = `${entry.slides?.length || 0} 張`;
-    document.getElementById('btn-pptx-group').classList.remove('hidden');
-    document.getElementById('btn-pptx-group').classList.add('flex');
-    document.getElementById('btn-save-html').classList.remove('hidden');
-    document.getElementById('btn-save-html').classList.add('flex');
-    document.getElementById('btn-preview-html').classList.remove('hidden');
-    document.getElementById('btn-preview-html').classList.add('flex');
-
-    closeHistoryModal();
-    showToast(`✅ 已載入「${entry.title}」`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const resp = await fetch(url, {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{role:'user',parts}],generationConfig:{temperature:.85,maxOutputTokens:8192}})
+  });
+  const data = await resp.json();
+  if(!resp.ok) throw new Error(data.error?.message||`Gemini API ${resp.status}`);
+  return data.candidates?.[0]?.content?.parts?.filter(p=>p.text).map(p=>p.text).join('')||'';
 }
 
-function redownloadHTML(id) {
-    const history = loadRawHistory();
-    const entry   = history.find(e => e.id === id);
-    if (!entry) return;
-    // Temporarily restore slides for saveAllSlidesAsHTML
-    const backup = AppState.generatedSlides;
-    const backupData = AppState.presentationData;
-    AppState.generatedSlides  = entry.slides || [];
-    AppState.presentationData = { presentation_title: entry.title };
-    saveAllSlidesAsHTML();
-    AppState.generatedSlides  = backup;
-    AppState.presentationData = backupData;
+// ══════════════════════════════════════════
+// IMAGE GENERATION (與 NOVA 相同)
+// ══════════════════════════════════════════
+async function getImage(sd, imModel, idx, total) {
+  const query = sd.imageQuery||sd.title;
+  try {
+    if(imModel==='serpapi')  return await imgSerpApi(query);
+    if(imModel==='unsplash') return await imgUnsplash(query);
+    const ep = await buildImgPrompt(query);
+    if(imModel==='auto') {
+      if(ST.keys.grok) {
+        const a=await imgGrok(ep,'grok-imagine-image-pro'); if(a) return a;
+        const b=await imgGrok(ep,'grok-imagine-image');     if(b) return b;
+      }
+      const c=await imgGemini(ep,'gemini-2.5-flash-image','v1beta');        if(c) return c;
+      const d=await imgGemini(ep,'gemini-3.1-flash-image-preview','v1alpha');if(d) return d;
+      return await imgPicsum(query);
+    }
+    if(imModel.includes('grok'))   return (await imgGrok(ep,imModel))   || await imgPicsum(query);
+    if(imModel.includes('imagen')) return await imgImagen(ep,imModel);
+    if(imModel.includes('image')) {
+      const v=imModel.includes('preview')?'v1alpha':'v1beta';
+      return (await imgGemini(ep,imModel,v)) || await imgPicsum(query);
+    }
+    return await imgPicsum(query);
+  } catch(e) { console.warn('img:',e.message); return null; }
 }
 
-function deleteHistoryEntry(id) {
-    let history = loadRawHistory();
-    history = history.filter(e => e.id !== id);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    renderHistoryPanels();
-    showToast('🗑 已刪除記錄');
-}
-
-function clearAllHistory() {
-    if (!confirm('確定要清除所有生成歷史嗎？')) return;
-    localStorage.removeItem(HISTORY_KEY);
-    renderHistoryPanels();
-    showToast('🗑 已清除所有歷史記錄');
-}
-
-function openHistoryModal() {
-    renderHistoryPanels();
-    document.getElementById('history-modal').classList.add('open');
-}
-
-function closeHistoryModal() {
-    document.getElementById('history-modal').classList.remove('open');
-}
-// ═══════════════════════════════════════════════════════════════════
-async function startGeneration() {
-    if (!AppState.googleApiKey) { showToast('❌ 請設定 Gemini API Key（點右側「設定」）'); return; }
-    const topic = document.getElementById('inp-topic').value.trim();
-    if (!topic) { showToast('❌ 請輸入主題'); return; }
-
-    // State reset
-    AppState.isGenerating = true;
-    AppState.cancelRequested = false;
-    AppState.abortController = new AbortController();
-    AppState.generatedSlides = [];
-
-    // UI reset
-    ['section-empty'].forEach(id => document.getElementById(id).classList.add('hidden'));
-    ['section-progress'].forEach(id => document.getElementById(id).classList.remove('hidden'));
-    document.getElementById('section-preview').classList.add('hidden');
-    document.getElementById('slides-preview-grid').innerHTML = '';
-    document.getElementById('log-container').innerHTML = '';
-    document.getElementById('btn-generate').classList.add('hidden');
-    document.getElementById('btn-stop').classList.remove('hidden');
-    document.getElementById('btn-stop').disabled = false;
-
-    // Hide result buttons safely (they may or may not exist yet)
-    ['btn-pptx-group', 'btn-save-html', 'btn-preview-html'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
+async function buildImgPrompt(q) {
+  if(!ST.keys.gemini) return `Professional business: ${q}`;
+  try {
+    const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${ST.keys.gemini}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({contents:[{role:'user',parts:[{text:`Create a concise English image prompt (max 50 words) for a professional presentation slide about: "${q}". Clean, modern, high quality. Output only the prompt.`}]}],generationConfig:{maxOutputTokens:80,temperature:.5}})
     });
-    setProgress(2);
-
-    const spinner = document.getElementById('progress-spinner');
-    spinner.classList.add('animate-spin');
-    spinner.style.cssText = 'width:20px;height:20px;border:2px solid #8b5cf6;border-top-color:transparent;border-radius:50%;';
-
-    try {
-        // ── Step 1: Extract context from all sources ──────────────
-        addLog('📂 正在讀取附加資料來源...', 'info');
-        const context = await buildContextFromSources();
-        const srcCount = AppState.attachedSources.filter(s => s.content).length;
-        if (srcCount > 0) addLog(`✓ 已整合 ${srcCount} 個資料來源（${context.length.toLocaleString()} 字元）`, 'success');
-        setProgress(8);
-
-        // ── Step 2: Generate outline JSON ────────────────────────
-        addLog('🧠 正在生成簡報大綱...', 'ai');
-        const outlineData = await callGeminiForOutline(topic, context);
-        if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        AppState.presentationData = outlineData;
-        addLog(`✓ 大綱生成完成：「${outlineData.presentation_title}」共 ${outlineData.slides?.length || 0} 張`, 'success');
-        setProgress(15);
-
-        const slides     = outlineData.slides || [];
-        const templateKey = document.getElementById('sel-template').value;
-        const theme       = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-        const imageMode   = document.getElementById('sel-image-mode').value;
-
-        document.getElementById('section-preview').classList.remove('hidden');
-
-        // ── Step 3: Generate each slide ──────────────────────────
-        for (let i = 0; i < slides.length; i++) {
-            if (AppState.cancelRequested) throw new Error('CanceledByUser');
-
-            const sData = slides[i];
-            addLog(`🎨 第 ${sData.slide_number}/${slides.length} 頁：${sData.title}`, 'info');
-
-            // 3a: Generate image if needed
-            let imageB64 = null;
-            const wantsImage = sData.layout === 'text_and_image';
-            const forceImage = imageMode === 'all' && !['title_only','diagram_slide'].includes(sData.layout);
-
-            if ((wantsImage || forceImage) && imageMode !== 'none') {
-                try {
-                    const ctx = [
-                        `Slide Title: ${sData.title}`,
-                        `Content: ${(sData.bullet_points || []).join('; ')}`,
-                        `Focus: ${sData.image_prompt || ''}`
-                    ].join('\n');
-                    imageB64 = await generateImage(ctx, sData.slide_number);
-                } catch(e) {
-                    if (e.message === 'CanceledByUser') throw e;
-                    addLog(`⚠ 第 ${sData.slide_number} 頁配圖失敗，繼續生成 HTML`, 'warning');
-                }
-            }
-
-            // 3b: Generate HTML/CSS for this slide
-            let html;
-            try {
-                html = await generateSlideHTML(sData, theme, imageB64);
-                addLog(`✓ 第 ${sData.slide_number} 頁 HTML 生成完成`, 'success');
-            } catch(e) {
-                if (e.message === 'CanceledByUser') throw e;
-                addLog(`⚠ 第 ${sData.slide_number} 頁 HTML 生成失敗，使用備用模板`, 'warning');
-                html = buildFallbackSlideHTML(sData, theme);
-            }
-
-            AppState.generatedSlides.push({
-                slideNumber: sData.slide_number,
-                title: sData.title,
-                layout: sData.layout,
-                slideData: sData,   // ← keep outline for editable PPTX
-                html
-            });
-            renderSlidePreviewCard(sData, html, i);
-
-            const pct = 15 + ((i + 1) / slides.length) * 80;
-            setProgress(pct);
-            document.getElementById('preview-slide-count').textContent =
-                `${i + 1} / ${slides.length} 頁`;
-        }
-
-        // ── Done ─────────────────────────────────────────────────
-        setProgress(100);
-        spinner.classList.remove('animate-spin');
-        spinner.style.cssText = 'width:20px;height:20px;border:2px solid #10b981;border-radius:50%;';
-
-        document.getElementById('btn-pptx-group').classList.remove('hidden');
-        document.getElementById('btn-pptx-group').classList.add('flex');
-        document.getElementById('btn-save-html').classList.remove('hidden');
-        document.getElementById('btn-save-html').classList.add('flex');
-        document.getElementById('btn-preview-html').classList.remove('hidden');
-        document.getElementById('btn-preview-html').classList.add('flex');
-        document.getElementById('btn-generate').classList.remove('hidden');
-
-        addLog(`🎉 完成！共 ${AppState.generatedSlides.length} 張 HTML 投影片。可預覽或下載 PPTX。`, 'success');
-        showToast(`✅ ${AppState.generatedSlides.length} 張投影片生成完成！`);
-
-        // Auto-save to history
-        saveToHistory();
-
-    } catch(e) {
-        if (e.message === 'CanceledByUser' || e.name === 'AbortError') {
-            addLog('⛔ 生成已由使用者中斷', 'warning');
-            showToast('⛔ 生成已中斷');
-            spinner.style.cssText = 'width:20px;height:20px;border:2px solid #f59e0b;border-radius:50%;';
-        } else {
-            addLog(`❌ 錯誤: ${e.message}`, 'error');
-            addLog(`  → 請開啟瀏覽器 Console（F12）查看詳細錯誤`, 'error');
-            console.error('[AI Slide Generator]', e);
-            showToast('❌ 生成發生錯誤，請查看 Console');
-            spinner.style.cssText = 'width:20px;height:20px;border:2px solid #ef4444;border-radius:50%;';
-        }
-        spinner.classList.remove('animate-spin');
-        document.getElementById('btn-generate').classList.remove('hidden');
-    } finally {
-        AppState.isGenerating = false;
-        const stopBtn = document.getElementById('btn-stop');
-        if (stopBtn) { stopBtn.classList.add('hidden'); stopBtn.querySelector('span').textContent = '停止生成'; }
-    }
+    const d=await r.json();
+    return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim()||`Professional: ${q}`;
+  } catch { return `Professional business illustration: ${q}`; }
 }
+
+async function imgGrok(prompt, model) {
+  if(!ST.keys.grok) return null;
+  try {
+    const r=await Promise.race([
+      fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG)}`,{
+        method:'POST',
+        headers:{'Authorization':`Bearer ${ST.keys.grok}`,'Content-Type':'application/json'},
+        body:JSON.stringify({model,prompt,response_format:'b64_json'})
+      }),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),28000))
+    ]);
+    if(!r.ok) return null;
+    const d=await r.json(); const item=d.data?.[0];
+    return item?.b64_json ? `data:image/png;base64,${item.b64_json}` : item?.url||null;
+  } catch { return null; }
+}
+
+async function imgGemini(prompt, model, ver) {
+  if(!ST.keys.gemini) return null;
+  try {
+    const r=await Promise.race([
+      fetch(`https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${ST.keys.gemini}`,{
+        method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{role:'user',parts:[{text:prompt}]}],generationConfig:{responseModalities:['TEXT','IMAGE']}})
+      }),
+      new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),28000))
+    ]);
+    if(!r.ok) return null;
+    const d=await r.json();
+    const p=d.candidates?.[0]?.content?.parts?.find(x=>x.inlineData?.mimeType?.startsWith('image/'));
+    return p?.inlineData?.data ? `data:${p.inlineData.mimeType};base64,${p.inlineData.data}` : null;
+  } catch { return null; }
+}
+
+async function imgImagen(prompt, model) {
+  if(!ST.keys.gemini) return null;
+  try {
+    const ver=model.includes('4.0')?'v1alpha':'v1beta';
+    const r=await fetch(`https://generativelanguage.googleapis.com/${ver}/models/${model}:predict?key=${ST.keys.gemini}`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({instances:[{prompt}],parameters:{sampleCount:1}})
+    });
+    if(!r.ok) return null;
+    const d=await r.json();
+    const b64=d.predictions?.[0]?.bytesBase64Encoded;
+    return b64 ? `data:image/png;base64,${b64}` : null;
+  } catch { return null; }
+}
+
+// SerpApi 使用專屬 Proxy 避免 CORS
+async function imgSerpApi(query) {
+  if(!ST.keys.serpapi) return await imgUnsplash(query);
+  const cacheKey='si_'+query;
+  if(ST.imgCache[cacheKey]) return ST.imgCache[cacheKey];
+  try {
+    const url=`${SERP_PROXY}?q=${encodeURIComponent(query)}&tbm=isch&num=5&api_key=${ST.keys.serpapi}`;
+    const r=await fetch(url,{signal:AbortSignal.timeout(10000)});
+    if(!r.ok) throw new Error('SerpApi proxy error '+r.status);
+    const d=await r.json();
+    const imgUrl=d.images_results?.[0]?.original;
+    if(imgUrl){ST.imgCache[cacheKey]=imgUrl; return imgUrl;}
+  } catch(e){console.warn('SerpApi:',e.message);}
+  return await imgUnsplash(query);
+}
+
+async function imgUnsplash(query) {
+  try{const r=await fetch(`https://source.unsplash.com/1280x720/?${encodeURIComponent(query)}`,{signal:AbortSignal.timeout(8000)});return r.url;}catch{return null;}
+}
+async function imgPicsum(query) {
+  try{
+    const seed=encodeURIComponent(query.replace(/\s+/g,'-').substring(0,40));
+    const r=await fetch(`https://picsum.photos/seed/${seed}/1280/720`);
+    const blob=await r.blob();
+    return await new Promise(res=>{const fr=new FileReader();fr.onloadend=()=>res(fr.result);fr.readAsDataURL(blob);});
+  }catch{return null;}
+}
+
+// ══════════════════════════════════════════
+// IMAGE SEARCH PANEL (也用 SERP_PROXY)
+// ══════════════════════════════════════════
+function toggleImgPanel() { document.getElementById('img-panel').classList.toggle('hidden'); }
+
+async function searchImages() {
+  const query=document.getElementById('img-search-input').value.trim(); if(!query) return;
+  const el=document.getElementById('img-results');
+  el.innerHTML='<div class="text-center py-6"><div class="dot-pulse justify-center"><span></span><span></span><span></span></div><p class="text-xs text-slate-500 mt-2">搜尋中…</p></div>';
+  let images=[];
+  try {
+    if(ST.keys.serpapi) {
+      const url=`${SERP_PROXY}?q=${encodeURIComponent(query)}&tbm=isch&num=12&api_key=${ST.keys.serpapi}`;
+      const r=await fetch(url,{signal:AbortSignal.timeout(12000)});
+      if(r.ok){const d=await r.json();images=(d.images_results||[]).map(i=>({url:i.original||i.thumbnail,thumb:i.thumbnail||i.original,title:i.title||query}));}
+    }
+    if(!images.length){
+      images=[query,query+' background',query+' professional',query+' concept',query+' modern'].map(kw=>({
+        url:`https://source.unsplash.com/800x600/?${encodeURIComponent(kw)}`,
+        thumb:`https://source.unsplash.com/400x300/?${encodeURIComponent(kw)}`,title:kw
+      }));
+    }
+    el.innerHTML=`<div class="grid grid-cols-2 gap-2">${images.map(img=>`
+      <div class="img-result-card" onclick="insertImageToSlide('${img.url.replace(/'/g,"\\'")}')">
+        <img src="${img.thumb||img.url}" class="w-full h-full object-cover" loading="lazy"
+             onerror="this.parentElement.style.display='none'">
+      </div>`).join('')}</div>`;
+  } catch(e) {
+    el.innerHTML=`<p class="text-xs text-red-400 text-center py-4">搜尋失敗：${e.message}</p>`;
+  }
+}
+
+function insertImageToSlide(url) {
+  if(!ST.slides.length){toast('請先生成簡報');return;}
+  ST.slides[ST.cur].html=ST.slides[ST.cur].html.replace('</body>',
+    `<div style="position:absolute;bottom:20px;left:20px;z-index:15;max-width:280px;border-radius:10px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,.4)"><img src="${url}" style="width:100%;display:block;" onerror="this.parentElement.remove()"></div></body>`);
+  showSlide(ST.cur); renderThumbs(); toast('圖片已插入');
+}
+
+// ══════════════════════════════════════════
+// SLIDE RENDER & NAV
+// ══════════════════════════════════════════
+function renderThumbs() {
+  const el=document.getElementById('thumbs-container');
+  document.getElementById('slide-count-label').textContent=`${ST.slides.length} 張投影片`;
+  if(!ST.slides.length){
+    el.innerHTML='<div class="text-center py-8 text-slate-600"><i class="ph-bold ph-presentation-chart text-3xl mb-2 block"></i><p class="text-xs">輸入主題後點擊<br>「AI 生成簡報」</p></div>';
+    return;
+  }
+  el.innerHTML=ST.slides.map((s,i)=>`
+    <div class="slide-thumb ${i===ST.cur?'active':''}" onclick="showSlide(${i})" id="thumb-${i}">
+      <div class="relative">
+        <div class="absolute top-1 left-1 z-10 bg-black/60 text-white text-[8px] px-1 rounded font-bold">${i+1}</div>
+        <iframe srcdoc="${escHtml(s.html)}" scrolling="no" title="slide ${i+1}" loading="lazy"></iframe>
+      </div>
+      <div class="text-center text-[9px] text-slate-600 py-1 px-1 bg-slate-800 truncate">${s.title||'投影片'+(i+1)}</div>
+    </div>`).join('');
+}
+
+function showSlide(idx) {
+  if(idx<0||idx>=ST.slides.length) return;
+  ST.cur=idx;
+  document.querySelectorAll('.slide-thumb').forEach((el,i)=>el.classList.toggle('active',i===idx));
+  const iframe=document.getElementById('slide-preview');
+  const ph=document.querySelector('#slide-preview-container .absolute');
+  iframe.classList.remove('hidden');
+  if(ph) ph.style.display='none';
+  iframe.srcdoc=ST.slides[idx].html;
+  document.getElementById('slide-nav-label').textContent=`${idx+1} / ${ST.slides.length}`;
+  const container=document.getElementById('slide-preview-container');
+  const scale=container.offsetWidth/1280;
+  iframe.style.transform=`scale(${scale})`;
+  iframe.style.transformOrigin='top left';
+  container.style.height=`${720*scale}px`;
+  const thumb=document.getElementById(`thumb-${idx}`);
+  if(thumb) thumb.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function prevSlide(){if(ST.cur>0) showSlide(ST.cur-1);}
+function nextSlide(){if(ST.cur<ST.slides.length-1) showSlide(ST.cur+1);}
+
+function setupPreviewResize(){
+  const update=()=>{
+    const c=document.getElementById('slide-preview-container');if(!c)return;
+    const w=c.offsetWidth; const scale=w/1280;
+    const iframe=document.getElementById('slide-preview');
+    if(iframe&&!iframe.classList.contains('hidden')){iframe.style.transform=`scale(${scale})`;c.style.height=`${720*scale}px`;}
+  };
+  window.addEventListener('resize',update); setTimeout(update,100);
+}
+
+function setupKeyboard(){
+  document.addEventListener('keydown',e=>{
+    if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+    if(e.key==='ArrowRight'||e.key==='ArrowDown') nextSlide();
+    if(e.key==='ArrowLeft' ||e.key==='ArrowUp')   prevSlide();
+    if(e.key==='Escape') closeEditModal();
+  });
+}
+
+// ══════════════════════════════════════════
+// SLIDE MANAGEMENT
+// ══════════════════════════════════════════
+function addSlide(){
+  ST.slides.splice(ST.cur+1,0,{
+    html:`<html lang="zh-TW"><head><meta charset="UTF-8"><link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet"></head><body><div style="width:1280px;min-height:720px;background:linear-gradient(135deg,#1e1b4b,#0f172a);display:flex;align-items:center;justify-content:center;"><h1 style="font-size:3.5rem;font-weight:700;color:#818cf8;font-family:Inter,sans-serif;">新增投影片</h1></div></body></html>`,
+    title:'新增投影片'
+  });
+  renderThumbs(); showSlide(ST.cur+1);
+}
+
+function deleteCurrentSlide(){
+  if(ST.slides.length<=1){toast('至少保留一張');return;}
+  if(!confirm('確定刪除此投影片？'))return;
+  ST.slides.splice(ST.cur,1);
+  if(ST.cur>=ST.slides.length) ST.cur=ST.slides.length-1;
+  renderThumbs(); showSlide(ST.cur);
+}
+
+async function regenerateCurrentSlide(){
+  if(!ST.slides.length||!ST.keys.gemini){toast('請先生成簡報');return;}
+  const topic=document.getElementById('topic-input').value.trim()||ST.slides[ST.cur].title;
+  const gm=document.getElementById('gemini-model').value;
+  const im=document.getElementById('img-model').value;
+  const sd={title:ST.slides[ST.cur].title,type:'content',points:[],imageQuery:ST.slides[ST.cur].title,visualStyle:'保持與整套簡報一致的視覺語言',hasChart:false};
+  toast('重新生成中…');
+  try{
+    let imgData=null;
+    if(document.getElementById('auto-image').checked&&im!=='none') imgData=await getImage(sd,im,ST.cur,ST.slides.length);
+    const html=await genSlideHTML(sd,ST.cur,ST.slides.length,ST.logo,imgData,document.getElementById('lang-select').value,topic,gm,ST.pptxTpl);
+    ST.slides[ST.cur].html=html; renderThumbs(); showSlide(ST.cur); toast('✅ 重生成完成');
+  }catch(e){toast('❌ '+e.message);}
+}
+
+// ══════════════════════════════════════════
+// EDIT
+// ══════════════════════════════════════════
+function editCurrentSlide(){
+  if(!ST.slides.length)return;
+  document.getElementById('edit-code').value=ST.slides[ST.cur].html;
+  previewEditedSlide();
+  document.getElementById('edit-modal').classList.remove('hidden');
+}
+function closeEditModal(){document.getElementById('edit-modal').classList.add('hidden');}
+function previewEditedSlide(){document.getElementById('edit-preview-frame').srcdoc=document.getElementById('edit-code').value;}
+function saveEditedSlide(){
+  ST.slides[ST.cur].html=document.getElementById('edit-code').value;
+  renderThumbs(); showSlide(ST.cur); closeEditModal(); toast('✅ 投影片已更新');
+}
+
+// ══════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════
+async function exportHTML(){
+  if(!ST.slides.length){toast('請先生成簡報');return;}
+  const topic=document.getElementById('topic-input').value.trim()||'Presentation';
+  const combined=ST.slides.map((s,i)=>`<!-- Slide ${i+1}: ${s.title} -->\n${s.html}`).join('\n\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([combined],{type:'text/html'}));
+  a.download=`${topic.replace(/\s+/g,'_')}_slides.html`;
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  toast('HTML 下載中…');
+}
+
+async function exportPPTX(){
+  if(!ST.slides.length){toast('請先生成簡報');return;}
+  const topic=document.getElementById('topic-input').value.trim()||'Nova_Presentation';
+  showProgress(0,'準備匯出 PPTX…');
+  try{
+    const pptx=new PptxGenJS();
+    pptx.layout='LAYOUT_16x9'; pptx.author='Nova 簡報生成器';
+    pptx.subject=topic; pptx.company='Nova AI Studio';
+
+    for(let i=0;i<ST.slides.length;i++){
+      showProgress(Math.round((i/ST.slides.length)*85),`匯出第 ${i+1}/${ST.slides.length} 張…`);
+      const ps=pptx.addSlide();
+      const {title,html}=ST.slides[i];
+
+      // Try html2canvas
+      let captured=false;
+      try{
+        const imgData=await captureSlide(html);
+        if(imgData){ps.addImage({data:imgData,x:0,y:0,w:10,h:5.625});captured=true;}
+      }catch(e){}
+
+      if(!captured){
+        // Fallback: structured slide
+        const imgM=html.match(/src="(data:image\/[^"]{50,}?)"/);
+        const imgD=imgM?.[1];
+        if(imgD){try{ps.addImage({data:imgD,x:0,y:0,w:10,h:5.625});}catch(e){}
+          ps.addShape(pptx.ShapeType.rect,{x:0,y:0,w:10,h:5.625,fill:{color:'000000',transparency:42}});}
+        else{ps.background={color:'0F172A'};}
+        ps.addShape(pptx.ShapeType.rect,{x:0,y:0,w:10,h:.07,fill:{color:'6366F1'}});
+        if(title){const fs=title.length>30?22:title.length>20?26:30;
+          ps.addText(title,{x:.4,y:.2,w:9.2,h:1,fontSize:fs,bold:true,color:imgD?'FFFFFF':'E2E8F0'});}
+        const dom=new DOMParser().parseFromString(html,'text/html');
+        const nodes=Array.from(dom.querySelectorAll('li,p')).filter(n=>n.textContent.trim().length>3&&n.textContent.trim().length<200).slice(0,8);
+        if(nodes.length){
+          const bdata=nodes.map((n,j)=>({text:(n.tagName==='LI'?'▸ ':'')+n.textContent.trim().substring(0,120),
+            options:{fontSize:nodes.length>5?13:15,color:imgD?'E2E8F0':'94A3B8',breakLine:j<nodes.length-1,paraSpaceBefore:5}}));
+          ps.addText(bdata,{x:.4,y:1.35,w:9.2,h:4,align:'left',valign:'top',lineSpacing:22,wrap:true});
+        }
+        ps.addText(`${i+1} / ${ST.slides.length}`,{x:8.2,y:5.55,w:1.8,h:.25,fontSize:9,color:'475569',align:'right'});
+        ps.addText(topic.substring(0,45),{x:.4,y:5.55,w:6,h:.25,fontSize:9,color:'475569'});
+        if(ST.logo){try{ps.addImage({data:ST.logo,x:.3,y:5.15,w:1.5,h:.38,sizing:{type:'contain',w:1.5,h:.38}});}catch(e){}}
+      }
+    }
+
+    showProgress(98,'封裝…');
+    await pptx.writeFile({fileName:`${topic.replace(/[\\/:"*?<>|]/g,'_')}_${Date.now()}.pptx`});
+    hideProgress(); toast('✅ PPTX 下載成功！');
+  }catch(e){hideProgress();toast('❌ PPTX 失敗：'+e.message);console.error(e);}
+}
+
+async function captureSlide(html){
+  return new Promise(resolve=>{
+    const iframe=document.createElement('iframe');
+    iframe.style.cssText='position:fixed;left:-9999px;top:-9999px;width:1280px;height:720px;border:none;opacity:0;';
+    document.body.appendChild(iframe);
+    const cleanup=()=>{try{document.body.removeChild(iframe);}catch(e){}};
+    iframe.onload=async()=>{
+      await new Promise(r=>setTimeout(r,800));
+      try{
+        if(typeof html2canvas!=='undefined'&&iframe.contentDocument?.body){
+          const canvas=await html2canvas(iframe.contentDocument.body,{width:1280,height:720,scale:1,useCORS:true,allowTaint:true,logging:false,backgroundColor:'#ffffff'});
+          cleanup(); resolve(canvas.toDataURL('image/jpeg',.92));
+        }else{cleanup();resolve(null);}
+      }catch(e){cleanup();resolve(null);}
+    };
+    iframe.srcdoc=html;
+    setTimeout(()=>{cleanup();resolve(null);},8000);
+  });
+}
+
+// ══════════════════════════════════════════
+// HISTORY
+// ══════════════════════════════════════════
+function saveHistory(topic, slides){
+  const entry={id:Date.now().toString(),topic,slideCount:slides.length,
+               slides:slides.map(s=>({html:s.html,title:s.title})),ts:Date.now()};
+  ST.history.unshift(entry);
+  if(ST.history.length>20) ST.history.pop();
+  try{localStorage.setItem(LS.HIST,JSON.stringify(ST.history));}
+  catch(e){
+    // Storage full → save without HTML
+    const lite=ST.history.map(h=>({...h,slides:undefined}));
+    try{localStorage.setItem(LS.HIST,JSON.stringify(lite));}catch(e2){}
+    toast('⚠️ 儲存空間不足，僅儲存歷史索引');
+  }
+}
+
+function renderHistory(){
+  const el=document.getElementById('s-hist');
+  const cnt=document.getElementById('hist-count');
+  if(cnt) cnt.textContent=ST.history.length?`(${ST.history.length})`:'';
+  if(!ST.history.length){
+    el.innerHTML='<p class="text-[11px] text-slate-600 text-center py-3">生成後自動儲存</p>'; return;
+  }
+  el.innerHTML=ST.history.map(h=>`
+    <div class="hist-card" onclick="loadHistory('${h.id}')">
+      <div class="flex items-start gap-1">
+        <p class="text-[11px] text-slate-300 font-medium flex-1 leading-tight"
+           style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">${h.topic}</p>
+        <button onclick="event.stopPropagation();deleteHistory('${h.id}')"
+                class="text-slate-500 hover:text-red-400 text-xs flex-shrink-0 ml-1"><i class="ph-bold ph-x"></i></button>
+      </div>
+      <div class="flex items-center gap-2 mt-1.5">
+        <span class="text-[10px] text-slate-600"><i class="ph-bold ph-presentation-chart"></i> ${h.slideCount||'?'}張</span>
+        <span class="text-[10px] text-slate-600">${fmtTs(h.ts)}</span>
+        ${h.slides?'':'<span class="text-[9px] text-slate-700">（無法載入）</span>'}
+      </div>
+    </div>`).join('');
+}
+
+function loadHistory(id){
+  const e=ST.history.find(h=>h.id===id);
+  if(!e?.slides?.length){toast('此紀錄無法載入（HTML 未儲存）');return;}
+  ST.slides=e.slides.map(s=>({...s}));
+  document.getElementById('topic-input').value=e.topic;
+  ST.cur=0; renderThumbs(); showSlide(0);
+  toast(`✅ 已載入「${e.topic}」`);
+}
+
+function deleteHistory(id){
+  ST.history=ST.history.filter(h=>h.id!==id);
+  try{localStorage.setItem(LS.HIST,JSON.stringify(ST.history));}catch(e){}
+  renderHistory();
+}
+
+function clearAllHistory(){
+  if(!confirm('清除所有歷史紀錄？'))return;
+  ST.history=[]; try{localStorage.removeItem(LS.HIST);}catch(e){}
+  renderHistory(); toast('已清除');
+}
+
+function fmtTs(ts){const d=new Date(ts);return`${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;}
+
+// ══════════════════════════════════════════
+// UI HELPERS
+// ══════════════════════════════════════════
+function showProgress(pct,msg){
+  document.getElementById('progress-container').classList.remove('hidden');
+  document.getElementById('progress-text').textContent=msg;
+  document.getElementById('progress-pct').textContent=`${pct}%`;
+  document.getElementById('progress-fill').style.width=`${pct}%`;
+}
+function hideProgress(){document.getElementById('progress-container').classList.add('hidden');}
+
+function setGenBtn(loading){
+  const btn=document.getElementById('gen-btn');
+  btn.disabled=loading;
+  btn.innerHTML=loading
+    ?'<div class="dot-pulse"><span></span><span></span><span></span></div><span class="ml-1">生成中…</span>'
+    :'<i class="ph-bold ph-magic-wand"></i><span>AI 生成簡報</span>';
+  btn.classList.toggle('opacity-70',loading);
+}
+
+let _tt;
+function toast(msg){
+  const el=document.getElementById('toast'); el.textContent=msg; el.classList.add('show');
+  clearTimeout(_tt); _tt=setTimeout(()=>el.classList.remove('show'),3200);
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 </script>
 </body>
 </html>
