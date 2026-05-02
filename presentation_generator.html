@@ -438,10 +438,6 @@ const AppState = {
     abortController: null
 };
 
-// ─── PRESERVED CONSTANTS ────────────────────────────────────────────
-const GROK_PROXY   = 'https://grokcaller.kirishimatoka00.workers.dev/';
-const GROK_IMG_API = 'https://api.x.ai/v1/images/generations';
-
 // ─── THEME DEFINITIONS ──────────────────────────────────────────────
 const HTML_THEMES = {
     modern: {
@@ -796,11 +792,11 @@ async function buildContextFromSources() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// API HELPERS  ── PRESERVED FROM ORIGINAL ──
+// API HELPERS
 // ═══════════════════════════════════════════════════════════════════
 const GROK_PROXY      = 'https://grokcaller.kirishimatoka00.workers.dev/';
 const GROK_CHAT_API   = 'https://api.x.ai/v1/chat/completions';
-const GROK_IMG_API_URL = 'https://api.x.ai/v1/images/generations';
+const GROK_IMG_API    = 'https://api.x.ai/v1/images/generations';   // kept for generateImage()
 const SERP_PROXY      = 'https://serpapi.kirishimatoka00.workers.dev/';
 const SERP_API_BASE   = 'https://serpapi.com/search.json';
 
