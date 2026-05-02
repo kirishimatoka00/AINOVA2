@@ -100,7 +100,7 @@
                     </button>
                     <button onclick="downloadPptx('editable');togglePptxMenu()" class="w-full flex items-center gap-3 px-4 py-3 text-xs text-slate-200 hover:bg-slate-700 transition-colors">
                         <i class="ph-fill ph-pencil text-amber-400"></i>
-                        <div class="text-left"><div class="font-semibold">可編輯 PPTX</div><div class="text-slate-500">保留文字方塊與圖檔</div></div>
+                        <div class="text-left"><div class="font-semibold">可編輯 PPTX</div><div class="text-slate-500">文字/形狀可在 PPT 編輯</div></div>
                     </button>
                 </div>
             </div>
@@ -156,6 +156,7 @@
             </button>
             <div id="panel-sources" class="panel-body open">
                 <div class="px-4 pb-4 space-y-3 text-xs">
+                    <!-- File Drop Zone -->
                     <div id="file-drop-zone" class="drop-zone rounded-xl p-4 text-center cursor-pointer select-none"
                         onclick="document.getElementById('file-input').click()"
                         ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
@@ -164,6 +165,7 @@
                         <p class="text-slate-600 mt-1">TXT · PDF · DOCX · XLSX · PPTX · CSV</p>
                         <input type="file" id="file-input" multiple accept=".txt,.md,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv" class="hidden" onchange="handleFileSelect(event)">
                     </div>
+                    <!-- URL Input -->
                     <div class="flex gap-2">
                         <input type="text" id="url-input" placeholder="貼入網頁連結或 YouTube URL..."
                             class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-[11px] outline-none focus:border-sky-500 transition-colors"
@@ -172,6 +174,7 @@
                             <i class="ph-bold ph-plus"></i>
                         </button>
                     </div>
+                    <!-- Sources List -->
                     <div id="sources-list" class="space-y-2 max-h-52 overflow-y-auto"></div>
                     <p id="no-sources-hint" class="text-slate-600 text-center py-2">尚未附加任何資料來源</p>
                 </div>
@@ -207,33 +210,7 @@
                         </select>
                     </div>
 
-                    <div class="border-t border-slate-800 pt-3">
-                        <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格</label>
-                        <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                            <option value="modern">現代極簡 (Modern Dark)</option>
-                            <option value="tech">科技未來 (Tech Cyber)</option>
-                            <option value="corporate">商務專業 (Corporate Blue)</option>
-                            <option value="creative">活潑創意 (Creative Vivid)</option>
-                            <option value="elegant">高雅精緻 (Elegant Light)</option>
-                            <option value="pure_white">純白底 (Pure White)</option>
-                        </select>
-                    </div>
-                    
                     <div>
-                        <label class="block text-slate-400 mb-1.5 font-semibold">自訂投影片底板 (16:9 背景)</label>
-                        <div class="flex items-center gap-2">
-                            <button onclick="document.getElementById('bg-upload').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2 text-slate-300 transition-colors">上傳圖片</button>
-                            <input type="text" id="bg-url" placeholder="或輸入圖片網址..." class="flex-1 bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 outline-none focus:border-amber-500" onchange="handleBgUrl(this.value)">
-                            <input type="file" id="bg-upload" accept="image/*" class="hidden" onchange="handleBgUpload(event)">
-                        </div>
-                        <div id="bg-preview-wrapper" class="hidden mt-2 relative inline-block">
-                            <img id="bg-preview" class="h-10 object-cover rounded border border-slate-700 w-20">
-                            <button onclick="removeBg()" class="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">&times;</button>
-                        </div>
-                        <p class="text-slate-500 text-[10px] mt-1.5">將自動置於最底層，轉 PPTX 時也會保留。</p>
-                    </div>
-
-                    <div class="border-t border-slate-800 pt-3">
                         <label class="block text-slate-400 mb-1.5 font-semibold">首選配圖模型 (Image)</label>
                         <select id="sel-img-model" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                             <option value="grok-imagine-image-pro">Grok Imagine Image Pro (推薦)</option>
@@ -245,15 +222,27 @@
                     </div>
 
                     <div class="border-t border-slate-800 pt-3">
+                        <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格</label>
+                        <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
+                            <option value="modern">現代極簡 (Modern Dark)</option>
+                            <option value="tech">科技未來 (Tech Cyber)</option>
+                            <option value="corporate">商務專業 (Corporate Blue)</option>
+                            <option value="creative">活潑創意 (Creative Vivid)</option>
+                            <option value="elegant">高雅精緻 (Elegant Light)</option>
+                            <option value="white">純白底 (Pure White) ☁</option>
+                        </select>
+                    </div>
+
+                    <div>
                         <label class="block text-slate-400 mb-1.5 font-semibold">AI 圖片插入模式</label>
                         <select id="sel-image-mode" onchange="updateImageModeHint()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                             <optgroup label="── AI 生成 ──">
                                 <option value="auto">🤖 自動判斷（AI 決定哪頁需要圖片）</option>
                                 <option value="all">🤖 強制每張都插入 AI 生成圖片</option>
-                                <option value="none">🚫 不插入圖片（純設計）</option>
+                                <option value="none">🚫 不插入圖片（純 HTML/CSS）</option>
                             </optgroup>
                             <optgroup label="── SerpAPI 搜尋圖片 ──">
-                                <option value="serp_only">🔍 純 SerpAPI 搜尋圖片（供選）</option>
+                                <option value="serp_only">🔍 純 SerpAPI 搜尋圖片（20 張供選）</option>
                                 <option value="serp_primary">🔍 SerpAPI 為主 + AI 生成輔助</option>
                                 <option value="serp_mixed">🔀 SerpAPI 搜尋 + AI 生成混合</option>
                             </optgroup>
@@ -276,6 +265,27 @@
                         <div id="logo-preview-wrapper" class="hidden mt-2 relative inline-block">
                             <img id="logo-preview" class="h-10 object-contain bg-white/10 rounded p-1">
                             <button onclick="removeLogo()" class="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">&times;</button>
+                        </div>
+                    </div>
+
+                    <!-- PPT Background Template -->
+                    <div class="border-t border-slate-800 pt-3">
+                        <label class="block text-slate-400 mb-1.5 font-semibold flex items-center gap-1.5">
+                            <i class="ph-fill ph-image-square text-rose-400"></i>
+                            PPT 底稿背景
+                            <span class="text-slate-600 font-normal">（16:9 圖片）</span>
+                        </label>
+                        <p class="text-slate-600 mb-2 leading-relaxed">上傳後將覆蓋視覺風格設定，同步套用於 HTML 及 PPTX</p>
+                        <div class="flex items-center gap-2">
+                            <button onclick="document.getElementById('bg-template-upload').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2 text-slate-300 transition-colors text-center">
+                                <i class="ph-bold ph-upload-simple mr-1"></i>上傳底稿
+                            </button>
+                            <input type="file" id="bg-template-upload" accept="image/*" class="hidden" onchange="handleBgTemplateUpload(event)">
+                        </div>
+                        <div id="bg-template-preview-wrapper" class="hidden mt-2 relative">
+                            <img id="bg-template-preview" class="w-full rounded-lg object-cover" style="aspect-ratio:16/9;">
+                            <button onclick="removeBgTemplate()" class="absolute top-1 right-1 bg-rose-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold">×</button>
+                            <div class="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1.5 py-0.5 rounded">底稿已設定 ✓</div>
                         </div>
                     </div>
 
@@ -366,11 +376,11 @@
                 </div>
                 <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
                     <i class="ph-fill ph-code text-amber-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">LLM 生成<br>互動式投影片</p>
+                    <p class="text-[11px] text-slate-400 leading-tight">LLM 生成<br>HTML/CSS 投影片</p>
                 </div>
                 <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
                     <i class="ph-fill ph-file-ppt text-violet-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">一鍵轉換<br>可編輯 PPTX</p>
+                    <p class="text-[11px] text-slate-400 leading-tight">一鍵轉換<br>PPTX 下載</p>
                 </div>
             </div>
         </div>
@@ -399,11 +409,14 @@
                 </button>
             </div>
         </div>
+        <!-- Loading state -->
         <div id="img-picker-loading" class="flex flex-col items-center justify-center py-16 gap-3">
             <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
             <p class="text-slate-400 text-sm">搜尋相關圖片中...</p>
         </div>
+        <!-- Grid -->
         <div id="img-picker-grid" class="hidden flex-1 overflow-y-auto p-4 grid grid-cols-4 gap-3"></div>
+        <!-- Error -->
         <div id="img-picker-error" class="hidden flex-col items-center justify-center py-12 gap-3 text-center px-8">
             <i class="ph-bold ph-warning text-amber-400 text-3xl"></i>
             <p class="text-slate-300 text-sm font-semibold" id="img-picker-error-msg">搜尋失敗</p>
@@ -446,7 +459,7 @@ const AppState = {
     googleApiKey: '', xaiApiKey: '', serpApiKey: '', gasUrl: '',
     attachedSources: [],      
     logoBase64: null,
-    bgBase64: null,           // 儲存自訂底圖 Base64
+    bgTemplateBase64: null,   // uploaded 16:9 slide background image
     generatedSlides: [],      
     presentationData: null,
     isGenerating: false,
@@ -460,37 +473,37 @@ const HTML_THEMES = {
         label: '現代極簡 (Modern Dark)',
         bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
         titleColor: '#f8fafc', accent: '#818cf8', text: '#cbd5e1',
-        card: 'rgba(30,41,59,0.85)'
+        muted: '#475569', card: 'rgba(30,41,59,0.85)', border: 'rgba(99,102,241,0.35)'
     },
     tech: {
         label: '科技未來 (Tech Cyber)',
         bg: 'linear-gradient(135deg, #020617 0%, #082844 50%, #061830 100%)',
         titleColor: '#38bdf8', accent: '#0ea5e9', text: '#bae6fd',
-        card: 'rgba(14,165,233,0.12)'
+        muted: '#0369a1', card: 'rgba(14,165,233,0.12)', border: 'rgba(56,189,248,0.35)'
     },
     corporate: {
         label: '商務專業 (Corporate Blue)',
         bg: 'linear-gradient(160deg, #1e3a8a 0%, #1e40af 60%, #1d4ed8 100%)',
         titleColor: '#ffffff', accent: '#93c5fd', text: '#dbeafe',
-        card: 'rgba(255,255,255,0.09)'
+        muted: '#60a5fa', card: 'rgba(255,255,255,0.09)', border: 'rgba(147,197,253,0.3)'
     },
     creative: {
         label: '活潑創意 (Creative Vivid)',
         bg: 'linear-gradient(135deg, #18021a 0%, #3b0764 50%, #4a044e 100%)',
         titleColor: '#fdf4ff', accent: '#e879f9', text: '#f0abfc',
-        card: 'rgba(232,121,249,0.1)'
+        muted: '#a21caf', card: 'rgba(232,121,249,0.1)', border: 'rgba(232,121,249,0.3)'
     },
     elegant: {
         label: '高雅精緻 (Elegant Light)',
         bg: 'linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%)',
         titleColor: '#0f172a', accent: '#3b82f6', text: '#374151',
-        card: 'rgba(59,130,246,0.06)'
+        muted: '#6b7280', card: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.2)'
     },
-    pure_white: {
+    white: {
         label: '純白底 (Pure White)',
         bg: '#ffffff',
-        titleColor: '#1e293b', accent: '#3b82f6', text: '#334155',
-        card: 'rgba(241,245,249,0.85)'
+        titleColor: '#111827', accent: '#2563eb', text: '#1f2937',
+        muted: '#6b7280', card: 'rgba(37,99,235,0.05)', border: 'rgba(37,99,235,0.18)'
     }
 };
 
@@ -519,8 +532,11 @@ function init() {
 
     renderHistoryPanels();
 
+    // Close PPTX menu on outside click
     document.addEventListener('click', (e) => {
-        if (!e.target.closest('#btn-pptx-group')) document.getElementById('pptx-menu')?.classList.add('hidden');
+        if (!e.target.closest('#btn-pptx-group')) {
+            document.getElementById('pptx-menu')?.classList.add('hidden');
+        }
     });
 }
 document.addEventListener('DOMContentLoaded', init);
@@ -560,7 +576,10 @@ function setProgress(pct) {
 function addLog(msg, type = 'info') {
     const c = document.getElementById('log-container');
     const el = document.createElement('div');
-    const colors = { info: 'text-slate-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300' };
+    const colors = {
+        info: 'text-slate-300', success: 'text-emerald-300',
+        warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300'
+    };
     el.className = `py-0.5 ${colors[type] || 'text-slate-300'}`;
     el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
     c.appendChild(el);
@@ -575,73 +594,31 @@ function promptApiKey(type = 'gemini') {
 
     const hint = type === 'gas' ? '\n（請貼入 Apps Script 部署後的 Web App URL）' : '';
     const key = prompt(`請輸入 ${labels[type]}:${hint}`);
-    if (key !== null && key.trim() !== '') {
+    if (key && key.trim()) {
         const trimmed = key.trim();
         localStorage.setItem(storageKeys[type], trimmed);
         AppState[stateKeys[type]] = trimmed;
-        document.getElementById(statusIds[type]).textContent = '✓ 已設定';
+        const label = type === 'gas' ? '✓ 已設定' : '✓ 已設定';
+        document.getElementById(statusIds[type]).textContent = label;
         showToast(`✅ ${labels[type]} 已更新`);
-    } else if (key === '') {
-        localStorage.removeItem(storageKeys[type]);
-        AppState[stateKeys[type]] = '';
-        document.getElementById(statusIds[type]).textContent = type === 'gas' ? '未設定（可選）' : '❌ 未設定';
     }
 }
 
 function updateImageModeHint() {
     const mode = document.getElementById('sel-image-mode')?.value || 'auto';
     const hints = {
-        auto:        'AI 自動決定哪些頁面需要插圖，其餘頁面純設計',
-        all:         '強制每張投影片都嘗試插入圖片',
-        none:        '不插入圖片，純靠文字與幾何設計',
-        serp_only:   '🔍 每頁呼叫 SerpAPI 搜尋圖片（需設定 SerpAPI Key）',
-        serp_primary:'🔍 優先 SerpAPI 搜尋，失敗則 AI 生成',
-        serp_mixed:  '🔀 奇數頁 SerpAPI 搜尋，偶數頁 AI 生成'
+        auto:        'AI 自動決定哪些頁面需要插圖，其餘頁面純 HTML/CSS',
+        all:         '所有投影片強制使用配圖模型生成圖片',
+        none:        '不插入任何圖片，全部用 SVG/CSS 視覺設計',
+        serp_only:   '🔍 每頁需圖時呼叫 SerpAPI 搜尋 20 張供您選擇（需設定 SerpAPI Key）',
+        serp_primary:'🔍 優先使用 SerpAPI 搜尋圖片，搜尋失敗時自動改用 AI 生成',
+        serp_mixed:  '🔀 奇數頁用 SerpAPI 搜尋，偶數頁用 AI 生成，形成視覺多樣性'
     };
     const el = document.getElementById('image-mode-hint');
     if (el) el.textContent = hints[mode] || '';
 }
 
-// ─── Background & Logo Upload ──────────────────────────────────────
-function handleBgUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        AppState.bgBase64 = ev.target.result;
-        document.getElementById('bg-preview').src = AppState.bgBase64;
-        document.getElementById('bg-preview-wrapper').classList.remove('hidden');
-        showToast('✅ 背景底圖上傳成功');
-    };
-    reader.readAsDataURL(file);
-}
-
-async function handleBgUrl(url) {
-    url = url.trim();
-    if (!url) { 
-        if (!document.getElementById('bg-upload').value) removeBg(); 
-        return; 
-    }
-    showToast('🔄 正在讀取背景圖片...');
-    try {
-        const b64 = await fetchImageAsBase64(url);
-        AppState.bgBase64 = b64;
-        document.getElementById('bg-preview').src = AppState.bgBase64;
-        document.getElementById('bg-preview-wrapper').classList.remove('hidden');
-        showToast('✅ 背景連結已載入');
-    } catch(e) {
-        showToast('❌ 圖片無法載入，請確認連結可跨域存取');
-        document.getElementById('bg-url').value = '';
-    }
-}
-
-function removeBg() {
-    AppState.bgBase64 = null;
-    document.getElementById('bg-upload').value = '';
-    document.getElementById('bg-url').value = '';
-    document.getElementById('bg-preview-wrapper').classList.add('hidden');
-}
-
+// ─── Logo ─────────────────────────────────────────────────────────
 function handleLogoUpload(e) {
     const file = e.target.files[0];
     if (!file) return;
@@ -660,80 +637,218 @@ function removeLogo() {
     document.getElementById('logo-preview-wrapper').classList.add('hidden');
 }
 
+function handleBgTemplateUpload(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        AppState.bgTemplateBase64 = ev.target.result;
+        document.getElementById('bg-template-preview').src = AppState.bgTemplateBase64;
+        document.getElementById('bg-template-preview-wrapper').classList.remove('hidden');
+        showToast('✅ PPT 底稿上傳成功，將覆蓋視覺風格');
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+}
+
+function removeBgTemplate() {
+    AppState.bgTemplateBase64 = null;
+    document.getElementById('bg-template-upload').value = '';
+    document.getElementById('bg-template-preview-wrapper').classList.add('hidden');
+    showToast('🗑 PPT 底稿已移除');
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // SOURCE MANAGEMENT
 // ═══════════════════════════════════════════════════════════════════
-function handleDragOver(e) { e.preventDefault(); document.getElementById('file-drop-zone').classList.add('drag-over'); }
-function handleDragLeave() { document.getElementById('file-drop-zone').classList.remove('drag-over'); }
-function handleFileDrop(e) { e.preventDefault(); document.getElementById('file-drop-zone').classList.remove('drag-over'); Array.from(e.dataTransfer.files).forEach(processFile); }
-function handleFileSelect(e) { Array.from(e.target.files).forEach(processFile); e.target.value = ''; }
+function handleDragOver(e) {
+    e.preventDefault();
+    document.getElementById('file-drop-zone').classList.add('drag-over');
+}
+function handleDragLeave() {
+    document.getElementById('file-drop-zone').classList.remove('drag-over');
+}
+function handleFileDrop(e) {
+    e.preventDefault();
+    document.getElementById('file-drop-zone').classList.remove('drag-over');
+    Array.from(e.dataTransfer.files).forEach(processFile);
+}
+function handleFileSelect(e) {
+    Array.from(e.target.files).forEach(processFile);
+    e.target.value = '';
+}
 
 async function processFile(file) {
     const ext  = file.name.split('.').pop().toLowerCase();
-    const icons = { txt:'📄', md:'📄', pdf:'📕', doc:'📘', docx:'📘', xls:'📗', xlsx:'📗', csv:'📊', ppt:'📙', pptx:'📙' };
+    const icons = { txt:'📄', md:'📄', pdf:'📕', doc:'📘', docx:'📘',
+                    xls:'📗', xlsx:'📗', csv:'📊', ppt:'📙', pptx:'📙' };
     const id = 'src_' + Date.now() + Math.random().toString(36).slice(2,5);
     const src = { id, type:'file', icon: icons[ext]||'📄', name: file.name, content: null, status: 'loading' };
     AppState.attachedSources.push(src);
     renderSources();
-    try { src.content = await extractFileContent(file); src.status = 'ready'; } catch(e) { src.status = 'error'; src.content = `[解析失敗: ${e.message}]`; }
+    try {
+        src.content = await extractFileContent(file);
+        src.status = 'ready';
+    } catch(e) {
+        src.status = 'error';
+        src.content = `[解析失敗: ${e.message}]`;
+    }
     renderSources();
 }
 
 async function addURLSource() {
-    const input = document.getElementById('url-input'); const url = input.value.trim();
+    const input = document.getElementById('url-input');
+    const url = input.value.trim();
     if (!url) return;
-    if (!/^https?:\/\//i.test(url)) { showToast('❌ 請輸入完整 URL'); return; }
+    if (!/^https?:\/\//i.test(url)) { showToast('❌ 請輸入完整 URL（含 http://）'); return; }
     input.value = '';
+
     const isYT = /youtu(be\.com|\.be)/i.test(url);
     const id = 'src_' + Date.now();
-    const src = { id, type: isYT?'youtube':'url', icon: isYT?'▶️':'🌐', name: url.length>48?url.slice(0,45)+'...':url, url, content: null, status: 'loading' };
+    const src = {
+        id, type: isYT ? 'youtube' : 'url',
+        icon: isYT ? '▶️' : '🌐',
+        name: url.length > 48 ? url.slice(0,45) + '...' : url,
+        url, content: null, status: 'loading'
+    };
     AppState.attachedSources.push(src);
     renderSources();
-    try { src.content = await extractURLContent(url, isYT); src.status = 'ready'; } catch(e) { src.status = 'error'; src.content = `[連結: ${url}]`; }
+    try {
+        src.content = await extractURLContent(url, isYT);
+        src.status = 'ready';
+    } catch(e) {
+        src.status = 'error';
+        src.content = `[連結: ${url}]`;
+    }
     renderSources();
 }
 
-function removeSource(id) { AppState.attachedSources = AppState.attachedSources.filter(s => s.id !== id); renderSources(); }
+function removeSource(id) {
+    AppState.attachedSources = AppState.attachedSources.filter(s => s.id !== id);
+    renderSources();
+}
 
 function renderSources() {
     const list  = document.getElementById('sources-list');
     const hint  = document.getElementById('no-sources-hint');
     const badge = document.getElementById('source-count-badge');
     const count = AppState.attachedSources.length;
-    badge.textContent = count; badge.classList.toggle('hidden', count === 0);
+
+    badge.textContent = count;
+    badge.classList.toggle('hidden', count === 0);
     hint.classList.toggle('hidden', count > 0);
     list.innerHTML = '';
+
     AppState.attachedSources.forEach(src => {
         const dot   = src.status === 'loading' ? '⏳' : src.status === 'error' ? '❌' : '✓';
         const color = src.status === 'loading' ? 'text-amber-400' : src.status === 'error' ? 'text-rose-400' : 'text-emerald-400';
         const el = document.createElement('div');
         el.className = 'flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2';
-        el.innerHTML = `<span class="text-base shrink-0">${src.icon}</span><span class="flex-1 text-[11px] text-slate-300 truncate min-w-0">${src.name}</span><span class="text-[10px] font-bold ${color} shrink-0">${dot}</span><button onclick="removeSource('${src.id}')" class="text-slate-500 hover:text-rose-400 shrink-0 text-sm leading-none ml-1 transition-colors">×</button>`;
+        el.innerHTML = `
+            <span class="text-base shrink-0">${src.icon}</span>
+            <span class="flex-1 text-[11px] text-slate-300 truncate min-w-0">${src.name}</span>
+            <span class="text-[10px] font-bold ${color} shrink-0">${dot}</span>
+            <button onclick="removeSource('${src.id}')" class="text-slate-500 hover:text-rose-400 shrink-0 text-sm leading-none ml-1 transition-colors">×</button>
+        `;
         list.appendChild(el);
     });
 }
 
+// ═══════════════════════════════════════════════════════════════════
+// CONTENT EXTRACTION
+// ═══════════════════════════════════════════════════════════════════
 async function extractFileContent(file) {
     const ext = file.name.split('.').pop().toLowerCase();
     switch(ext) {
-        case 'txt': case 'md': case 'csv': return await new Promise((res, rej) => { const r = new FileReader(); r.onload=e=>res(e.target.result.slice(0,60000)); r.onerror=rej; r.readAsText(file,'UTF-8'); });
-        case 'pdf':  if(typeof pdfjsLib==='undefined') return `[未載入 PDF.js]`; const ab1=await file.arrayBuffer(); const pdf=await pdfjsLib.getDocument({data:ab1}).promise; let text=`[PDF]\n`; for(let i=1;i<=Math.min(pdf.numPages,30);i++){ const page=await pdf.getPage(i); const content=await page.getTextContent(); text+=content.items.map(it=>it.str).join(' ')+'\n'; } return text.slice(0,80000);
-        case 'doc': case 'docx': if(typeof mammoth==='undefined') return `[未載入 Mammoth]`; const ab2=await file.arrayBuffer(); const r=await mammoth.extractRawText({arrayBuffer:ab2}); return r.value.slice(0,80000);
-        case 'xls': case 'xlsx': if(typeof XLSX==='undefined') return `[未載入 SheetJS]`; const ab3=await file.arrayBuffer(); const wb=XLSX.read(ab3,{type:'array'}); let text2=''; wb.SheetNames.slice(0,5).forEach(n=>{text2+=`\n=== ${n} ===\n`+XLSX.utils.sheet_to_csv(wb.Sheets[n]).slice(0,12000);}); return text2.slice(0,80000);
-        case 'ppt': case 'pptx': if(typeof JSZip==='undefined') return `[未載入 JSZip]`; const ab4=await file.arrayBuffer(); const zip=await JSZip.loadAsync(ab4); const sf=Object.keys(zip.files).filter(n=>/^ppt\/slides\/slide\d+\.xml$/.test(n)).sort(); let text3=''; for(const p of sf.slice(0,20)){ const xml=await zip.files[p].async('string'); text3+=xml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,2000)+'\n'; } return text3.slice(0,80000);
-        default: return `[不支援的檔案格式]`;
+        case 'txt': case 'md': case 'csv': return await readAsText(file);
+        case 'pdf':  return await extractPDF(file);
+        case 'doc': case 'docx': return await extractDOCX(file);
+        case 'xls': case 'xlsx': return await extractXLSX(file);
+        case 'ppt': case 'pptx': return await extractPPTX(file);
+        default: return `[檔案 ${file.name} 格式不支援自動解析，僅供參考]`;
     }
 }
 
+function readAsText(file) {
+    return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload  = e => res(e.target.result.slice(0, 60000));
+        r.onerror = rej;
+        r.readAsText(file, 'UTF-8');
+    });
+}
+
+async function extractPDF(file) {
+    if (typeof pdfjsLib === 'undefined') return `[PDF.js 未載入，無法解析 PDF: ${file.name}]`;
+    const ab  = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+    let text = `[PDF: ${file.name} | ${pdf.numPages} 頁]\n`;
+    for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
+        const page    = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += content.items.map(it => it.str).join(' ') + '\n';
+    }
+    return text.slice(0, 80000);
+}
+
+async function extractDOCX(file) {
+    if (typeof mammoth === 'undefined') return `[Mammoth.js 未載入，無法解析 DOCX: ${file.name}]`;
+    const ab     = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer: ab });
+    return `[DOCX: ${file.name}]\n${result.value.slice(0, 80000)}`;
+}
+
+async function extractXLSX(file) {
+    if (typeof XLSX === 'undefined') return `[SheetJS 未載入，無法解析 XLSX: ${file.name}]`;
+    const ab = await file.arrayBuffer();
+    const wb = XLSX.read(ab, { type: 'array' });
+    let text = `[XLSX: ${file.name}]\n`;
+    wb.SheetNames.slice(0, 5).forEach(name => {
+        text += `\n=== Sheet: ${name} ===\n`;
+        text += XLSX.utils.sheet_to_csv(wb.Sheets[name]).slice(0, 12000) + '\n';
+    });
+    return text.slice(0, 80000);
+}
+
+async function extractPPTX(file) {
+    if (typeof JSZip === 'undefined') return `[JSZip 未載入，無法解析 PPTX: ${file.name}]`;
+    const ab  = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(ab);
+    const slideFiles = Object.keys(zip.files)
+        .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
+        .sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
+    let text = `[PPTX: ${file.name} | ${slideFiles.length} 張投影片]\n`;
+    for (const path of slideFiles.slice(0, 20)) {
+        const xml   = await zip.files[path].async('string');
+        const plain = xml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+        text += plain.slice(0, 2000) + '\n';
+    }
+    return text.slice(0, 80000);
+}
+
 async function extractURLContent(url, isYouTube) {
-    if (isYouTube) return `[YouTube: ${url}]`;
-    try { const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`); if(r.ok){ const d=await r.json(); const div=document.createElement('div'); div.innerHTML=d.contents||''; return div.innerText.replace(/\s+/g,' ').trim().slice(0,40000); } } catch(e){}
-    return `[URL: ${url}]`;
+    if (isYouTube) {
+        const videoId = url.match(/(?:v=|youtu\.be\/)([^&\s?]+)/)?.[1] || '';
+        return `[YouTube 影片 URL: ${url}\n影片 ID: ${videoId}\n請根據此 YouTube 影片的主題與相關知識生成簡報內容]`;
+    }
+    try {
+        const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
+        if (resp.ok) {
+            const data = await resp.json();
+            const div  = document.createElement('div');
+            div.innerHTML = data.contents || '';
+            const text = (div.innerText || div.textContent || '').replace(/\s+/g,' ').trim();
+            return `[網頁: ${url}]\n${text.slice(0, 40000)}`;
+        }
+    } catch(e) {}
+    return `[網頁 URL: ${url}\n請根據此網址的已知內容生成簡報]`;
 }
 
 async function buildContextFromSources() {
     const ready = AppState.attachedSources.filter(s => s.content);
-    return ready.length ? ready.map(s => `\n━━━ ${s.name} ━━━\n${s.content}`).join('') : '';
+    if (!ready.length) return '';
+    return ready.map(s => `\n\n━━━ 來源: ${s.name} ━━━\n${s.content}`).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -741,512 +856,596 @@ async function buildContextFromSources() {
 // ═══════════════════════════════════════════════════════════════════
 const GROK_PROXY      = 'https://grokcaller.kirishimatoka00.workers.dev/';
 const GROK_CHAT_API   = 'https://api.x.ai/v1/chat/completions';
-const GROK_IMG_API    = 'https://api.x.ai/v1/images/generations';
+const GROK_IMG_API    = 'https://api.x.ai/v1/images/generations';   
+const SERP_PROXY      = 'https://serpapi.kirishimatoka00.workers.dev/';
 
-function isGrokModel(modelName) { return modelName && modelName.toLowerCase().startsWith('grok'); }
-function getGeminiApiVersion(modelName) { return modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3') ? 'v1alpha' : 'v1beta'; }
+function isGrokModel(modelName) {
+    return modelName && modelName.toLowerCase().startsWith('grok');
+}
 
+function getGeminiApiVersion(modelName) {
+    if (modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3')) {
+        return 'v1alpha';
+    }
+    return 'v1beta';
+}
+
+// ── Grok Text Completion (via Cloudflare Workers proxy) ──────────
 async function callGrokText(modelId, systemPrompt, userContent, signal) {
-    if (!AppState.xaiApiKey) throw new Error('Grok API Key 未設定');
-    const resp = await fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_CHAT_API)}`, {
-        method: 'POST', headers: { 'Authorization': `Bearer ${AppState.xaiApiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: modelId, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }], temperature: 0.7 }), signal
+    const key = AppState.xaiApiKey;
+    if (!key) throw new Error('Grok API Key 未設定，請在左側設定 Grok Key');
+
+    const targetUrl = GROK_CHAT_API;
+    const proxyUrl  = `${GROK_PROXY}?url=${encodeURIComponent(targetUrl)}`;
+
+    const resp = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            model: modelId,
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user',   content: userContent  }
+            ],
+            temperature: 0.7
+        }),
+        signal
     });
-    if (!resp.ok) throw new Error(`Grok HTTP ${resp.status}`);
-    return (await resp.json()).choices?.[0]?.message?.content;
+
+    if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        throw new Error(`Grok API HTTP ${resp.status}: ${errText.slice(0, 200)}`);
+    }
+    const data = await resp.json();
+    const text = data.choices?.[0]?.message?.content;
+    if (!text) throw new Error('Grok 回傳內容為空');
+    return text;
 }
 
 function stopGeneration() {
     if (AppState.isGenerating) {
         AppState.cancelRequested = true;
         if (AppState.abortController) AppState.abortController.abort();
-        addLog('⚠️ 使用者要求中斷', 'warning');
-        document.getElementById('btn-stop').disabled = true;
-        document.getElementById('btn-stop').querySelector('span').textContent = '中止中...';
+        addLog('⚠️ 使用者要求中斷生成...', 'warning');
+        const btn = document.getElementById('btn-stop');
+        btn.disabled = true;
+        btn.querySelector('span').textContent = '正在中止...';
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// LLM: OUTLINE GENERATION
+// LLM: OUTLINE GENERATION  ── supports Gemini + Grok ──
 // ═══════════════════════════════════════════════════════════════════
 async function callGeminiForOutline(topic, context) {
-    const userModel = document.getElementById('sel-text-model').value;
-    const theme = HTML_THEMES[document.getElementById('sel-template').value] || HTML_THEMES.modern;
-    const uniqueModels = [...new Set(isGrokModel(userModel) ? [userModel, 'gemini-2.5-pro'] : [userModel, 'gemini-2.5-pro', 'grok-4-1-fast-reasoning'])];
+    if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
-    const systemPrompt = `你是世界頂級簡報策略師。請為主題生成高知識密度 HTML 簡報大綱 JSON。
-視覺風格：${theme.label}。張數：${document.getElementById('range-slide-count').value}。
-要求：layout 限定 "title_only", "text_only", "text_and_image", "diagram_slide"。
-如果有需要配圖，請務必填寫具體的 image_prompt。
-輸出純 JSON。結構含 presentation_title 與 slides 陣列。`;
+    const userModel  = document.getElementById('sel-text-model').value;
+    const slideCount = document.getElementById('range-slide-count').value;
+    const templateKey = document.getElementById('sel-template').value;
+    const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
+    const imageMode = document.getElementById('sel-image-mode').value;
 
-    const userContent = `主題：${topic}${context ? '\n\n參考資料：' + context.slice(0, 80000) : ''}`;
+    const GEMINI_FALLBACKS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3-flash-preview'];
+    const MODEL_QUEUE = isGrokModel(userModel)
+        ? [userModel, ...GEMINI_FALLBACKS]
+        : [userModel, 'gemini-2.5-pro', 'gemini-2.5-flash', 'grok-4-1-fast-reasoning'];
+    const uniqueModels = [...new Set(MODEL_QUEUE)];
 
+    const imageModeHint = {
+        auto:         'AI 自行判斷哪些投影片適合圖文並排（text_and_image），其餘用 text_only 或 diagram_slide',
+        all:          '大多數投影片使用 text_and_image 版型',
+        none:         '禁止使用 text_and_image，只用 text_only、title_only、diagram_slide',
+        serp_only:    'SerpAPI 搜尋圖片模式，有需要配圖時使用 text_and_image，並在 image_prompt 描述圖片主題',
+        serp_primary: 'SerpAPI 優先搜尋，有需要配圖時使用 text_and_image',
+        serp_mixed:   'SerpAPI + AI 混合模式，有需要配圖時使用 text_and_image'
+    }[imageMode] || '';
+
+    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。
+
+視覺風格主題：${theme.label || 'Modern Dark'}
+投影片張數：${slideCount} 張
+圖片使用策略：${imageModeHint}
+
+【內容品質要求】
+1. 拒絕空泛：必須含具體案例、數據預估、深度邏輯推演
+2. 每張的 bullet_points 必須 3~5 點，每點 15~40 字
+3. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
+4. diagram_slide 表示需要流程圖、圖表、架構圖的頁面
+5. image_prompt 為具體英文 AI 繪圖提示詞 (text_and_image 時必填)
+6. diagram_description 描述圖解內容 (diagram_slide 時必填)
+7. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
+
+JSON Schema:
+{
+  "presentation_title": "string",
+  "slides": [
+    {
+      "slide_number": 1,
+      "layout": "title_only",
+      "title": "string",
+      "subtitle": "string or null",
+      "bullet_points": ["string"],
+      "image_prompt": "English prompt or null",
+      "diagram_description": "描述要畫什麼圖 or null"
+    }
+  ]
+}`;
+
+    const userContent = `主題指令：${topic}${context ? '\n\n參考資料：' + context.slice(0, 80000) : ''}`;
+
+    let lastErr = null;
     for (const modelId of uniqueModels) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
         try {
+            addLog(`嘗試呼叫大綱引擎 ${modelId}...`, 'ai');
+
             let raw = '';
-            if (isGrokModel(modelId) && AppState.xaiApiKey) {
+            if (isGrokModel(modelId)) {
+                if (!AppState.xaiApiKey) { addLog(`⚠ 跳過 ${modelId}：未設定 Grok Key`, 'warning'); continue; }
                 raw = await callGrokText(modelId, systemPrompt, userContent, AppState.abortController.signal);
-            } else if (!isGrokModel(modelId) && AppState.googleApiKey) {
-                const endpoint = `https://generativelanguage.googleapis.com/${getGeminiApiVersion(modelId)}/models/${modelId}:generateContent?key=${AppState.googleApiKey}`;
+            } else {
+                if (!AppState.googleApiKey) { addLog(`⚠ 跳過 ${modelId}：未設定 Gemini Key`, 'warning'); continue; }
+                const ver = getGeminiApiVersion(modelId);
+                const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${AppState.googleApiKey}`;
                 const resp = await fetch(endpoint, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n' + userContent }] }], generationConfig: { responseMimeType: 'application/json' } }),
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userContent }] }],
+                        generationConfig: { responseMimeType: 'application/json', temperature: 0.85, maxOutputTokens: 8192 }
+                    }),
                     signal: AppState.abortController.signal
                 });
-                if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                raw = (await resp.json()).candidates[0].content.parts[0].text;
-            } else continue;
-            
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                raw = data.candidates[0].content.parts[0].text;
+            }
+
             const m = raw.match(/\{[\s\S]*\}/);
-            return JSON.parse(m ? m[0] : raw);
-        } catch(e) { if (e.message === 'CanceledByUser') throw e; }
+            if (m) raw = m[0];
+            addLog(`✓ 成功使用 ${modelId} 生成大綱`, 'success');
+            return JSON.parse(raw);
+        } catch(e) {
+            lastErr = e;
+            if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
+            addLog(`⚠ ${modelId} 失敗: ${e.message}，準備降級...`, 'warning');
+        }
     }
-    throw new Error(`大綱生成失敗，請檢查 API Key`);
+    throw new Error(`所有大綱引擎皆失敗。最後錯誤: ${lastErr?.message}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// SHARED INTERACTION SCRIPT (Handles Drag, Resize, Color, Font + Image Drag)
+// SHARED INTERACTION SCRIPT 
 // ═══════════════════════════════════════════════════════════════════
 const SLIDE_INTERACTION_SCRIPT = `
+<style>
+.dg{cursor:grab;} .dg:active{cursor:grabbing;}
+.rb{resize:both;overflow:auto;min-width:200px;min-height:80px;position:relative;cursor:default;}
+.rb .dh{cursor:grab;text-align:center;color:rgba(255,255,255,.22);font-size:10px;letter-spacing:4px;padding:3px 0 8px;user-select:none;}
+.ctrl{opacity:0;transition:opacity .18s;pointer-events:none;position:absolute;top:7px;right:7px;display:flex;align-items:center;gap:4px;background:rgba(10,18,36,.94);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 7px;z-index:60;}
+.dg:hover .ctrl,.rb:focus-within .ctrl{opacity:1;pointer-events:auto;}
+.ctrl input[type=color]{width:19px;height:19px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;}
+.ctrl input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+.ctrl input[type=color]::-webkit-color-swatch{border:1px solid rgba(255,255,255,.18);border-radius:3px;}
+.ctrl button{font-size:10px;font-weight:700;padding:2px 5px;border:none;background:rgba(255,255,255,.10);border-radius:3px;cursor:pointer;color:#e2e8f0;}
+.ctrl button:hover{background:rgba(255,255,255,.22);}
+.ctrl .sep{width:1px;height:14px;background:rgba(255,255,255,.15);margin:0 2px;}
+[contenteditable]{border-radius:3px;outline:none;}
+[contenteditable]:hover{background:rgba(255,255,255,.06);}
+[contenteditable]:focus{background:rgba(255,255,255,.08);outline:2px solid rgba(99,102,241,.55);}
+/* Resize handle visible on hover */
+.rb::after{content:"";position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:se-resize;background:linear-gradient(135deg,transparent 50%,rgba(255,255,255,.22) 50%);}
+</style>
 <script>
 (function(){
   var svg = document.getElementById('slide-svg');
-  if (!svg) return;
-  var sel = null, offset = {x:0,y:0}, xf = null;
-  var imgSel = null, imgOffset = {x:0,y:0};
+  if(!svg) return;
+  var sel=null, offset={x:0,y:0}, xf=null;
 
-  // ── Color updater for text boxes ──────────────────────────────
-  window.updateTextColor = function(input){
-    var box = input.closest('.rb');
-    if(!box) return;
-    var hex = input.value;
-    box.querySelectorAll('[contenteditable]').forEach(function(el){ el.style.color = hex; });
+  /* ── helpers ── */
+  function hexToRgb(h){
+    var r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
+    return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:null;
+  }
+  window.updateThemeColor=function(id,hex){
+    document.documentElement.style.setProperty('--c'+id,hex);
+    var rgb=hexToRgb(hex);
+    if(rgb) document.documentElement.style.setProperty('--c'+id+'-rgb',rgb.r+','+rgb.g+','+rgb.b);
+  };
+  window.adjustFontSize=function(btn,delta){
+    var box=btn.closest('.rb'); if(!box) return;
+    var cur=parseFloat(box.style.fontSize)||16;
+    cur=Math.max(8,Math.min(96,cur+delta*2));
+    box.style.fontSize=cur+'px';
+  };
+  window.changeTextColor=function(inp){
+    var box=inp.closest('.rb'); if(!box) return;
+    box.querySelectorAll('[contenteditable]').forEach(function(el){el.style.color=inp.value;});
+  };
+  window.changeBgColor=function(inp){
+    var box=inp.closest('.rb'); if(!box) return;
+    box.style.background=inp.value; box.style.backgroundColor=inp.value;
   };
 
-  // ── Font size adjuster ────────────────────────────────────────
-  window.adjustFontSize = function(btn, delta){
-    var box = btn.closest('.rb');
-    var edits = box.querySelectorAll('[contenteditable]');
-    edits.forEach(function(el){
-      var cur = parseFloat(window.getComputedStyle(el).fontSize) || parseFloat(box.style.fontSize) || 24;
-      cur = Math.max(8, Math.min(200, cur + delta * 2));
-      el.style.fontSize = cur + 'px';
+  /* ── auto-wrap ALL foreignObjects that are not already in .dg ── */
+  /* runs after DOM is ready */
+  function wrapOrphans(){
+    svg.querySelectorAll('foreignObject').forEach(function(fo){
+      var p=fo.parentNode;
+      if(p && !p.classList.contains('dg')){
+        /* create a wrapper g.dg */
+        var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('class','dg');
+        var tx=parseFloat(fo.getAttribute('x')||0);
+        var ty=parseFloat(fo.getAttribute('y')||0);
+        g.setAttribute('transform','translate('+tx+','+ty+')');
+        fo.setAttribute('x','0'); fo.setAttribute('y','0');
+        p.insertBefore(g,fo); g.appendChild(fo);
+      }
+      /* ensure inner div has .rb class and resize:both */
+      var inner=fo.querySelector('div');
+      if(inner && !inner.classList.contains('rb')){
+        inner.classList.add('rb');
+        if(!inner.style.resize) inner.style.resize='both';
+        if(!inner.style.overflow) inner.style.overflow='auto';
+        if(!inner.style.minWidth) inner.style.minWidth='200px';
+        if(!inner.style.minHeight) inner.style.minHeight='80px';
+      }
+      /* inject ctrl bar if missing */
+      if(inner && !inner.querySelector('.ctrl')){
+        var ctrlHtml='<div class="ctrl">'+
+          '<input type="color" value="#818cf8" oninput="updateThemeColor(1,this.value)" title="主題色">'+
+          '<input type="color" value="#ffffff" oninput="changeTextColor(this)" title="文字色">'+
+          '<input type="color" value="#0a0a1a" oninput="changeBgColor(this)" title="卡片底色">'+
+          '<span class="sep"></span>'+
+          '<button onclick="adjustFontSize(this,-1)">A−</button>'+
+          '<button onclick="adjustFontSize(this,+1)">A+</button>'+
+          '</div>';
+        inner.insertAdjacentHTML('afterbegin','<div class="dh">· · ·</div>'+ctrlHtml);
+      }
     });
-  };
-
-  // ── ResizeObserver: sync foreignObject size with .rb ─────────
-  document.querySelectorAll('.rb').forEach(function(b){
-    (new ResizeObserver(function(entries){
-      entries.forEach(function(e){
-        var fo = e.target.closest('foreignObject');
-        if(fo){ fo.setAttribute('width', e.target.offsetWidth); fo.setAttribute('height', e.target.offsetHeight); }
-      });
-    })).observe(b);
-  });
-
-  // ── SVG coordinate helper ─────────────────────────────────────
-  function mpt(evt){
-    var ctm = svg.getScreenCTM();
-    var src = evt.touches ? evt.touches[0] : evt;
-    return {x:(src.clientX-ctm.e)/ctm.a, y:(src.clientY-ctm.f)/ctm.d};
   }
 
-  // ── Drag for .dg groups (text + diagram boxes) ────────────────
+  /* ── ResizeObserver: sync .rb size → foreignObject ── */
+  var ro=new ResizeObserver(function(entries){
+    entries.forEach(function(e){
+      var fo=e.target.closest('foreignObject');
+      if(fo){fo.setAttribute('width',e.target.offsetWidth);fo.setAttribute('height',e.target.offsetHeight);}
+    });
+  });
+  function observeAllRb(){
+    svg.querySelectorAll('.rb').forEach(function(b){ ro.observe(b); });
+  }
+
+  /* ── SVG coordinate helper ── */
+  function mpt(evt){
+    var ctm=svg.getScreenCTM();
+    var src=evt.touches?evt.touches[0]:evt;
+    return {x:(src.clientX-ctm.e)/ctm.a,y:(src.clientY-ctm.f)/ctm.d};
+  }
+
+  /* ── Drag ── */
   function startDrag(evt){
-    if(evt.target.closest('.ctrl') || evt.target.tagName.toLowerCase()==='input' || evt.target.isContentEditable) return;
-    // Check if clicking on a standalone draggable image
-    var imgDg = evt.target.closest('.img-dg');
-    if(imgDg && !evt.target.closest('.rb')){
-      imgSel = imgDg; imgSel.parentNode.appendChild(imgSel);
-      var tl = imgSel.transform.baseVal;
-      if(tl.length===0||tl.getItem(0).type!==SVGTransform.SVG_TRANSFORM_TRANSLATE){
-        var t=svg.createSVGTransform(); t.setTranslate(0,0); imgSel.transform.baseVal.insertItemBefore(t,0);
-      }
-      xf = tl.getItem(0);
-      var mp=mpt(evt); imgOffset.x=mp.x-xf.matrix.e; imgOffset.y=mp.y-xf.matrix.f;
-      evt.preventDefault(); return;
-    }
-    var dg = evt.target.closest('.dg');
-    if(!dg) return;
-    var box = evt.target.closest('.rb');
+    /* skip: ctrl inputs, editable content, resize corner */
+    if(evt.target.closest('.ctrl')||evt.target.tagName.toLowerCase()==='input'||evt.target.isContentEditable) return;
+    var dg=evt.target.closest('.dg'); if(!dg) return;
+    var box=evt.target.closest('.rb');
     if(box){
       var rc=box.getBoundingClientRect();
-      if(evt.clientX>rc.right-25&&evt.clientY>rc.bottom-25) return;
+      if(evt.clientX>rc.right-22&&evt.clientY>rc.bottom-22) return; /* resize handle */
     }
-    sel = dg; sel.parentNode.appendChild(sel);
-    var tl2 = sel.transform.baseVal;
-    if(tl2.length===0||tl2.getItem(0).type!==SVGTransform.SVG_TRANSFORM_TRANSLATE){
-      var t2=svg.createSVGTransform(); t2.setTranslate(0,0); sel.transform.baseVal.insertItemBefore(t2,0);
+    evt.preventDefault();
+    sel=dg; sel.parentNode.appendChild(sel);
+    var tl=sel.transform.baseVal;
+    if(tl.length===0||tl.getItem(0).type!==SVGTransform.SVG_TRANSFORM_TRANSLATE){
+      var t=svg.createSVGTransform(); t.setTranslate(0,0); sel.transform.baseVal.insertItemBefore(t,0);
     }
-    xf = tl2.getItem(0);
-    var mp2=mpt(evt); offset.x=mp2.x-xf.matrix.e; offset.y=mp2.y-xf.matrix.f;
+    xf=tl.getItem(0);
+    var mp=mpt(evt); offset.x=mp.x-xf.matrix.e; offset.y=mp.y-xf.matrix.f;
   }
   function onDrag(evt){
-    if(imgSel){
-      evt.preventDefault();
-      var mp=mpt(evt);
-      xf.setMatrix(xf.matrix.translate(mp.x-imgOffset.x-xf.matrix.e, mp.y-imgOffset.y-xf.matrix.f));
-      return;
-    }
     if(!sel) return; evt.preventDefault();
     var mp=mpt(evt);
-    xf.setMatrix(xf.matrix.translate(mp.x-offset.x-xf.matrix.e, mp.y-offset.y-xf.matrix.f));
+    xf.setMatrix(xf.matrix.translate(mp.x-offset.x-xf.matrix.e,mp.y-offset.y-xf.matrix.f));
   }
-  function endDrag(){ sel=null; imgSel=null; }
+  function endDrag(){ sel=null; }
 
-  svg.addEventListener('mousedown',startDrag); svg.addEventListener('mousemove',onDrag); window.addEventListener('mouseup',endDrag);
-  svg.addEventListener('touchstart',startDrag,{passive:false}); svg.addEventListener('touchmove',onDrag,{passive:false}); window.addEventListener('touchend',endDrag);
+  svg.addEventListener('mousedown',startDrag);
+  svg.addEventListener('mousemove',onDrag);
+  window.addEventListener('mouseup',endDrag);
+  svg.addEventListener('touchstart',startDrag,{passive:false});
+  svg.addEventListener('touchmove',onDrag,{passive:false});
+  window.addEventListener('touchend',endDrag);
 
-  // ── Add drag-cursor hint to img-dg elements ───────────────────
-  document.querySelectorAll('.img-dg').forEach(function(g){
-    g.style.cursor='move';
-    var imgs = g.querySelectorAll('image, img');
-    imgs.forEach(function(im){ im.style.cursor='move'; });
+  /* ── Keyboard nudge ── */
+  document.addEventListener('keydown',function(e){
+    if(!sel||(document.activeElement&&document.activeElement.isContentEditable)) return;
+    var step=e.shiftKey?20:5,dx=0,dy=0;
+    if(e.key==='ArrowLeft') dx=-step; if(e.key==='ArrowRight') dx=step;
+    if(e.key==='ArrowUp')   dy=-step; if(e.key==='ArrowDown')  dy=step;
+    if(dx||dy){e.preventDefault();xf.setMatrix(xf.matrix.translate(dx,dy));}
   });
+
+  /* ── init ── */
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ wrapOrphans(); observeAllRb(); });
+  } else {
+    wrapOrphans(); observeAllRb();
+  }
 })();
 <\/script>`;
 
 // ═══════════════════════════════════════════════════════════════════
-// LLM: HTML/CSS SLIDE GENERATION (Enforcing 100% Draggable logic)
+// LLM: HTML/CSS SLIDE GENERATION 
 // ═══════════════════════════════════════════════════════════════════
 async function generateSlideHTML(slideData, theme, imageB64) {
     if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
     const userModel = document.getElementById('sel-text-model').value;
-    const uniqueModels = [...new Set(isGrokModel(userModel) ? [userModel, 'gemini-2.5-pro'] : [userModel, 'gemini-2.5-pro'])];
+    const FALLBACK_MODELS = isGrokModel(userModel)
+        ? [userModel, 'gemini-2.5-pro', 'gemini-2.5-flash']
+        : [userModel, 'gemini-2.5-pro', 'gemini-2.5-flash'];
+    const uniqueModels = [...new Set(FALLBACK_MODELS)];
 
-    const isDirectUrl = imageB64 && imageB64.startsWith('http');
-    const imgInstruction = imageB64
-        ? (isDirectUrl ? `本投影片有一張圖片。請將圖片放入可拖曳群組：<g class="dg img-dg" transform="translate(X,Y)" style="cursor:move"><image href="${imageB64}" x="0" y="0" width="W" height="H" preserveAspectRatio="xMidYMid meet"/></g>` 
-                       : `本投影片有一張 AI 生成圖片。請用以下格式放置（可拖曳）：<g class="dg img-dg" transform="translate(X,Y)" style="cursor:move"><image href="REPLACE_IMAGE_SRC" x="0" y="0" width="W" height="H" preserveAspectRatio="xMidYMid meet"/></g>`)
-        : `本頁無插圖，請利用版面與幾何圖形設計。`;
+    const hasImage = !!imageB64;
+    const imgInstruction = hasImage
+        ? `本投影片有一張圖片可使用。請務必在 foreignObject 的 <img> 標籤中使用 src="REPLACE_IMAGE_SRC"，或在 SVG 內使用 <image href="REPLACE_IMAGE_SRC"/> 來放置。圖片元素必須被 <g class="dg" transform="translate(x,y)"> 包裹，讓使用者可以拖曳移動圖片位置。`
+        : `本投影片無圖片，請以純 SVG 圖形、漸層、幾何裝飾填補視覺。`;
 
-    const isWhiteBg = document.getElementById('sel-template').value === 'pure_white' || !!AppState.bgBase64;
-    const contrastHint = isWhiteBg
-        ? `【白底/自訂底板對比警示】背景為白色或自訂圖片，所有文字必須使用深色（#1e293b, #0f172a, #374151 等），禁止使用白色或淺色文字！流程圖、圖表內的文字也必須與其容器背景高對比。`
-        : `【深色背景對比警示】所有文字必須使用淺色（white, #f8fafc, #e2e8f0 等），禁止使用深色文字與深色背景疊加！`;
+    const logoPos = document.getElementById('sel-logo-pos')?.value || 'TR';
+    const logoPosMap = {
+        TR: 'right:40px; top:30px;',
+        TL: 'left:40px;  top:30px;',
+        BR: 'right:40px; bottom:30px;',
+        BL: 'left:40px;  bottom:30px;'
+    };
+    const logoInstruction = AppState.logoBase64
+        ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 外層（body 內）用 <img id="slide-logo" src="REPLACE_LOGO_SRC" style="position:fixed;${logoPosMap[logoPos]}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;"> 放置 Logo。`
+        : '';
 
-    const prompt = `你是頂級 HTML/SVG 互動式投影片設計師。生成一份完整的 HTML 單頁投影片。
-【資料】${JSON.stringify(slideData, null, 2)}
-【配色】背景基調：${theme.bg}, 標題：${theme.titleColor}, 強調色：${theme.accent}, 內文：${theme.text}
-【圖片指示】${imgInstruction}
-${contrastHint}
+    // Background: use uploaded template or theme
+    const bgInstruction = AppState.bgTemplateBase64
+        ? `【特別重要】本簡報使用自定義底稿背景圖片。背景層必須是 <image href="REPLACE_BG_SRC" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>，放在所有其他元素之前。禁止使用漸層或純色作為背景，必須使用此底稿圖片。文字和卡片配色需配合底稿，若底稿較亮則用深色文字，若底稿較暗則用淺色文字。`
+        : `背景基調: ${theme.bg}（使用此漸層或顏色作為全背景）`;
 
-【★★★ 嚴格架構規範（非常重要）★★★】
-1. 主畫布必須為 <svg id="slide-svg" viewBox="0 0 1920 1080">，填滿 body。
-2. 背景層：必須用 <rect> 搭配 <linearGradient> 或 <radialGradient>，或直接 fill="${theme.bg.startsWith('#') ? theme.bg : '#0f172a'}"。
-3. ★ 所有的文字（包含大標題、副標題、頁碼、內文、圖表說明），都必須放置在可拖曳的 foreignObject 容器內，嚴禁使用原生 SVG 的 <text> 標籤！
-4. 每個文字方塊的結構必須為：
-   <g class="dg" transform="translate(X, Y)">
+    const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師，專精 SVG+foreignObject 架構。
+請為以下投影片資料生成一份完整的、視覺上令人驚豔的 HTML 單頁投影片。
+
+【投影片資料】
+${JSON.stringify(slideData, null, 2)}
+
+【圖片】${imgInstruction}
+
+【Logo】${logoInstruction || '本投影片無 Logo。'}
+
+【背景設定】${bgInstruction}
+
+【核心架構規範 — 必須嚴格遵守】
+
+1. 完整 HTML 結構，從 <!DOCTYPE html> 到 </html>
+2. body 固定為 1920×1080px，overflow:hidden，margin/padding:0
+3. 字體只用系統字體棧："Segoe UI","PingFang SC","Microsoft YaHei",sans-serif
+4. 禁止引用任何外部 CSS 或 JS 資源（CDN / Google Fonts 等）
+5. 必須使用 CSS 變數主題系統，在 :root 定義：
+   :root {
+     --c1: [強調主色]; --c1-rgb: [R,G,B];
+     --c2: [輔助色2]; --c2-rgb: [R,G,B];
+     --c3: [輔助色3]; --c3-rgb: [R,G,B];
+     --c4: [輔助色4]; --c4-rgb: [R,G,B];
+   }
+
+6. 主畫布必須是一個 SVG，id="slide-svg"，viewBox="0 0 1920 1080"，填滿 body。
+   SVG 內部結構：
+   a) <defs> — 定義所有漸層、濾鏡(shadow/glow)、pattern
+   b) 背景層 — 依照【背景設定】指示處理
+   c) 裝飾層 — 幾何形狀、光暈等視覺元素
+   d) 內容 <g class="dg"> 元素 — 每個可拖曳的文字卡片或圖片
+
+7. 文字卡片用 <g class="dg" transform="translate(x,y)"> 包裹，內含 <foreignObject>：
+   <g class="dg" transform="translate(X,Y)">
      <foreignObject x="0" y="0" width="W" height="H">
-       <div class="rb" style="width:Wpx;height:Hpx; font-size:24px; background:FILL_COLOR; ...">
-         <div class="dh">· · ·</div>
-         <div class="ctrl">
-           <input type="color" value="#ffffff" oninput="updateTextColor(this)" title="文字顏色">
-           <button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button>
+       <div class="rb" style="width:Wpx;height:Hpx;font-size:18px;resize:both;overflow:auto;min-width:240px;min-height:120px;position:relative;...卡片樣式...">
+         <!-- 拖曳把手 -->
+         <div class="dh" style="text-align:center;color:rgba(255,255,255,.25);font-size:10px;letter-spacing:4px;padding:3px 0 8px;cursor:grab;user-select:none;">· · · · ·</div>
+         <!-- 控制列（hover顯示：主題色、文字色、背景色、字級）-->
+         <div class="ctrl" style="opacity:0;transition:opacity .2s;position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(15,23,42,.92);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 7px;z-index:50;">
+           <input type="color" value="#818cf8" oninput="updateThemeColor(1,this.value)" title="主題色" style="width:20px;height:20px;border:none;border-radius:3px;cursor:pointer;padding:0;">
+           <input type="color" value="#ffffff" oninput="changeTextColor(this)" title="文字色" style="width:20px;height:20px;border:none;border-radius:3px;cursor:pointer;padding:0;">
+           <input type="color" value="#0f172a" oninput="changeBgColor(this)" title="卡片背景" style="width:20px;height:20px;border:none;border-radius:3px;cursor:pointer;padding:0;">
+           <div style="width:1px;height:14px;background:rgba(255,255,255,.15);margin:0 2px;"></div>
+           <button onclick="adjustFontSize(this,-1)" style="font-size:10px;font-weight:700;padding:2px 6px;border:none;background:rgba(255,255,255,.1);border-radius:3px;cursor:pointer;color:#e2e8f0;">A−</button>
+           <button onclick="adjustFontSize(this,+1)" style="font-size:10px;font-weight:700;padding:2px 6px;border:none;background:rgba(255,255,255,.1);border-radius:3px;cursor:pointer;color:#e2e8f0;">A+</button>
          </div>
-         <div contenteditable="true" style="color:TEXT_COLOR; font-weight:...">您的文字...</div>
+         <!-- 內容（所有文字均加 contenteditable="true"）-->
+         <h3 contenteditable="true" spellcheck="false">標題</h3>
+         <p contenteditable="true" spellcheck="false">內容...</p>
        </div>
      </foreignObject>
    </g>
-5. 所有 <div class="rb"> 必須加上 resize:both; overflow:auto; 以便拖曳與改變形狀。標題的 font-size 可以設很大(如 64px 以上)。
-6. ★★ 圖片（AI 生成或搜尋圖）必須放在可拖曳的 SVG group 內：
-   <g class="dg img-dg" transform="translate(X, Y)" style="cursor:move">
-     <image href="IMAGE_SRC" x="0" y="0" width="W" height="H" preserveAspectRatio="xMidYMid meet"/>
-   </g>
-7. 所有的裝飾幾何圖形、光暈、漸層可以寫在原生 SVG 標籤裡。
-8. 流程圖、圖表的文字必須確保與其容器背景高對比度（WCAG AA 標準）。深色容器用白色文字，淺色容器用深色文字。
-9. 請根據版型自由發揮創意排版，但所有文字務必遵守第 3、4 點，圖片遵守第 6 點！`;
 
+8. 圖片必須放在可拖曳的 <g class="dg"> 中（重要！）：
+   <g class="dg" transform="translate(X,Y)" style="cursor:grab;">
+     <image href="REPLACE_IMAGE_SRC" x="0" y="0" width="W" height="H" preserveAspectRatio="xMidYMid slice"/>
+   </g>
+   — 或用 foreignObject 包裹 <img> 並加 .dg class
+
+9. 卡片 CSS（.rb）需含：resize:both; overflow:auto; min-width:240px; min-height:120px;
+   .ctrl 預設 opacity:0，.dg:hover .ctrl { opacity:1 }（用 <style> 標籤定義）
+   所有可編輯文字加 contenteditable="true" spellcheck="false"
+
+10. 在 SVG 主體之外（</svg>之後）插入 placeholder：
+    <!--SLIDE_INTERACTION_SCRIPT-->
+
+11. layout 版型指引：
+  ★ title_only — 震撼封面，大型 SVG <text> 直接繪製標題，無需卡片
+  ★ text_only  — 左側 SVG 裝飾 + 右側 foreignObject 文字卡（帶完整控制列）
+  ★ text_and_image — 圖片用 <g class="dg"> 包裹（可拖曳）+ 文字卡片
+  ★ diagram_slide — 純 SVG 流程圖/架構圖 + 頂部標題卡片
+
+12. 視覺品質：善用 feDropShadow、feGaussianBlur glow、漸層填充、幾何裝飾層次
+
+13. 配色參考：
+    主標題色: ${theme.titleColor}
+    主強調色: ${theme.accent}
+    正文色: ${theme.text}
+    卡片背景: ${theme.card}
+
+14. 【必須遵守】文字對比度 — WCAG AA 標準（對比比率 ≥ 4.5:1）：
+    - 深色背景 → 文字用淺色（#f8fafc / #e2e8f0 / #ffffff）
+    - 淺色背景（白底/淺灰）→ 文字必須用深色（#111827 / #1f2937）
+    - 純白背景時，SVG <text> fill 和 foreignObject 文字 color 絕對禁止使用 #ffffff / #f8fafc 等淺色
+    - 所有 SVG <text> 的 fill 屬性必須與投影片底色有明顯對比
+    - ${AppState.bgTemplateBase64 ? '本張有自訂底稿背景（未知顏色），請預設使用深色文字 #111827 以確保安全' : `本張背景基調為 ${theme.bg}，請確保所有文字與此背景有足夠對比`}
+
+15. 只輸出純 HTML，不含任何 markdown 標記。
+
+請開始輸出完整 HTML：`;
+
+    let lastErr = null;
     for (const modelId of uniqueModels) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
         try {
             let html = '';
-            if (isGrokModel(modelId) && AppState.xaiApiKey) {
-                html = await callGrokText(modelId, '請嚴格按照使用者指令生成完整 HTML，不含說明文字。', prompt, AppState.abortController.signal);
-            } else if (!isGrokModel(modelId) && AppState.googleApiKey) {
-                const endpoint = `https://generativelanguage.googleapis.com/${getGeminiApiVersion(modelId)}/models/${modelId}:generateContent?key=${AppState.googleApiKey}`;
+            if (isGrokModel(modelId)) {
+                if (!AppState.xaiApiKey) { addLog(`⚠ 跳過 ${modelId}：未設定 Grok Key`, 'warning'); continue; }
+                addLog(`🎨 HTML 生成：呼叫 ${modelId} (Grok)...`, 'ai');
+                const sysPrompt = '你是世界最頂級的 HTML/SVG 互動式投影片設計師。請嚴格按照使用者指令生成完整 HTML。';
+                html = await callGrokText(modelId, sysPrompt, prompt, AppState.abortController.signal);
+            } else {
+                if (!AppState.googleApiKey) { addLog(`⚠ 跳過 ${modelId}：未設定 Gemini Key`, 'warning'); continue; }
+                addLog(`🎨 HTML 生成：呼叫 ${modelId} (Gemini)...`, 'ai');
+                const ver = getGeminiApiVersion(modelId);
+                const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${AppState.googleApiKey}`;
                 const resp = await fetch(endpoint, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig: { temperature: 0.75 } }),
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.75, maxOutputTokens: 16384 }
+                    }),
                     signal: AppState.abortController.signal
                 });
-                if (!resp.ok) continue;
-                html = (await resp.json()).candidates[0].content.parts[0].text;
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                const data = await resp.json();
+                html = data.candidates[0].content.parts[0].text;
             }
 
             html = html.replace(/^```html\s*/im, '').replace(/^```\s*/im, '').replace(/\s*```$/im, '').trim();
-            if (!html.toLowerCase().startsWith('<!doctype')) html = '<!DOCTYPE html>\n' + (html.match(/<html[\s\S]*<\/html>/i)?.[0] || html);
+            if (!html.toLowerCase().startsWith('<!doctype')) {
+                const m = html.match(/<html[\s\S]*<\/html>/i);
+                if (m) html = '<!DOCTYPE html>\n' + m[0];
+            }
 
-            // 注入互動腳本 (確保新版 interaction script)
-            if (!html.includes('updateTextColor')) html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
-            else if (!html.includes('adjustFontSize')) html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
+            html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', SLIDE_INTERACTION_SCRIPT);
+            if (!html.includes(SLIDE_INTERACTION_SCRIPT.slice(0, 30))) {
+                html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
+            }
 
-            // 注入自訂背景圖 (放在 <rect> 之後作為底層, 覆蓋主題背景色)
-            if (AppState.bgBase64) {
-                const bgImgTag = `<image class="custom-bg-image" href="${AppState.bgBase64}" x="0" y="0" width="1920" height="1080" preserveAspectRatio="none" style="pointer-events:none;"/>`;
-                // 先嘗試插在第一個 <rect> 之後
-                if (html.match(/<rect[^/]*(fill[^>]*width="1920"|width="1920"[^>]*fill)[^>]*\/>/i)) {
-                    html = html.replace(/(<rect[^>]*width="1920"[^>]*\/>)/i, '$1\n' + bgImgTag);
-                } else if (html.includes('</defs>')) {
-                    html = html.replace(/<\/defs>/i, match => match + '\n' + bgImgTag);
-                } else {
-                    html = html.replace(/<svg[^>]*>/i, match => match + '\n' + bgImgTag);
+            // 【修改點】：無論是 Base64 還是 URL，統一將 REPLACE_IMAGE_SRC 替換為實際圖片。
+            // 並且加上 crossorigin="anonymous" 有助於後續 PPTX 的 html2canvas 截圖。
+            if (hasImage) {
+                html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
+                html = html.replace(/<img([^>]*)src=["']([^"']+)["']([^>]*)>/g, '<img$1src="$2" crossorigin="anonymous"$3>');
+            }
+
+            // Inject background template
+            if (AppState.bgTemplateBase64) {
+                html = html.replace(/REPLACE_BG_SRC/g, AppState.bgTemplateBase64);
+                // If LLM didn't include placeholder, insert as first SVG child
+                if (!html.includes(AppState.bgTemplateBase64) && html.includes('id="slide-svg"')) {
+                    html = html.replace(
+                        /(id="slide-svg"[^>]*>)/,
+                        `$1\n<image href="${AppState.bgTemplateBase64}" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>`
+                    );
                 }
             }
 
-            // 注入全局 CSS 修正（確保 .ctrl 樣式、.img-dg cursor、.rb position）
-            const globalCssFix = `<style>
-.rb{position:relative !important;resize:both !important;overflow:auto !important;}
-.ctrl{opacity:0;transition:opacity .2s;position:absolute;top:6px;right:6px;display:flex;gap:4px;align-items:center;background:rgba(20,20,20,.88);padding:4px 6px;border-radius:6px;z-index:20 !important;border:1px solid rgba(255,255,255,.2);}
-.dg:hover .ctrl{opacity:1 !important;}
-.ctrl button{font-size:11px;cursor:pointer;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:3px;padding:2px 5px;font-family:monospace;}
-.ctrl input[type=color]{width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:1px;background:none;}
-.dh{text-align:center;font-size:10px;cursor:grab;user-select:none;}
-.img-dg{cursor:move !important;}
-.img-dg image,.img-dg img{cursor:move !important;}
-</style>`;
-            if (html.includes('</head>')) {
-                html = html.replace('</head>', globalCssFix + '\n</head>');
-            }
-
-            // 處理生成的圖片
-            if (imageB64 && !isDirectUrl) html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
-            if (imageB64) html = html.replace(/<img([^>]*)src=["']([^"']+)["']([^>]*)>/g, '<img$1src="$2" crossorigin="anonymous"$3>');
-
-            // 處理 Logo
             if (AppState.logoBase64) {
-                const pos = document.getElementById('sel-logo-pos').value || 'TR';
-                const posMap = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
-                const logoTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posMap[pos]}height:60px;max-width:200px;object-fit:contain;z-index:999;pointer-events:none;">`;
-                html = html.replace('</body>', logoTag + '\n</body>');
+                const pos = logoPos;
+                const posStyle = logoPosMap[pos] || logoPosMap['TR'];
+                const logoTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posStyle}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
+                if (html.includes('REPLACE_LOGO_SRC')) {
+                    html = html.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
+                } else if (!html.includes('slide-logo')) {
+                    html = html.replace('</body>', logoTag + '\n</body>');
+                }
             }
+
+            // Auto contrast fix (inject after all replacements)
+            html = injectContrastFix(html, theme);
 
             return html;
-        } catch(e) { if (e.name === 'AbortError') throw new Error('CanceledByUser'); }
-    }
-    throw new Error('所有 HTML 引擎皆失敗');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// FALLBACK HTML ── (強制全面使用 foreignObject 可拖曳卡片)
-// ═══════════════════════════════════════════════════════════════════
-function buildFallbackSlideHTML(slideData, theme) {
-    const title   = (slideData.title || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const subtitle= (slideData.subtitle || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const bullets = slideData.bullet_points || [];
-    const accent  = theme.accent;
-    const isWhite = document.getElementById('sel-template').value === 'pure_white';
-    
-    // 預設背景，若有上傳底圖則會被自訂底圖覆蓋
-    const bgDefs = isWhite 
-        ? `<linearGradient id="bg"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/></linearGradient>`
-        : `<linearGradient id="bg"><stop offset="0%" stop-color="#060a18"/><stop offset="100%" stop-color="#0e1628"/></linearGradient>`;
-    
-    const bgInject = AppState.bgBase64 
-        ? `<image href="${AppState.bgBase64}" x="0" y="0" width="1920" height="1080" preserveAspectRatio="none" class="custom-bg-image"/>` 
-        : '';
-
-    const titleColor = isWhite ? '#0f172a' : 'white';
-    const textColor  = isWhite ? '#334155' : '#cbd5e1';
-
-    let contentHTML = '';
-
-    if (slideData.layout === 'title_only') {
-        contentHTML = `
-        <g class="dg" transform="translate(110, 420)">
-            <foreignObject x="0" y="0" width="1700" height="280">
-                <div class="rb" style="width:1700px;height:280px;background:transparent;border:none;box-shadow:none;font-size:34px;position:relative;">
-                    <div class="dh" style="color:rgba(150,150,150,0.5);">· · · · ·</div>
-                    <div class="ctrl"><input type="color" value="${titleColor.startsWith('#') ? titleColor : '#1e293b'}" oninput="updateTextColor(this)" title="文字顏色"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
-                    <div contenteditable="true" style="font-size:108px;font-weight:900;color:${titleColor};line-height:1.1;">${title}</div>
-                    ${subtitle ? `<div contenteditable="true" style="font-weight:300;color:${accent};margin-top:10px;">${subtitle}</div>` : ''}
-                </div>
-            </foreignObject>
-        </g>`;
-    } else {
-        const cardBg = isWhite ? 'rgba(241,245,249,0.9)' : (theme.card || 'rgba(30,41,59,0.85)');
-        const cardTextColor = isWhite ? '#1e293b' : textColor;
-        contentHTML = `
-        <!-- Title Box -->
-        <g class="dg" transform="translate(110, 80)">
-            <foreignObject x="0" y="0" width="1600" height="120">
-                <div class="rb" style="width:1600px;height:120px;background:transparent;border:none;box-shadow:none;font-size:62px;position:relative;">
-                    <div class="dh" style="color:rgba(150,150,150,0.5);">· · · · ·</div>
-                    <div class="ctrl"><input type="color" value="${titleColor.startsWith('#') ? titleColor : '#ffffff'}" oninput="updateTextColor(this)" title="文字顏色"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
-                    <div contenteditable="true" style="font-weight:800;color:${titleColor};">${title}</div>
-                </div>
-            </foreignObject>
-        </g>
-        <!-- Content Box -->
-        <g class="dg" transform="translate(110, 220)">
-            <foreignObject x="0" y="0" width="1680" height="800">
-                <div class="rb" style="width:1680px;height:800px;font-size:24px;background:${cardBg};border-radius:16px;padding:30px;position:relative;">
-                    <div class="dh">· · · · ·</div>
-                    <div class="ctrl"><input type="color" value="${cardTextColor.startsWith('#') ? cardTextColor : '#cbd5e1'}" oninput="updateTextColor(this)" title="文字顏色"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
-                    ${bullets.map(b => `<div style="display:flex;gap:12px;margin-bottom:20px;"><div style="color:${accent};">●</div><div contenteditable="true" style="color:${cardTextColor};flex:1;">${b.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('')}
-                </div>
-            </foreignObject>
-        </g>`;
-    }
-
-    const slideNumHTML = `
-        <g class="dg" transform="translate(1780, 1020)">
-            <foreignObject x="0" y="0" width="120" height="40">
-                <div class="rb" style="width:120px;height:40px;background:transparent;border:none;box-shadow:none;font-size:16px;">
-                    <div class="dh" style="color:transparent;padding:0;">·</div>
-                    <div class="ctrl" style="top:-25px;"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
-                    <div contenteditable="true" style="color:${accent};text-align:right;">${slideData.slide_number} / —</div>
-                </div>
-            </foreignObject>
-        </g>
-    `;
-
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI","PingFang SC","Noto Sans TC",sans-serif;}
-.rb{resize:both;overflow:auto;min-width:100px;min-height:40px;position:relative;}
-.ctrl{opacity:0;transition:opacity .2s;position:absolute;top:6px;right:6px;display:flex;gap:4px;align-items:center;background:rgba(30,30,30,.92);padding:4px 6px;border-radius:6px;z-index:20;border:1px solid rgba(255,255,255,.15);}
-.dg:hover .ctrl{opacity:1;}
-.dh{text-align:center;font-size:10px;cursor:grab;user-select:none;color:rgba(150,150,150,0.5);}
-.ctrl button{font-size:11px;cursor:pointer;background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:3px;padding:2px 5px;}
-.ctrl input[type=color]{width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:0;}
-.img-dg{cursor:move;}
-</style></head>
-<body>
-<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
-<defs>${bgDefs}</defs>
-<rect width="1920" height="1080" fill="url(#bg)"/>
-${bgInject}
-${contentHTML}
-${slideNumHTML}
-</svg>
-${SLIDE_INTERACTION_SCRIPT}
-</body></html>`;
-}
-
-
-// ═══════════════════════════════════════════════════════════════════
-// SERPAPI & IMAGE PICKER LOGIC
-// ═══════════════════════════════════════════════════════════════════
-async function fetchImageAsBase64(url) {
-    try { return await loadImageViaCanvas(url, { crossOrigin: 'anonymous' }); } catch(e1) {}
-    try { return await loadImageViaCanvas(url, {}); } catch(e2) {}
-    try { const resp = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`); if (resp.ok) return await blobToDataURL(await resp.blob()); } catch(e3) {}
-    try { const resp = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`); if (resp.ok) return await blobToDataURL(await resp.blob()); } catch(e4) {}
-    throw new Error('圖片載入失敗');
-}
-function loadImageViaCanvas(url, attrs) {
-    return new Promise((res, rej) => {
-        const img = new Image(); if (attrs.crossOrigin) img.crossOrigin = attrs.crossOrigin;
-        img.onload = () => { try { const canvas = document.createElement('canvas'); canvas.width=img.width; canvas.height=img.height; canvas.getContext('2d').drawImage(img,0,0); res(canvas.toDataURL('image/jpeg', 0.88)); } catch(e) { rej(e); } };
-        img.onerror = () => rej(new Error('Image load error')); img.src = url;
-    });
-}
-function blobToDataURL(blob) { return new Promise((res, rej) => { const r = new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(blob); }); }
-
-async function searchSerpImages(query, count = 20) {
-    const key = AppState.serpApiKey; if (!key) throw new Error('SerpAPI Key 未設定');
-    const workerUrl = `https://serpapi.kirishimatoka00.workers.dev//?q=${encodeURIComponent(query)}&api_key=${key}`;
-    const resp = await fetch(workerUrl, { signal: AbortSignal.timeout(20000) });
-    const data = await resp.json();
-    if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
-    const results = data.images_results || [];
-    if (!results.length) throw new Error('搜尋結果為空');
-    return results.slice(0, count).map(img => ({ original: img.original||'', thumbnail: img.thumbnail||img.original||'', title: img.title||'' })).filter(img => img.thumbnail || img.original);
-}
-
-let _pickerResolve = null;
-function showImagePicker(slideNum, slideTitle, serpQuery) {
-    return new Promise(async (resolve) => {
-        _pickerResolve = resolve;
-        document.getElementById('img-picker-title').textContent = `第 ${slideNum} 頁：選擇配圖`;
-        document.getElementById('img-picker-subtitle').textContent = slideTitle || '';
-        document.getElementById('img-picker-selected-label').textContent = '尚未選擇';
-        document.getElementById('img-picker-confirm-btn').disabled = true;
-        
-        const gasBadge = document.getElementById('gas-mode-badge');
-        if (gasBadge) {
-            if (AppState.gasUrl) { gasBadge.textContent = '☁ GAS 模式'; gasBadge.className = 'text-[10px] px-2 py-1 rounded-lg font-semibold bg-yellow-500/15 text-yellow-400'; } 
-            else { gasBadge.textContent = '💾 Base64 模式'; gasBadge.className = 'text-[10px] px-2 py-1 rounded-lg font-semibold bg-slate-700 text-slate-400'; }
-        }
-
-        document.getElementById('img-picker-grid').classList.add('hidden');
-        document.getElementById('img-picker-error').classList.add('hidden');
-        document.getElementById('img-picker-loading').classList.remove('hidden');
-        document.getElementById('img-picker-modal').classList.add('open');
-
-        try {
-            const images = await searchSerpImages(serpQuery, 20);
-            document.getElementById('img-picker-loading').classList.add('hidden');
-            const grid = document.getElementById('img-picker-grid');
-            grid.classList.remove('hidden'); grid.innerHTML = '';
-            images.forEach((img, idx) => {
-                const div = document.createElement('div'); div.className = 'img-pick-thumb';
-                div.innerHTML = `<img src="${img.thumbnail}" onerror="this.parentNode.innerHTML='<div class=\\'err-ph\\'>圖片無法載入</div>'" loading="lazy">`;
-                div.addEventListener('click', () => {
-                    grid.querySelectorAll('.img-pick-thumb').forEach(t => t.classList.remove('selected'));
-                    div.classList.add('selected');
-                    document.getElementById('img-picker-selected-label').textContent = `已選：圖片 ${idx+1}`;
-                    const confirmBtn = document.getElementById('img-picker-confirm-btn');
-                    confirmBtn.disabled = false; confirmBtn.setAttribute('data-url', img.original); confirmBtn.setAttribute('data-thumb', img.thumbnail);
-                });
-                grid.appendChild(div);
-            });
         } catch(e) {
-            document.getElementById('img-picker-loading').classList.add('hidden');
-            document.getElementById('img-picker-error-msg').textContent = `搜尋失敗：${e.message}`;
-            document.getElementById('img-picker-error').classList.remove('hidden');
-            document.getElementById('img-picker-error').classList.add('flex');
-        }
-    });
-}
-
-async function uploadToGoogleDriveViaGAS(imageUrl, filename) {
-    if (!AppState.gasUrl) throw new Error('Apps Script URL 未設定');
-    const resp = await fetch(AppState.gasUrl, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ imageUrl: imageUrl, filename: filename||'img.jpg', mimeType: 'image/jpeg' }) });
-    const data = JSON.parse(await resp.text());
-    if (!resp.ok || !data.success) throw new Error(data.error || `GAS 失敗`);
-    return `https://lh3.googleusercontent.com/d/${data.fileId}`;
-}
-
-async function imgPickerConfirm() {
-    const btn = document.getElementById('img-picker-confirm-btn');
-    const originalUrl = btn.getAttribute('data-url') || '';
-    const thumbnailUrl = btn.getAttribute('data-thumb') || originalUrl;
-    btn.disabled = true; btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 處理中...';
-
-    if (AppState.gasUrl) {
-        for (const imgUrl of [originalUrl, thumbnailUrl]) {
-            try {
-                const driveUrl = await uploadToGoogleDriveViaGAS(imgUrl, `slide_${Date.now()}.jpg`);
-                document.getElementById('img-picker-modal').classList.remove('open');
-                if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: driveUrl }); _pickerResolve = null; }
-                btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖'; btn.disabled = false; return;
-            } catch(e) {}
+            lastErr = e;
+            if (e.name === 'AbortError') throw new Error('CanceledByUser');
+            addLog(`⚠ HTML 生成 ${modelId} 失敗: ${e.message}`, 'warning');
         }
     }
-    for (const url of [originalUrl, thumbnailUrl]) {
-        try {
-            const b64 = await fetchImageAsBase64(url);
-            document.getElementById('img-picker-modal').classList.remove('open');
-            if (_pickerResolve) { _pickerResolve({ mode: 'serp', b64 }); _pickerResolve = null; }
-            btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖'; btn.disabled = false; return;
-        } catch(e) {}
-    }
-    document.getElementById('img-picker-modal').classList.remove('open');
-    if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: thumbnailUrl }); _pickerResolve = null; }
-    btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖'; btn.disabled = false;
+    throw new Error(`HTML 投影片生成失敗: ${lastErr?.message}`);
 }
-
-function imgPickerUseAI() { document.getElementById('img-picker-modal').classList.remove('open'); if (_pickerResolve) { _pickerResolve({ mode: 'ai', b64: null }); _pickerResolve = null; } }
-function imgPickerCancel() { document.getElementById('img-picker-modal').classList.remove('open'); if (_pickerResolve) { _pickerResolve({ mode: 'skip', b64: null }); _pickerResolve = null; } }
 
 // ═══════════════════════════════════════════════════════════════════
-// AI IMAGE GENERATION
+// CONTRAST UTILITY ── ensure text is readable against background
+// ═══════════════════════════════════════════════════════════════════
+function getLuminance(r, g, b) {
+    const toLinear = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+    return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+function hexToRgbArr(hex) {
+    const m = (hex || '').match(/#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})/);
+    if (!m) return [128, 128, 128];
+    return [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)];
+}
+function getContrastRatio(hex1, hex2) {
+    const l1 = getLuminance(...hexToRgbArr(hex1));
+    const l2 = getLuminance(...hexToRgbArr(hex2));
+    const [L, D] = l1 > l2 ? [l1, l2] : [l2, l1];
+    return (L + 0.05) / (D + 0.05);
+}
+function pickReadableColor(bgHex, preferred, fallbackLight = '#f8fafc', fallbackDark = '#0f172a') {
+    const contrastPreferred = getContrastRatio(bgHex, preferred);
+    if (contrastPreferred >= 4.5) return preferred;
+    const contrastLight = getContrastRatio(bgHex, fallbackLight);
+    const contrastDark  = getContrastRatio(bgHex, fallbackDark);
+    return contrastLight >= contrastDark ? fallbackLight : fallbackDark;
+}
+
+// Inject contrast-safe CSS overrides into an HTML slide string
+function injectContrastFix(html, theme) {
+    const bgHex = AppState.bgTemplateBase64
+        ? '#808080'   // unknown bg image → use mid-grey assumption, safer to use light text
+        : (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[0] || '#0f172a');
+
+    const [bgR, bgG, bgB] = hexToRgbArr(bgHex);
+    const bgLum = getLuminance(bgR, bgG, bgB);
+    const bgIsLight = bgLum > 0.18;
+
+    // Pick safe text color based on bg luminance
+    const safeText    = bgIsLight ? '#111827' : '#f1f5f9';
+    const safeSubText = bgIsLight ? '#374151' : '#cbd5e1';
+    const safeAccent  = (() => {
+        const a = theme.accent || '#818cf8';
+        return getContrastRatio(bgHex, a) >= 3.0 ? a : (bgIsLight ? '#1d4ed8' : '#a5b4fc');
+    })();
+
+    // Build override CSS block
+    const overrideCss = `
+<style id="contrast-override">
+/* Auto contrast override */
+body { --safe-text:${safeText}; --safe-sub:${safeSubText}; --safe-accent:${safeAccent}; }
+svg text { fill: ${safeText}; }
+.rb, .rb p, .rb span, .rb li { color: ${safeText}; }
+</style>`;
+
+    // Inject after <head> or before first </head>
+    if (html.includes('</head>')) {
+        html = html.replace('</head>', overrideCss + '\n</head>');
+    }
+    return html;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// IMAGE GENERATION  ── PRESERVED FROM ORIGINAL ──
 // ═══════════════════════════════════════════════════════════════════
 async function buildImagePrompt(contextText) {
     const gKey = AppState.googleApiKey;
@@ -1273,7 +1472,10 @@ async function generateImage(contextText, slideNum) {
     const finalPrompt = await buildImagePrompt(contextText);
 
     const preferredModel = document.getElementById('sel-img-model').value;
-    const fallbackQueue  = [preferredModel, 'grok-imagine-image-pro', 'grok-imagine-image', 'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'];
+    const fallbackQueue  = [
+        preferredModel, 'grok-imagine-image-pro', 'grok-imagine-image',
+        'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'
+    ];
     const uniqueModels = [...new Set(fallbackQueue)];
 
     for (const model of uniqueModels) {
@@ -1310,7 +1512,8 @@ async function generateImage(contextText, slideNum) {
                     }
                 );
                 if (r.ok) {
-                    const imgPart = (await r.json()).candidates?.[0]?.content?.parts?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+                    const imgPart = (await r.json()).candidates?.[0]?.content?.parts
+                        ?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
                     if (imgPart?.inlineData?.data) {
                         addLog(`✓ 成功使用 ${model} 生成配圖`, 'success');
                         return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
@@ -1322,45 +1525,22 @@ async function generateImage(contextText, slideNum) {
             addLog(`⚠ ${model} 失敗: ${e.message}`, 'warning');
         }
     }
-    addLog(`⚠ 所有配圖引擎失敗，此頁改用純排版設計`, 'warning');
+    addLog(`⚠ 所有配圖引擎失敗，此頁改用純 HTML/CSS 設計`, 'warning');
     return null;
 }
 
-async function getSlideImage(sData, imageMode, slideIndex) {
-    const wantsImage = sData.layout === 'text_and_image';
-    const forceAI = imageMode === 'all' && !['title_only','diagram_slide'].includes(sData.layout);
-    if (imageMode === 'none') return null;
-    if (!wantsImage && !forceAI && imageMode === 'auto') return null;
-
-    if (['serp_only', 'serp_primary', 'serp_mixed'].includes(imageMode) && AppState.serpApiKey && (imageMode!=='serp_mixed' || slideIndex%2===0)) {
-        const serpQuery = [sData.title||'', (sData.bullet_points||[]).slice(0,2).join(' ')].join(' ').slice(0, 120);
-        const result = await showImagePicker(sData.slide_number, sData.title, serpQuery);
-        if (result.b64) return result.b64;
-        if (imageMode === 'serp_only') return null;
-    }
-    
-    // 如果走到這裡，代表要使用 AI 繪圖
-    if (!AppState.cancelRequested && (wantsImage || forceAI || imageMode === 'all')) {
-        try {
-            const ctx = `Title: ${sData.title}\nContent: ${(sData.bullet_points||[]).join('; ')}\nFocus: ${sData.image_prompt||''}`;
-            return await generateImage(ctx, sData.slide_number);
-        } catch(e) {
-            if (e.message === 'CanceledByUser') throw e;
-            return null;
-        }
-    }
-    return null; 
-}
-
-
 // ═══════════════════════════════════════════════════════════════════
-// PREVIEW, COPY & HTML EXPORT
+// SLIDE PREVIEW RENDERING
 // ═══════════════════════════════════════════════════════════════════
 function renderSlidePreviewCard(slideData, html, index) {
     const grid = document.getElementById('slides-preview-grid');
     const card = document.createElement('div');
     card.className = 'slide-preview-card bg-slate-900 border border-slate-800 rounded-xl overflow-hidden fade-in';
+    card.style.animationDelay = `${Math.min(index * 50, 400)}ms`;
+
+    // Escape for srcdoc attribute
     const escaped = html.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+
     card.innerHTML = `
         <div class="slide-iframe-wrap" style="--ps:0.25">
             <iframe srcdoc="${escaped}" sandbox="allow-scripts" loading="lazy"></iframe>
@@ -1374,10 +1554,17 @@ function renderSlidePreviewCard(slideData, html, index) {
                 <p class="text-xs font-semibold text-slate-200 truncate">${slideData.title || '（無標題）'}</p>
             </div>
             <div class="flex gap-1.5 shrink-0">
-                <button onclick="previewSingleSlide(${index})" title="全螢幕預覽" class="text-slate-500 hover:text-sky-400 transition-colors p-1"><i class="ph-bold ph-arrows-out text-base"></i></button>
-                <button onclick="copySlideHTML(${index})" title="複製 HTML" class="text-slate-500 hover:text-amber-400 transition-colors p-1"><i class="ph-bold ph-code text-base"></i></button>
+                <button onclick="previewSingleSlide(${index})" title="全螢幕預覽"
+                    class="text-slate-500 hover:text-sky-400 transition-colors p-1">
+                    <i class="ph-bold ph-arrows-out text-base"></i>
+                </button>
+                <button onclick="copySlideHTML(${index})" title="複製 HTML"
+                    class="text-slate-500 hover:text-amber-400 transition-colors p-1">
+                    <i class="ph-bold ph-code text-base"></i>
+                </button>
             </div>
-        </div>`;
+        </div>
+    `;
     grid.appendChild(card);
 }
 
@@ -1396,143 +1583,407 @@ function copySlideHTML(index) {
 
 function previewAllSlides() {
     if (!AppState.generatedSlides.length) return;
-    const viewer = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>投影片預覽</title>
-<style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#111;display:flex;flex-direction:column;align-items:center;padding:24px;gap:16px;font-family:sans-serif;}
+    const viewer = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>投影片全覽 · ${AppState.presentationData?.presentation_title || ''}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#111;display:flex;flex-direction:column;align-items:center;padding:24px;gap:16px;font-family:sans-serif;}
+h1{color:#e2e8f0;font-size:18px;font-weight:700;margin-bottom:8px;}
 .slide-wrap{width:960px;height:540px;overflow:hidden;border-radius:10px;box-shadow:0 4px 32px rgba(0,0,0,0.6);position:relative;}
 .slide-wrap iframe{width:1920px;height:1080px;border:none;transform:scale(0.5);transform-origin:top left;}
 .slide-label{color:#64748b;font-size:11px;margin-bottom:4px;align-self:flex-start;width:960px;}
 </style></head><body>
-${AppState.generatedSlides.map((s,i) => `<div class="slide-label">Page ${s.slideNumber}: ${s.title || ''}</div><div class="slide-wrap"><iframe srcdoc="${s.html.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" sandbox="allow-scripts"></iframe></div>`).join('')}
+<h1>${AppState.presentationData?.presentation_title || '簡報預覽'}</h1>
+${AppState.generatedSlides.map((s,i) => `
+<div class="slide-label">Page ${s.slideNumber}: ${s.title || ''}</div>
+<div class="slide-wrap"><iframe srcdoc="${s.html.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" sandbox="allow-scripts"></iframe></div>
+`).join('')}
 </body></html>`;
     const win = window.open('', '_blank');
     if (win) { win.document.write(viewer); win.document.close(); }
 }
 
-function saveAllSlidesAsHTML() {
-    if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
-    const title = AppState.presentationData?.presentation_title || 'Presentation';
-    const totalSlides = AppState.generatedSlides.length;
-    const slideContents = AppState.generatedSlides.map((s, i) => `{ title: ${JSON.stringify(s.title || '')}, src: decodeURIComponent(${JSON.stringify(encodeURIComponent(s.html))}) }`).join(',\n');
-
-    const viewer = `<!DOCTYPE html>
-<html lang="zh-TW"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>${title.replace(/</g,'&lt;')}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#020617;font-family:"Segoe UI",sans-serif;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
-header{background:#0f172a;border-bottom:1px solid #1e293b;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;shrink:0;}
-.nav-controls{display:flex;gap:8px;align-items:center;}
-button{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;}
-button:hover{background:#334155;color:#fff;}
-.slide-viewport{flex:1;display:flex;align-items:center;justify-content:center;background:#020617;padding:16px;overflow:hidden;}
-.slide-frame-wrap{position:relative;background:#0f172a;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.6);aspect-ratio:16/9;max-height:calc(100vh - 130px);}
-.slide-frame-wrap iframe{width:1920px;height:1080px;border:none;transform-origin:top left;}
-footer{background:#0f172a;border-top:1px solid #1e293b;padding:8px 20px;display:flex;gap:8px;overflow-x:auto;}
-.thumb{width:80px;height:45px;background:#1e293b;border:2px solid #334155;border-radius:5px;overflow:hidden;cursor:pointer;shrink:0;position:relative;}
-.thumb iframe{width:800px;height:450px;border:none;transform:scale(0.1);transform-origin:top left;pointer-events:none;}
-.thumb.active{border-color:#818cf8;}
-</style></head><body>
-<header><div>${title.replace(/</g,'&lt;')}</div><div class="nav-controls"><button onclick="go(-1)">◀</button><span id="counter">1 / ${totalSlides}</span><button onclick="go(1)">▶</button><button onclick="toggleFs()">⛶</button></div></header>
-<div class="slide-viewport" id="viewport"><div class="slide-frame-wrap" id="frame-wrap"><iframe id="main-frame" sandbox="allow-scripts"></iframe></div></div>
-<footer id="thumb-bar"></footer>
-<script>
-const slides=[${slideContents}]; let cur=0;
-function scaleFrame(){
-  const w=document.getElementById('frame-wrap'), vp=document.getElementById('viewport');
-  const sc=Math.min((vp.clientWidth-32)/1920, (vp.clientHeight-32)/1080);
-  w.style.width=(1920*sc)+'px'; w.style.height=(1080*sc)+'px';
-  document.getElementById('main-frame').style.transform='scale('+sc+')';
-}
-function show(n){
-  cur=Math.max(0,Math.min(slides.length-1,n));
-  document.getElementById('main-frame').srcdoc=slides[cur].src;
-  document.getElementById('counter').textContent=(cur+1)+' / '+slides.length;
-  document.querySelectorAll('.thumb').forEach((t,i)=>t.classList.toggle('active',i===cur));
-}
-function go(d){show(cur+d);}
-function toggleFs(){ if(!document.fullscreenElement) document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
-const bar=document.getElementById('thumb-bar');
-slides.forEach((s,i)=>{
-  const d=document.createElement('div'); d.className='thumb'+(i===0?' active':''); d.onclick=()=>show(i);
-  const f=document.createElement('iframe'); f.sandbox='allow-scripts'; f.srcdoc=s.src;
-  d.appendChild(f); bar.appendChild(d);
-});
-show(0); window.addEventListener('resize',scaleFrame); scaleFrame();
-document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')go(1);if(e.key==='ArrowLeft')go(-1);});
-<\/script></body></html>`;
-
-    const blob = new Blob([viewer], { type: 'text/html;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a'); a.href = url;
-    a.download = (title.replace(/[^\w\u4e00-\u9fa5\s-]/g,'').replace(/\s+/g,'_').slice(0,60) || 'presentation') + '.html';
-    a.click(); URL.revokeObjectURL(url);
-    showToast('✅ HTML 投影片檔案已儲存');
-}
-
 // ═══════════════════════════════════════════════════════════════════
-// PPTX EXPORT (IMAGE SCREENSHOT MODE)
+// HTML → PPTX CONVERSION
 // ═══════════════════════════════════════════════════════════════════
-function togglePptxMenu() { document.getElementById('pptx-menu').classList.toggle('hidden'); }
-
 async function slideHTMLToBase64(html, slideNum) {
     return new Promise((resolve) => {
         const iframe = document.createElement('iframe');
         iframe.style.cssText = 'position:fixed;width:1920px;height:1080px;top:-99999px;left:-99999px;border:none;visibility:hidden;z-index:-999;';
         document.body.appendChild(iframe);
 
-        const cleanup = () => { if (document.body.contains(iframe)) document.body.removeChild(iframe); };
-        const timeout = setTimeout(() => { cleanup(); addLog(`⚠ 第 ${slideNum} 頁截圖超時`, 'warning'); resolve(null); }, 20000);
+        const cleanup = () => {
+            if (document.body.contains(iframe)) document.body.removeChild(iframe);
+        };
+        const timeout = setTimeout(() => {
+            cleanup();
+            addLog(`⚠ 第 ${slideNum} 頁截圖超時，將使用文字備用`, 'warning');
+            resolve(null);
+        }, 20000);
 
         iframe.addEventListener('load', async () => {
             try {
+                // Wait for fonts & SVG rendering
                 await new Promise(r => setTimeout(r, 700));
-                const canvas = await html2canvas(iframe.contentDocument.body, { width: 1920, height: 1080, scale: 1, backgroundColor: null, logging: false, useCORS: true, allowTaint: true });
-                clearTimeout(timeout); resolve(canvas.toDataURL('image/jpeg', 0.93));
+                const canvas = await html2canvas(iframe.contentDocument.body, {
+                    width: 1920, height: 1080,
+                    scale: 1,
+                    backgroundColor: null,
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true
+                });
+                clearTimeout(timeout);
+                resolve(canvas.toDataURL('image/jpeg', 0.93));
             } catch(e) {
-                clearTimeout(timeout); addLog(`⚠ 第 ${slideNum} 頁截圖失敗: ${e.message}`, 'warning'); resolve(null);
-            } finally { cleanup(); }
+                clearTimeout(timeout);
+                addLog(`⚠ 第 ${slideNum} 頁截圖失敗: ${e.message}`, 'warning');
+                resolve(null);
+            } finally {
+                cleanup();
+            }
         });
+
         iframe.srcdoc = html;
     });
 }
 
+function togglePptxMenu() {
+    document.getElementById('pptx-menu').classList.toggle('hidden');
+}
+
 async function downloadPptx(mode = 'image') {
     if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
-    if (mode === 'editable') { await downloadEditablePptx(); return; }
+    if (mode === 'editable') {
+        await downloadEditablePptx();
+        return;
+    }
 
     const groupBtn = document.getElementById('btn-pptx-group');
     const origHTML = groupBtn.innerHTML;
     groupBtn.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;color:white;font-size:12px;font-weight:700;"><i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i>截圖轉換中...</div>';
     groupBtn.style.pointerEvents = 'none';
 
+    if (!document.getElementById('spin-style')) {
+        const s = document.createElement('style');
+        s.id = 'spin-style';
+        s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+        document.head.appendChild(s);
+    }
+
     try {
-        const pres = new PptxGenJS(); pres.layout = 'LAYOUT_16x9';
+        const pres = new PptxGenJS();
+        pres.layout = 'LAYOUT_16x9';
+
+        const logoPos = document.getElementById('sel-logo-pos').value;
+        const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
+        const [lx, ly] = logoPosMap[logoPos] || [8.5, 0.2];
+
         for (let i = 0; i < AppState.generatedSlides.length; i++) {
             const s = AppState.generatedSlides[i];
             addLog(`📸 截圖第 ${s.slideNumber}/${AppState.generatedSlides.length} 頁...`, 'info');
+
             const imgB64 = await slideHTMLToBase64(s.html, s.slideNumber);
             const slide  = pres.addSlide();
-            if (imgB64) { slide.addImage({ data: imgB64, x: 0, y: 0, w: '100%', h: '100%' }); } 
-            else { slide.addText(s.title || `Slide ${s.slideNumber}`, { x:0.5, y:2.0, w:9.0, h:1.5, fontSize: 36, bold: true, color: '000000', align: 'center' }); }
+
+            if (imgB64) {
+                slide.addImage({ data: imgB64, x: 0, y: 0, w: '100%', h: '100%' });
+                addLog(`✓ 第 ${s.slideNumber} 頁轉換成功`, 'success');
+            } else {
+                slide.addShape('rect', { x:0,y:0,w:10,h:5.625, fill:{color:'0f172a'} });
+                slide.addText(s.title || `Slide ${s.slideNumber}`, {
+                    x:0.5, y:2.0, w:9.0, h:1.5,
+                    fontSize: 36, bold: true, color: 'FFFFFF', align: 'center'
+                });
+            }
+
+            if (AppState.logoBase64) {
+                slide.addImage({ data: AppState.logoBase64, x: lx, y: ly, w: 1.0, h: 0.5,
+                    sizing: { type:'contain', w:1.0, h:0.5 } });
+            }
         }
-        const fileName = (AppState.presentationData?.presentation_title || 'Presentation').replace(/[^\w\u4e00-\u9fa5\s-]/g, '').replace(/\s+/g, '_').slice(0, 80) + '.pptx';
+
+        const fileName = (AppState.presentationData?.presentation_title || 'AI_HTML_Presentation')
+            .replace(/[^\w\u4e00-\u9fa5\s-]/g, '').replace(/\s+/g, '_').slice(0, 80) + '.pptx';
+
         await pres.writeFile({ fileName });
         showToast(`✅ ${fileName} 下載完成！`);
+
     } catch(e) {
-        showToast('❌ PPTX 轉換失敗: ' + e.message); console.error(e);
+        showToast('❌ PPTX 轉換失敗: ' + e.message);
+        console.error(e);
     } finally {
-        groupBtn.innerHTML = origHTML; groupBtn.style.pointerEvents = '';
+        groupBtn.innerHTML = origHTML;
+        groupBtn.style.pointerEvents = '';
     }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// HTML DOM → EDITABLE PPTX CONVERSION (SUPER PARSER ENGINE)
+// FALLBACK HTML  ── SVG + foreignObject quality fallback ──
+// ═══════════════════════════════════════════════════════════════════
+function buildLogoTag() {
+    if (!AppState.logoBase64) return '';
+    const pos = document.getElementById('sel-logo-pos')?.value || 'TR';
+    const posStyles = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
+    return `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posStyles[pos]||posStyles.TR}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
+}
+
+function buildFallbackSlideHTML(slideData, theme) {
+    const title    = (slideData.title || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const subtitle = (slideData.subtitle || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const bullets  = slideData.bullet_points || [];
+    const accent   = theme.accent;
+    const accentRgb = hexToRgbStr(accent);
+    const isCover  = slideData.layout === 'title_only';
+
+    function hexToRgbStr(c) {
+        const m = (c||'').match(/#([0-9a-fA-F]{6})/);
+        if (m) { const n = parseInt(m[1], 16); return `${(n>>16)&255},${(n>>8)&255},${n&255}`; }
+        return '99,102,241';
+    }
+
+    const bgLayer = AppState.bgTemplateBase64
+        ? `<image href="${AppState.bgTemplateBase64}" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>`
+        : `<defs>
+  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+    <stop offset="0%" stop-color="#060a18"/><stop offset="100%" stop-color="#0e1628"/>
+  </linearGradient>
+  <radialGradient id="aura" cx="80%" cy="20%" r="60%">
+    <stop offset="0%" stop-color="${accent}" stop-opacity="0.10"/><stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
+  </radialGradient>
+</defs>
+<rect width="1920" height="1080" fill="url(#bg)"/>
+<rect width="1920" height="1080" fill="url(#aura)"/>`;
+
+    const textColorDefault = AppState.bgTemplateBase64 ? '#111827' : '#ffffff';
+    const ctrlBar = `<div class="ctrl">
+  <input type="color" value="${accent.startsWith('#')?accent:'#6366f1'}" oninput="updateThemeColor(1,this.value)" title="主題色">
+  <input type="color" value="${textColorDefault}" oninput="changeTextColor(this)" title="文字色">
+  <input type="color" value="rgba(0,0,0,0)" oninput="changeBgColor(this)" title="卡片底色">
+  <div style="width:1px;height:14px;background:rgba(255,255,255,.2);margin:0 2px;"></div>
+  <button onclick="adjustFontSize(this,-1)">A−</button>
+  <button onclick="adjustFontSize(this,+1)">A+</button>
+</div>`;
+
+    const sharedStyle = `
+*{margin:0;padding:0;box-sizing:border-box;}
+body{width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
+:root{--c1:${accent};--c1-rgb:${accentRgb};}
+.rb{resize:both;overflow:auto;min-width:280px;min-height:120px;position:relative;}
+.ctrl{opacity:0;transition:opacity .2s;position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(15,23,42,.92);border:1px solid rgba(255,255,255,.15);border-radius:8px;padding:5px 7px;z-index:50;}
+.dg:hover .ctrl,.rb:hover>.ctrl{opacity:1;}
+.dh{text-align:center;color:rgba(255,255,255,.25);font-size:10px;letter-spacing:4px;padding:3px 0 8px;cursor:grab;user-select:none;}
+input[type=color]{width:20px;height:20px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;}
+input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+input[type=color]::-webkit-color-swatch{border:1px solid rgba(255,255,255,.2);border-radius:3px;}
+.ctrl button{font-size:10px;font-weight:700;padding:2px 6px;border:none;background:rgba(255,255,255,.1);border-radius:3px;cursor:pointer;color:#e2e8f0;}
+.ctrl button:hover{background:rgba(255,255,255,.2);}
+[contenteditable]:hover{background:rgba(${accentRgb},.06);border-radius:3px;}
+[contenteditable]:focus{outline:2px solid rgba(${accentRgb},.5);border-radius:3px;}`;
+
+    if (isCover) {
+        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${sharedStyle}</style></head>
+<body>
+<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
+${bgLayer}
+<filter id="glow" xmlns="http://www.w3.org/2000/svg"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+<rect x="80" y="200" width="6" height="480" rx="3" fill="${accent}" opacity="0.8" filter="url(#glow)"/>
+<text x="110" y="460" font-family="Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="108" font-weight="900" fill="${textColorDefault}" filter="url(#glow)">${title}</text>
+${subtitle ? `<text x="114" y="560" font-family="Segoe UI,sans-serif" font-size="34" font-weight="300" fill="${accent}" opacity="0.85">${subtitle}</text>` : ''}
+<rect x="110" y="630" width="200" height="5" rx="2.5" fill="${accent}"/>
+</svg>
+${SLIDE_INTERACTION_SCRIPT}
+${buildLogoTag()}
+</body></html>`;
+        return injectContrastFix(html, theme);
+    }
+
+    const isDiagram = slideData.layout === 'diagram_slide';
+    const diagDesc  = (slideData.diagram_description || title).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+    let fallbackHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${sharedStyle}
+.rb-card{background:rgba(15,23,42,.78);border:1px solid rgba(${accentRgb},0.3);border-top:4px solid ${accent};border-radius:16px;padding:28px 32px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 20px 60px rgba(0,0,0,.4);}
+</style></head>
+<body>
+<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <filter id="shadow"><feDropShadow dx="0" dy="15" stdDeviation="20" flood-color="#000" flood-opacity="0.35"/></filter>
+  <filter id="glow"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+${bgLayer}
+<rect x="0" y="0" width="1920" height="4" fill="${accent}" opacity="0.5"/>
+<rect x="60" y="60" width="5" height="960" rx="2.5" fill="${accent}" opacity="0.25"/>
+<text x="1840" y="1050" font-family="Segoe UI,sans-serif" font-size="16" fill="${accent}" opacity="0.4" text-anchor="end">${slideData.slide_number || 1}</text>
+<text x="110" y="120" font-family="Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="62" font-weight="800" fill="${textColorDefault}" filter="url(#glow)">${title}</text>
+<rect x="110" y="138" width="120" height="4" rx="2" fill="${accent}" opacity="0.9"/>
+
+${isDiagram ? `<g transform="translate(200,180)">
+  <rect x="0" y="0" width="1500" height="60" rx="8" fill="${accent}" opacity="0.15"/>
+  <text x="20" y="42" font-family="Segoe UI,PingFang SC,sans-serif" font-size="28" font-weight="700" fill="${accent}">${diagDesc}</text>
+  <g transform="translate(0,100)">
+    ${bullets.slice(0,4).map((b,i) => {
+        const safe2 = (b||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0,40);
+        const bx = i*380;
+        return `<rect x="${bx}" y="0" width="340" height="180" rx="12" fill="rgba(${accentRgb},0.12)" stroke="${accent}" stroke-width="1.5"/>
+<text x="${bx+170}" y="70" font-size="16" font-weight="700" fill="${accent}" text-anchor="middle">${i+1}</text>
+<text x="${bx+170}" y="110" font-size="15" fill="${textColorDefault}" text-anchor="middle" opacity="0.85">${safe2}</text>
+${i<3?`<line x1="${bx+340}" y1="90" x2="${bx+380}" y2="90" stroke="${accent}" stroke-width="2" opacity="0.7"/><polygon points="${bx+375},85 ${bx+380},90 ${bx+375},95" fill="${accent}" opacity="0.7"/>`:''}`;
+    }).join('')}
+  </g>
+</g>` : `
+<g class="dg" transform="translate(110, 180)" filter="url(#shadow)">
+  <foreignObject x="0" y="0" width="1680" height="820">
+    <div class="rb rb-card" style="width:1680px;height:820px;font-size:18px;">
+      <div class="dh">· · · · ·</div>
+      ${ctrlBar}
+      <div style="margin-bottom:24px;">
+        ${bullets.map((b,i) => {
+            const safe2 = b.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            return `<div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:22px;">
+  <div style="width:32px;height:32px;border-radius:50%;background:rgba(${accentRgb},.2);border:1.5px solid rgba(${accentRgb},.5);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
+    <span style="color:${accent};font-size:14px;font-weight:700;">${i+1}</span>
+  </div>
+  <p contenteditable="true" spellcheck="false" style="color:${textColorDefault};font-size:1em;line-height:1.65;flex:1;margin:0;">${safe2}</p>
+</div>`;
+        }).join('')}
+      </div>
+    </div>
+  </foreignObject>
+</g>`}
+</svg>
+${SLIDE_INTERACTION_SCRIPT}
+${buildLogoTag()}
+</body></html>`;
+    return injectContrastFix(fallbackHtml, theme);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SAVE ALL SLIDES AS INTERACTIVE HTML FILE
+// ═══════════════════════════════════════════════════════════════════
+function saveAllSlidesAsHTML() {
+    if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
+
+    const title = AppState.presentationData?.presentation_title || 'Presentation';
+    const totalSlides = AppState.generatedSlides.length;
+
+    const slideContents = AppState.generatedSlides.map((s, i) => {
+        const encoded = encodeURIComponent(s.html);
+        return `{ title: ${JSON.stringify(s.title || '')}, src: decodeURIComponent(${JSON.stringify(encoded)}) }`;
+    }).join(',\n');
+
+    const viewer = `<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title.replace(/</g,'&lt;')}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#020617;font-family:"Segoe UI","PingFang SC",sans-serif;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+header{background:#0f172a;border-bottom:1px solid #1e293b;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;shrink:0;}
+.title{font-size:14px;font-weight:700;color:#fff;truncate:hidden;}
+.nav-controls{display:flex;align-items:center;gap:8px;}
+.nav-btn{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;}
+.nav-btn:hover{background:#334155;color:#fff;}
+.nav-btn:disabled{opacity:0.35;cursor:not-allowed;}
+.slide-counter{font-size:13px;color:#64748b;min-width:80px;text-align:center;}
+.slide-viewport{flex:1;display:flex;align-items:center;justify-content:center;background:#020617;padding:16px;overflow:hidden;}
+.slide-frame-wrap{position:relative;background:#0f172a;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.6);aspect-ratio:16/9;max-height:calc(100vh - 130px);}
+.slide-frame-wrap iframe{width:1920px;height:1080px;border:none;transform-origin:top left;}
+footer{background:#0f172a;border-top:1px solid #1e293b;padding:8px 20px;display:flex;align-items:center;gap:8px;overflow-x:auto;}
+.thumb{width:80px;height:45px;background:#1e293b;border:2px solid #334155;border-radius:5px;overflow:hidden;cursor:pointer;shrink:0;position:relative;}
+.thumb iframe{width:800px;height:450px;border:none;transform:scale(0.1);transform-origin:top left;pointer-events:none;}
+.thumb.active{border-color:#818cf8;}
+.thumb:hover{border-color:#64748b;}
+</style>
+</head>
+<body>
+<header>
+  <div class="title">${title.replace(/</g,'&lt;')}</div>
+  <div class="nav-controls">
+    <button class="nav-btn" id="btn-prev" onclick="go(-1)">◀ 上一頁</button>
+    <span class="slide-counter" id="counter">1 / ${totalSlides}</span>
+    <button class="nav-btn" id="btn-next" onclick="go(1)">下一頁 ▶</button>
+    <button class="nav-btn" onclick="toggleFullscreen()" title="全螢幕">⛶</button>
+  </div>
+</header>
+<div class="slide-viewport" id="viewport">
+  <div class="slide-frame-wrap" id="frame-wrap">
+    <iframe id="main-frame" sandbox="allow-scripts"></iframe>
+  </div>
+</div>
+<footer id="thumb-bar"></footer>
+<script>
+const slides = [${slideContents}];
+let cur = 0;
+function scaleFrame(){
+  const wrap = document.getElementById('frame-wrap');
+  const vp = document.getElementById('viewport');
+  const maxW = vp.clientWidth - 32;
+  const maxH = vp.clientHeight - 32;
+  const scale = Math.min(maxW/1920, maxH/1080);
+  wrap.style.width = (1920*scale)+'px';
+  wrap.style.height = (1080*scale)+'px';
+  document.getElementById('main-frame').style.transform = 'scale('+scale+')';
+  document.querySelectorAll('.thumb iframe').forEach(f=>f.style.transform='scale('+80/1920+')');
+}
+function show(n){
+  cur = Math.max(0, Math.min(slides.length-1, n));
+  document.getElementById('main-frame').srcdoc = slides[cur].src;
+  document.getElementById('counter').textContent = (cur+1)+' / '+slides.length;
+  document.getElementById('btn-prev').disabled = cur===0;
+  document.getElementById('btn-next').disabled = cur===slides.length-1;
+  document.querySelectorAll('.thumb').forEach((t,i)=>t.classList.toggle('active',i===cur));
+  document.querySelectorAll('.thumb')[cur]?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+}
+function go(d){ show(cur+d); }
+function toggleFullscreen(){
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
+  else document.exitFullscreen();
+}
+const bar = document.getElementById('thumb-bar');
+slides.forEach((s,i)=>{
+  const d = document.createElement('div');
+  d.className='thumb'+(i===0?' active':'');
+  d.title = s.title;
+  d.onclick=()=>show(i);
+  const f=document.createElement('iframe');
+  f.sandbox='allow-scripts';
+  f.srcdoc=s.src;
+  d.appendChild(f);
+  bar.appendChild(d);
+});
+show(0);
+window.addEventListener('resize', scaleFrame);
+scaleFrame();
+document.addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown') go(1);
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp') go(-1);
+  if(e.key==='f'||e.key==='F') toggleFullscreen();
+});
+<\/script>
+</body>
+</html>`;
+
+    const blob = new Blob([viewer], { type: 'text/html;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = (title.replace(/[^\w\u4e00-\u9fa5\s-]/g,'').replace(/\s+/g,'_').slice(0,60) || 'presentation') + '.html';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('✅ HTML 投影片檔案已儲存');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EDITABLE PPTX  (text + shapes, not screenshot)
 // ═══════════════════════════════════════════════════════════════════
 async function downloadEditablePptx() {
     if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
 
     const groupBtn = document.getElementById('btn-pptx-group');
     const origHTML = groupBtn.innerHTML;
-    groupBtn.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;color:white;font-size:12px;font-weight:700;"><i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i>解析網頁 DOM 中...</div>';
+    groupBtn.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;color:white;font-size:12px;font-weight:700;"><i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i>建立可編輯 PPTX...</div>';
     groupBtn.style.pointerEvents = 'none';
 
     try {
@@ -1541,186 +1992,152 @@ async function downloadEditablePptx() {
 
         const templateKey = document.getElementById('sel-template').value;
         const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-        let defaultBgHex = '0f172a';
-        if (theme.bg.startsWith('#')) defaultBgHex = theme.bg.replace('#', '');
-        else if (theme.bg.includes('linear-gradient')) {
-            const m = theme.bg.match(/#([0-9a-fA-F]{6})/);
-            if (m) defaultBgHex = m[1];
-        }
 
-        const pxToIn = px => (parseFloat(px) || 0) * 10 / 1920;
-        const pyToIn = py => (parseFloat(py) || 0) * 5.625 / 1080;
+        const accentHex = (theme.accent.match(/#([0-9a-fA-F]{6})/)?.[1] || '818cf8');
+        const bgHex     = AppState.bgTemplateBase64 ? 'ffffff' : (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[1] || '0f172a');
+        const titleHex  = (theme.titleColor.match(/#([0-9a-fA-F]{6})/)?.[1] || 'ffffff');
+        const textHex   = (theme.text.match(/#([0-9a-fA-F]{6})/)?.[1] || 'cbd5e1');
 
-        const iframes = document.querySelectorAll('.slide-iframe-wrap iframe');
+        const logoPos    = document.getElementById('sel-logo-pos').value;
+        const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
+        const [lx, ly]   = logoPosMap[logoPos] || [8.5, 0.2];
 
-        for (let i = 0; i < AppState.generatedSlides.length; i++) {
+        for (const s of AppState.generatedSlides) {
+            const sd    = s.slideData || {};
             const slide = pres.addSlide();
 
-            // 1. 設定背景 (優先使用自訂底板)
-            if (AppState.bgBase64) {
-                slide.addImage({ data: AppState.bgBase64, x:0, y:0, w:10, h:5.625 });
+            // ── Background ────────────────────────────────────────────
+            if (AppState.bgTemplateBase64) {
+                // Use uploaded background as full-slide image object (editable picture)
+                slide.addImage({ data: AppState.bgTemplateBase64, x:0, y:0, w:10, h:5.625 });
             } else {
-                slide.background = { color: defaultBgHex };
+                slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
+                slide.addShape('rect', { x:0, y:0, w:10, h:0.06, fill:{ color: accentHex } });
+                slide.addShape('rect', { x:0, y:0, w:0.08, h:5.625, fill:{ color: accentHex, transparency: 60 } });
             }
 
-            const iframe = iframes[i];
-            const doc = iframe ? iframe.contentDocument : null;
-            const win = iframe ? iframe.contentWindow : null;
-
-            if (doc && win) {
-                // 2. 擷取 SVG 內的原生圖片（排除背景底圖）
-                // A. 先找 .img-dg 群組內的 SVG image（可拖曳圖片）
-                doc.querySelectorAll('.img-dg').forEach(imgDg => {
-                    let tx = 0, ty = 0;
-                    const tr = imgDg.getAttribute('transform');
-                    if (tr) {
-                        const m = tr.match(/translate\(([^,]+)[, ]+([^)]+)\)/);
-                        if(m) { tx = parseFloat(m[1]); ty = parseFloat(m[2]); }
-                    }
-                    imgDg.querySelectorAll('image').forEach(img => {
-                        if (img.classList.contains('custom-bg-image')) return;
-                        const href = img.getAttribute('href') || img.getAttribute('xlink:href');
-                        if (!href || href.startsWith('data:image/svg')) return;
-                        const ix = parseFloat(img.getAttribute('x')||0);
-                        const iy = parseFloat(img.getAttribute('y')||0);
-                        const iw = parseFloat(img.getAttribute('width')||400);
-                        const ih = parseFloat(img.getAttribute('height')||300);
-                        slide.addImage({
-                            data: href,
-                            x: pxToIn(tx + ix), y: pyToIn(ty + iy),
-                            w: pxToIn(iw), h: pyToIn(ih),
-                            sizing: { type: 'contain', w: pxToIn(iw), h: pyToIn(ih) }
-                        });
+            // ── Content ───────────────────────────────────────────────
+            if (sd.layout === 'title_only') {
+                if (!AppState.bgTemplateBase64) {
+                    slide.addShape('rect', {
+                        x:5.5, y:0, w:4.5, h:5.625,
+                        fill:{ color: accentHex, transparency: 92 },
+                        line:{ color: accentHex, transparency: 80, width: 0 }
                     });
+                }
+                // Title: editable text box
+                slide.addText(sd.title || '', {
+                    x:0.5, y:1.5, w:8.5, h:2.0,
+                    fontSize: 52, bold: true, color: titleHex,
+                    fontFace: 'Arial', lineSpacingMultiple: 1.15
                 });
-
-                // B. 直接在 SVG 根層的圖片（舊格式）
-                doc.querySelectorAll('svg > image, svg > g:not(.img-dg) image').forEach(img => {
-                    if (img.classList.contains('custom-bg-image')) return;
-                    if (img.getAttribute('width') == '1920' && img.getAttribute('height') == '1080') return;
-                    // skip if already handled by .img-dg
-                    if (img.closest('.img-dg')) return;
-                    const href = img.getAttribute('href') || img.getAttribute('xlink:href');
-                    if (href && !href.startsWith('data:image/svg')) {
-                        let tx = 0, ty = 0;
-                        const parentG = img.closest('g');
-                        if (parentG) {
-                            const tr = parentG.getAttribute('transform');
-                            if (tr) {
-                                const m = tr.match(/translate\(([^,]+)[, ]+([^)]+)\)/);
-                                if(m) { tx = parseFloat(m[1]); ty = parseFloat(m[2]); }
-                            }
-                        }
-                        slide.addImage({
-                            data: href,
-                            x: pxToIn(tx + parseFloat(img.getAttribute('x')||0)),
-                            y: pyToIn(ty + parseFloat(img.getAttribute('y')||0)),
-                            w: pxToIn(img.getAttribute('width')||300),
-                            h: pyToIn(img.getAttribute('height')||200)
-                        });
-                    }
-                });
-
-                // 3. 擷取所有可拖曳的 foreignObject 文字方塊 (跳過 .img-dg，已在步驟2處理)
-                doc.querySelectorAll('.dg:not(.img-dg)').forEach(dg => {
-                    let tx = 0, ty = 0;
-                    const tr = dg.getAttribute('transform');
-                    if (tr) {
-                        const m = tr.match(/translate\(([^,]+)[, ]+([^)]+)\)/);
-                        if(m) { tx = parseFloat(m[1]); ty = parseFloat(m[2]); }
-                    }
-
-                    const fo = dg.querySelector('foreignObject');
-                    if (!fo) return;
-
-                    const fw = parseFloat(fo.getAttribute('width') || 300);
-                    const fh = parseFloat(fo.getAttribute('height') || 100);
-                    const finalX = pxToIn(tx + parseFloat(fo.getAttribute('x')||0));
-                    const finalY = pyToIn(ty + parseFloat(fo.getAttribute('y')||0));
-                    const finalW = pxToIn(fw);
-                    const finalH = pyToIn(fh);
-
-                    const rb = fo.querySelector('.rb');
-                    if (!rb) return;
-
-                    // 處理卡片內的 HTML 圖片（如 <img> 在 foreignObject 中）
-                    rb.querySelectorAll('img').forEach(img => {
-                        if (img.id === 'slide-logo') return;
-                        if (!img.src || img.src === window.location.href) return;
-                        try {
-                            slide.addImage({ data: img.src, x: finalX, y: finalY, w: finalW, h: finalH, sizing: {type:'contain', w: finalW, h: finalH} });
-                        } catch(e) { console.warn('PPTX img insert error:', e); }
+                if (sd.subtitle) {
+                    slide.addText(sd.subtitle, {
+                        x:0.5, y:3.7, w:6, h:0.8,
+                        fontSize: 24, color: accentHex, fontFace: 'Arial'
                     });
+                }
+                slide.addShape('rect', { x:0.5, y:4.6, w:1.5, h:0.06, fill:{ color: accentHex } });
 
-                    // 擷取真實 DOM 的文字與樣式
-                    const textObjects = [];
-                    const walker = doc.createTreeWalker(rb, NodeFilter.SHOW_ELEMENT, null, false);
-                    let node;
-                    while(node = walker.nextNode()) {
-                        if (node.classList.contains('ctrl') || node.classList.contains('dh') || node.tagName==='BUTTON' || node.tagName==='IMG' || node.tagName==='INPUT') continue;
-                        
-                        const directText = Array.from(node.childNodes)
-                            .filter(n => n.nodeType === Node.TEXT_NODE)
-                            .map(n => n.textContent)
-                            .join('').trim();
-                        
-                        if (directText) {
-                            const style = win.getComputedStyle(node);
-                            
-                            // 解析色碼 - 優先從 inline style 取，再從 computed style 取
-                            let hexColor = templateKey==='pure_white' ? '1E293B' : 'F1F5F9';
-                            const inlineColor = node.style && node.style.color;
-                            const colorSrc = inlineColor || style.color;
-                            const colorMatch = colorSrc.match(/\d+/g);
-                            if (colorMatch && colorMatch.length >= 3) {
-                                const r = Math.min(255, +colorMatch[0]);
-                                const g = Math.min(255, +colorMatch[1]);
-                                const b = Math.min(255, +colorMatch[2]);
-                                hexColor = ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
-                            }
-                            
-                            // 解析大小與粗體
-                            const isBold = parseInt(style.fontWeight) > 500 || ['H1','H2','H3','B','STRONG'].includes(node.tagName);
-                            const fontSizePt = Math.max(6, parseFloat(style.fontSize) * 0.75); // px to pt
-
-                            // 添加為 PPT 文字段落
-                            textObjects.push({
-                                text: directText + (style.display==='block'||style.display==='flex'?'\n':' '),
-                                options: { color: hexColor, fontSize: fontSizePt, bold: isBold, fontFace: 'Arial' }
-                            });
-                        }
-                    }
-
-                    // 寫入 PPTX Textbox
-                    if (textObjects.length > 0) {
-                        let bgFill = null;
-                        const rbStyle = win.getComputedStyle(rb);
-                        if (rbStyle.backgroundColor && rbStyle.backgroundColor !== 'rgba(0, 0, 0, 0)' && rbStyle.backgroundColor !== 'transparent') {
-                            const bgMatch = rbStyle.backgroundColor.match(/\d+/g);
-                            if (bgMatch && bgMatch.length >= 3) {
-                                const a = bgMatch[3] ? parseFloat(bgMatch[3]) : 1;
-                                if (a > 0) {
-                                    bgFill = { color: ((1<<24)+(+bgMatch[0]<<16)+(+bgMatch[1]<<8)+(+bgMatch[2])).toString(16).slice(1).toUpperCase(), transparency: (1-a)*100 };
-                                }
-                            }
-                        }
-                        
-                        const textOpts = { x: finalX, y: finalY, w: finalW, h: finalH, valign: 'top', align: 'left' };
-                        if (bgFill) textOpts.fill = bgFill;
-                        
-                        slide.addText(textObjects, textOpts);
-                    }
+            } else if (sd.layout === 'text_and_image') {
+                // Title
+                slide.addText(sd.title || '', {
+                    x:0.3, y:0.2, w:9.4, h:0.75,
+                    fontSize: 28, bold: true, color: titleHex, fontFace: 'Arial'
                 });
+                slide.addShape('rect', { x:0.3, y:1.0, w:1.0, h:0.05, fill:{ color: accentHex } });
+
+                // Text column (left half)
+                const bullets = (sd.bullet_points || []).map(b => ({
+                    text: b,
+                    options: { bullet:{ type:'number' }, color:textHex, fontSize:17, paraSpaceAfter:12, fontFace:'Arial' }
+                }));
+                if (bullets.length > 0) {
+                    slide.addShape('rect', {
+                        x:0.3, y:1.1, w:4.6, h:4.3,
+                        fill:{ color: accentHex, transparency: 94 },
+                        line:{ color: accentHex, transparency: 75, width: 1 },
+                        rectRadius: 0.08
+                    });
+                    slide.addText(bullets, { x:0.4, y:1.2, w:4.4, h:4.1, valign:'top', fontFace:'Arial' });
+                }
+
+                // ── Image column (right half): real editable picture object ──
+                if (s.imageB64 && s.imageB64.startsWith('data:')) {
+                    // base64 image → addImage as a movable/resizable picture object in PPTX
+                    slide.addImage({ data: s.imageB64, x:5.1, y:0.8, w:4.7, h:4.6,
+                        sizing:{ type:'cover', w:4.7, h:4.6 } });
+                } else if (s.imageB64 && s.imageB64.startsWith('http')) {
+                    // URL image (from Google Drive / SerpAPI)
+                    try {
+                        slide.addImage({ path: s.imageB64, x:5.1, y:0.8, w:4.7, h:4.6 });
+                    } catch(imgErr) {
+                        // If URL can't load, leave a placeholder shape
+                        slide.addShape('rect', { x:5.1, y:0.8, w:4.7, h:4.6,
+                            fill:{ color: accentHex, transparency: 88 },
+                            line:{ color: accentHex, transparency: 60, width: 1 } });
+                        slide.addText('[ 圖片 ]', { x:5.1, y:2.8, w:4.7, h:0.8,
+                            fontSize:16, color:accentHex, align:'center', fontFace:'Arial' });
+                    }
+                } else {
+                    // No image: decorative placeholder shape
+                    slide.addShape('rect', { x:5.1, y:0.8, w:4.7, h:4.6,
+                        fill:{ color: accentHex, transparency: 92 },
+                        line:{ color: accentHex, transparency: 70, width: 1 } });
+                }
+
             } else {
-                // 如果找不到 iframe 則直接塞入標題作為最後備案
-                slide.addText(AppState.generatedSlides[i].title, { x:0.5, y:2.5, w:9.0, h:1.5, fontSize:40, color:'FFFFFF', align:'center' });
+                // text_only / diagram_slide
+                slide.addText(sd.title || '', {
+                    x:0.3, y:0.25, w:9.4, h:0.75,
+                    fontSize: 30, bold: true, color: titleHex, fontFace: 'Arial'
+                });
+                slide.addShape('rect', { x:0.3, y:1.05, w:1.2, h:0.05, fill:{ color: accentHex } });
+
+                if (sd.layout === 'diagram_slide') {
+                    // ── Diagram: screenshot the HTML slide and add as picture object ──
+                    // This is the most faithful conversion since SVG diagrams can't
+                    // be represented as editable PPT shapes without SVG-to-shapes library
+                    addLog(`📸 截圖流程圖頁 ${s.slideNumber}（圖解轉圖片物件）...`, 'info');
+                    const diagramImgB64 = await slideHTMLToBase64(s.html, s.slideNumber);
+                    if (diagramImgB64) {
+                        // Add the diagram screenshot as a movable/resizable picture object
+                        slide.addImage({ data: diagramImgB64, x:0.3, y:1.2, w:9.4, h:4.1,
+                            sizing:{ type:'contain', w:9.4, h:4.1 } });
+                    } else {
+                        // Fallback: text description
+                        slide.addText(`📊 ${sd.diagram_description || sd.title}`, {
+                            x:0.5, y:1.5, w:9.0, h:3.5,
+                            fontSize:20, color:textHex, fontFace:'Arial', valign:'middle', align:'center'
+                        });
+                    }
+                } else {
+                    const bullets = (sd.bullet_points || []).map(b => ({
+                        text: b,
+                        options: { bullet:{ type:'number' }, color:textHex, fontSize:18, paraSpaceAfter:14, fontFace:'Arial' }
+                    }));
+                    if (bullets.length > 0) {
+                        slide.addShape('rect', {
+                            x:0.3, y:1.2, w:9.4, h:4.1,
+                            fill:{ color: accentHex, transparency: 94 },
+                            line:{ color: accentHex, transparency: 75, width: 1.5 },
+                            rectRadius: 0.1
+                        });
+                        slide.addText(bullets, { x:0.5, y:1.35, w:9.0, h:3.9, valign:'top', fontFace:'Arial' });
+                    }
+                }
             }
 
-            // 4. 置入 Logo
+            // Page number
+            slide.addText(`${s.slideNumber}`, {
+                x:9.2, y:5.3, w:0.6, h:0.25,
+                fontSize:10, color:accentHex, align:'right', fontFace:'Arial'
+            });
+
+            // Logo
             if (AppState.logoBase64) {
-                const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
-                const [lx, ly] = logoPosMap[document.getElementById('sel-logo-pos').value] || [8.5, 0.2];
-                slide.addImage({ data: AppState.logoBase64, x: lx, y: ly, w: 1.0, h: 0.5, sizing: { type:'contain', w:1.0, h:0.5 } });
+                slide.addImage({ data: AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
+                    sizing:{ type:'contain', w:1.0, h:0.5 } });
             }
         }
 
@@ -1740,106 +2157,517 @@ async function downloadEditablePptx() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// HISTORY MANAGEMENT
+// GENERATION HISTORY  (localStorage)
 // ═══════════════════════════════════════════════════════════════════
-const HISTORY_KEY = 'nova_ppt_history';
+const HISTORY_KEY   = 'nova_ppt_history';
+const HISTORY_LIMIT = 20;  // max sessions stored
+const SLIDE_HTML_SIZE_LIMIT = 150000; // per-slide HTML chars for storage
 
 function saveToHistory() {
     if (!AppState.generatedSlides.length || !AppState.presentationData) return;
     try {
         const history = loadRawHistory();
-        const slidesForStorage = AppState.generatedSlides.map(s => ({ slideNumber: s.slideNumber, title: s.title, layout: s.layout, slideData: s.slideData, html: (s.html || '').slice(0, 150000) }));
-        const entry = { id: 'h_' + Date.now(), date: new Date().toLocaleString('zh-TW'), title: AppState.presentationData.presentation_title || '未命名簡報', slideCount: AppState.generatedSlides.length, templateKey: document.getElementById('sel-template').value, slides: slidesForStorage };
+        const id = 'h_' + Date.now();
+
+        const slidesForStorage = AppState.generatedSlides.map(s => ({
+            slideNumber: s.slideNumber,
+            title: s.title,
+            layout: s.layout,
+            slideData: s.slideData,
+            html: (s.html || '').slice(0, SLIDE_HTML_SIZE_LIMIT)
+        }));
+
+        const entry = {
+            id,
+            date: new Date().toLocaleString('zh-TW'),
+            title: AppState.presentationData.presentation_title || '未命名簡報',
+            slideCount: AppState.generatedSlides.length,
+            templateKey: document.getElementById('sel-template').value,
+            slides: slidesForStorage
+        };
+
         history.unshift(entry);
-        if (history.length > 20) history.splice(20);
-        localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        if (history.length > HISTORY_LIMIT) history.splice(HISTORY_LIMIT);
+
+        try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            addLog(`📁 已儲存至歷史記錄（共 ${history.length} 筆）`, 'success');
+        } catch(storageErr) {
+            const slim = history.slice(0, 5).map(e => ({ ...e, slides: e.slides.map(s => ({ ...s, html: '' })) }));
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
+            addLog(`⚠ 儲存空間不足，已儲存精簡版歷史`, 'warning');
+        }
+
         renderHistoryPanels();
-    } catch(e) { console.warn('History save failed:', e); }
+    } catch(e) {
+        console.warn('History save failed:', e);
+    }
 }
 
-function loadRawHistory() { try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch { return []; } }
+function loadRawHistory() {
+    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
+    catch { return []; }
+}
 
 function renderHistoryPanels() {
     const history = loadRawHistory();
-    const count = history.length;
-    ['history-badge', 'history-count-badge'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.textContent = count; el.classList.toggle('hidden', count === 0); }
-    });
-    
-    const sideList = document.getElementById('history-list');
-    if (sideList) {
-        document.getElementById('no-history-hint').classList.toggle('hidden', count > 0);
-        document.getElementById('btn-clear-history').classList.toggle('hidden', count === 0);
+    const count   = history.length;
+
+    const badge    = document.getElementById('history-badge');
+    const sideBadge = document.getElementById('history-count-badge');
+    if (badge)    { badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
+    if (sideBadge){ sideBadge.textContent = count; sideBadge.classList.toggle('hidden', count === 0); }
+
+    const modalCount = document.getElementById('modal-history-count');
+    if (modalCount) modalCount.textContent = count > 0 ? `共 ${count} 筆記錄` : '';
+
+    const sideList   = document.getElementById('history-list');
+    const sideHint   = document.getElementById('no-history-hint');
+    const clearBtn   = document.getElementById('btn-clear-history');
+    if (sideList && sideHint && clearBtn) {
+        sideHint.classList.toggle('hidden', count > 0);
+        clearBtn.classList.toggle('hidden', count === 0);
         sideList.innerHTML = '';
-        history.slice(0, 6).forEach(entry => sideList.appendChild(buildHistoryCard(entry, 'sidebar')));
+        history.slice(0, 6).forEach(entry => {
+            sideList.appendChild(buildHistoryCard(entry, 'sidebar'));
+        });
     }
 
     const modalList = document.getElementById('modal-history-list');
     if (modalList) {
-        if (count === 0) modalList.innerHTML = '<p class="text-slate-500 text-sm text-center py-10">尚無任何生成記錄</p>';
-        else { modalList.innerHTML = ''; history.forEach(entry => modalList.appendChild(buildHistoryCard(entry, 'modal'))); }
+        if (count === 0) {
+            modalList.innerHTML = '<p class="text-slate-500 text-sm text-center py-10">尚無任何生成記錄</p>';
+        } else {
+            modalList.innerHTML = '';
+            history.forEach(entry => {
+                modalList.appendChild(buildHistoryCard(entry, 'modal'));
+            });
+        }
     }
 }
 
 function buildHistoryCard(entry, mode) {
     const card = document.createElement('div');
     card.className = 'history-card border border-slate-800 rounded-xl p-3 cursor-pointer';
+    const hasHTML = entry.slides?.some(s => s.html && s.html.length > 100);
+
     card.innerHTML = `
         <div class="flex items-start justify-between gap-2">
             <div class="flex-1 min-w-0">
-                <p class="text-[13px] font-semibold text-slate-200 truncate">${entry.title}</p>
-                <p class="text-[11px] text-slate-500 mt-0.5">${entry.date} · ${entry.slideCount} 張</p>
+                <p class="text-[13px] font-semibold text-slate-200 truncate">${entry.title || '未命名'}</p>
+                <p class="text-[11px] text-slate-500 mt-0.5">${entry.date} · ${entry.slideCount} 張 · ${entry.templateKey || 'modern'}</p>
             </div>
             <div class="flex gap-1 shrink-0">
-                <button onclick="loadFromHistory('${entry.id}')" title="載入" class="text-[10px] font-bold px-2 py-1 bg-violet-600/20 text-violet-400 rounded-lg">載入</button>
-                <button onclick="deleteHistoryEntry('${entry.id}')" title="刪除" class="text-[10px] font-bold px-2 py-1 bg-slate-700 text-slate-500 hover:text-rose-400 rounded-lg">✕</button>
+                <button onclick="loadFromHistory('${entry.id}')" title="載入此記錄"
+                    class="text-[10px] font-bold px-2 py-1 bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 rounded-lg transition-colors">載入</button>
+                ${hasHTML ? `<button onclick="redownloadHTML('${entry.id}')" title="重新下載 HTML"
+                    class="text-[10px] font-bold px-2 py-1 bg-teal-600/20 hover:bg-teal-600/40 text-teal-400 rounded-lg transition-colors">HTML</button>` : ''}
+                <button onclick="deleteHistoryEntry('${entry.id}')" title="刪除此記錄"
+                    class="text-[10px] font-bold px-2 py-1 bg-slate-700 hover:bg-rose-600/30 text-slate-500 hover:text-rose-400 rounded-lg transition-colors">✕</button>
             </div>
-        </div>`;
+        </div>
+    `;
     return card;
 }
 
 function loadFromHistory(id) {
-    const history = loadRawHistory(); const entry = history.find(e => e.id === id);
-    if (!entry) return;
-    AppState.generatedSlides = entry.slides || [];
-    AppState.presentationData = { presentation_title: entry.title, slides: entry.slides?.map(s => s.slideData) };
+    const history = loadRawHistory();
+    const entry   = history.find(e => e.id === id);
+    if (!entry) { showToast('❌ 找不到此記錄'); return; }
+
+    AppState.generatedSlides   = entry.slides || [];
+    AppState.presentationData  = { presentation_title: entry.title, slides: entry.slides?.map(s => s.slideData) };
+
     document.getElementById('section-empty').classList.add('hidden');
     document.getElementById('section-preview').classList.remove('hidden');
-    document.getElementById('slides-preview-grid').innerHTML = '';
+    const grid = document.getElementById('slides-preview-grid');
+    grid.innerHTML = '';
     entry.slides?.forEach((s, i) => renderSlidePreviewCard(s.slideData || { slide_number: s.slideNumber, title: s.title, layout: s.layout }, s.html, i));
+
     document.getElementById('preview-slide-count').textContent = `${entry.slides?.length || 0} 張`;
-    ['btn-pptx-group', 'btn-save-html', 'btn-preview-html'].forEach(id => { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); });
-    closeHistoryModal(); showToast(`✅ 已載入「${entry.title}」`); window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('btn-pptx-group').classList.remove('hidden');
+    document.getElementById('btn-pptx-group').classList.add('flex');
+    document.getElementById('btn-save-html').classList.remove('hidden');
+    document.getElementById('btn-save-html').classList.add('flex');
+    document.getElementById('btn-preview-html').classList.remove('hidden');
+    document.getElementById('btn-preview-html').classList.add('flex');
+
+    closeHistoryModal();
+    showToast(`✅ 已載入「${entry.title}」`);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function redownloadHTML(id) {
+    const history = loadRawHistory();
+    const entry   = history.find(e => e.id === id);
+    if (!entry) return;
+    const backup = AppState.generatedSlides;
+    const backupData = AppState.presentationData;
+    AppState.generatedSlides  = entry.slides || [];
+    AppState.presentationData = { presentation_title: entry.title };
+    saveAllSlidesAsHTML();
+    AppState.generatedSlides  = backup;
+    AppState.presentationData = backupData;
 }
 
 function deleteHistoryEntry(id) {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(loadRawHistory().filter(e => e.id !== id)));
-    renderHistoryPanels(); showToast('🗑 已刪除記錄');
+    let history = loadRawHistory();
+    history = history.filter(e => e.id !== id);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+    renderHistoryPanels();
+    showToast('🗑 已刪除記錄');
 }
+
 function clearAllHistory() {
     if (!confirm('確定要清除所有生成歷史嗎？')) return;
-    localStorage.removeItem(HISTORY_KEY); renderHistoryPanels(); showToast('🗑 已清除所有歷史記錄');
+    localStorage.removeItem(HISTORY_KEY);
+    renderHistoryPanels();
+    showToast('🗑 已清除所有歷史記錄');
 }
-function openHistoryModal() { renderHistoryPanels(); document.getElementById('history-modal').classList.add('open'); }
-function closeHistoryModal() { document.getElementById('history-modal').classList.remove('open'); }
+
+function openHistoryModal() {
+    renderHistoryPanels();
+    document.getElementById('history-modal').classList.add('open');
+}
+
+function closeHistoryModal() {
+    document.getElementById('history-modal').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SERPAPI IMAGE SEARCH
+// ═══════════════════════════════════════════════════════════════════
+async function searchSerpImages(query, count = 20) {
+    const key = AppState.serpApiKey;
+    if (!key) throw new Error('SerpAPI Key 未設定，請在左側設定 SerpAPI Key');
+
+    const workerUrl = `https://serpapi.kirishimatoka00.workers.dev//?q=${encodeURIComponent(query)}&api_key=${key}`;
+
+    addLog(`🔍 SerpAPI 呼叫：${workerUrl.split('api_key=')[0]}api_key=***`, 'info');
+
+    const resp = await fetch(workerUrl, { signal: AbortSignal.timeout(20000) });
+    const data = await resp.json();
+
+    if (!resp.ok || data.error) {
+        throw new Error(data.error || `HTTP ${resp.status}`);
+    }
+
+    const results = data.images_results || [];
+    if (!results.length) throw new Error('搜尋結果為空，請更換關鍵字');
+
+    return results.slice(0, count).map(img => ({
+        original:  img.original  || '',
+        thumbnail: img.thumbnail || img.original || '',
+        title:     img.title     || '',
+        source:    img.source    || ''
+    })).filter(img => img.thumbnail || img.original);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GOOGLE APPS SCRIPT IMAGE UPLOAD → GOOGLE DRIVE PUBLIC URL
+// ═══════════════════════════════════════════════════════════════════
+async function uploadToGoogleDriveViaGAS(imageUrl, filename) {
+    const gasUrl = AppState.gasUrl;
+    if (!gasUrl) throw new Error('Apps Script URL 未設定');
+
+    addLog(`☁ 傳送圖片 URL 至 Apps Script → Google Drive...`, 'info');
+
+    const payload = JSON.stringify({
+        imageUrl: imageUrl,
+        filename: filename || ('slide_img_' + Date.now() + '.jpg'),
+        mimeType: 'image/jpeg'
+    });
+
+    const resp = await fetch(gasUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: payload,
+        signal: AbortSignal.timeout(40000)
+    });
+
+    const text = await resp.text();
+    let data;
+    try { data = JSON.parse(text); }
+    catch(e) { throw new Error(`GAS 回傳非 JSON: ${text.slice(0,100)}`); }
+
+    if (!resp.ok || !data.success) throw new Error(data.error || `GAS 失敗 HTTP ${resp.status}`);
+    
+    // 【修改點】：直接將 Google Drive 的 fileId 轉換為 lh3 的直連捷徑，繞過 Drive 防盜鏈
+    const directImageLink = `https://lh3.googleusercontent.com/d/${data.fileId}`;
+    addLog(`✓ 圖片直連 URL 轉換成功！`, 'success');
+    
+    return directImageLink;
+}
+
+// Convert image URL → base64 via canvas
+async function fetchImageAsBase64(url) {
+    try {
+        const b64 = await loadImageViaCanvas(url, { crossOrigin: 'anonymous' });
+        return b64;
+    } catch(e1) {}
+
+    try {
+        const b64 = await loadImageViaCanvas(url, {});
+        return b64;
+    } catch(e2) {}
+
+    try {
+        const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
+        if (resp.ok) {
+            const blob = await resp.blob();
+            return await blobToDataURL(blob);
+        }
+    } catch(e3) {}
+
+    try {
+        const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
+        if (resp.ok) {
+            const blob = await resp.blob();
+            return await blobToDataURL(blob);
+        }
+    } catch(e4) {}
+
+    throw new Error('所有圖片載入方式均失敗，請改用 AI 生成');
+}
+
+function loadImageViaCanvas(url, attrs) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        if (attrs.crossOrigin) img.crossOrigin = attrs.crossOrigin;
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width  = img.naturalWidth  || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/jpeg', 0.88));
+            } catch(e) { reject(e); }
+        };
+        img.onerror = () => reject(new Error('Image load error'));
+        img.src = url;
+        setTimeout(() => reject(new Error('Image timeout')), 8000);
+    });
+}
+
+function blobToDataURL(blob) {
+    return new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload  = e => res(e.target.result);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
+    });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// IMAGE PICKER MODAL
+// ═══════════════════════════════════════════════════════════════════
+let _pickerResolve = null;
+
+function showImagePicker(slideNum, slideTitle, serpQuery) {
+    return new Promise(async (resolve) => {
+        _pickerResolve = resolve;
+
+        document.getElementById('img-picker-title').textContent    = `第 ${slideNum} 頁：選擇配圖`;
+        document.getElementById('img-picker-subtitle').textContent = slideTitle || '';
+        document.getElementById('img-picker-selected-label').textContent = '尚未選擇';
+        document.getElementById('img-picker-confirm-btn').disabled = true;
+        document.getElementById('img-picker-confirm-btn').setAttribute('data-b64', '');
+
+        const gasBadge = document.getElementById('gas-mode-badge');
+        if (gasBadge) {
+            if (AppState.gasUrl) {
+                gasBadge.textContent = '☁ Google Drive 模式';
+                gasBadge.className = 'text-[10px] px-2 py-1 rounded-lg font-semibold bg-yellow-500/15 text-yellow-400';
+            } else {
+                gasBadge.textContent = '💾 本地 Base64 模式';
+                gasBadge.className = 'text-[10px] px-2 py-1 rounded-lg font-semibold bg-slate-700 text-slate-400';
+            }
+        }
+
+        const modal = document.getElementById('img-picker-modal');
+        const grid  = document.getElementById('img-picker-grid');
+        const loading = document.getElementById('img-picker-loading');
+        const error   = document.getElementById('img-picker-error');
+        grid.classList.add('hidden');
+        error.classList.add('hidden');
+        loading.classList.remove('hidden');
+        grid.innerHTML = '';
+        modal.classList.add('open');
+
+        try {
+            addLog(`🔍 SerpAPI 搜尋「${serpQuery}」相關圖片...`, 'info');
+            const images = await searchSerpImages(serpQuery, 20);
+            if (!images.length) throw new Error('搜尋結果為空');
+
+            loading.classList.add('hidden');
+            grid.classList.remove('hidden');
+            grid.className = 'flex-1 overflow-y-auto p-4 grid grid-cols-4 gap-3';
+
+            images.forEach((img, idx) => {
+                const div = document.createElement('div');
+                div.className = 'img-pick-thumb';
+                div.title = img.title || img.source || `圖片 ${idx+1}`;
+                div.innerHTML = `<img src="${img.thumbnail || img.original}" onerror="this.parentNode.innerHTML='<div class=\\'err-ph\\'>圖片無法載入</div>'" loading="lazy" style="width:100%;height:100%;object-fit:cover;">`;
+
+                div.addEventListener('click', () => {
+                    grid.querySelectorAll('.img-pick-thumb').forEach(t => t.classList.remove('selected'));
+                    div.classList.add('selected');
+                    document.getElementById('img-picker-selected-label').textContent = `已選：圖片 ${idx+1}`;
+                    const confirmBtn = document.getElementById('img-picker-confirm-btn');
+                    confirmBtn.disabled = false;
+                    confirmBtn.setAttribute('data-url', img.original);
+                    confirmBtn.setAttribute('data-thumb', img.thumbnail || img.original);
+                });
+                grid.appendChild(div);
+            });
+            addLog(`✓ 找到 ${images.length} 張搜尋結果`, 'success');
+        } catch(e) {
+            loading.classList.add('hidden');
+            document.getElementById('img-picker-error-msg').textContent = `搜尋失敗：${e.message}`;
+            error.classList.remove('hidden');
+            error.classList.add('flex');
+            addLog(`⚠ SerpAPI 搜尋失敗: ${e.message}`, 'warning');
+        }
+    });
+}
+
+async function imgPickerConfirm() {
+    const btn = document.getElementById('img-picker-confirm-btn');
+    const originalUrl  = btn.getAttribute('data-url')  || '';
+    const thumbnailUrl = btn.getAttribute('data-thumb') || originalUrl;
+    if (!originalUrl) return;
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 處理圖片中...';
+
+    if (AppState.gasUrl) {
+        for (const imgUrl of [originalUrl, thumbnailUrl]) {
+            try {
+                const driveUrl = await uploadToGoogleDriveViaGAS(imgUrl, `slide_${Date.now()}.jpg`);
+                document.getElementById('img-picker-modal').classList.remove('open');
+                if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: driveUrl }); _pickerResolve = null; }
+                btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
+                btn.disabled = false;
+                return;
+            } catch(e) {
+                addLog(`⚠ GAS 上傳失敗 (${imgUrl.slice(0,40)}...): ${e.message}`, 'warning');
+            }
+        }
+        addLog(`⚠ 所有 GAS 上傳嘗試失敗，降級為本地 base64 模式`, 'warning');
+    }
+
+    for (const url of [originalUrl, thumbnailUrl]) {
+        try {
+            addLog(`⬇ 嘗試本地轉換圖片 base64: ${url.slice(0, 55)}...`, 'info');
+            const b64 = await fetchImageAsBase64(url);
+            addLog(`✓ 圖片轉換完成（本地 base64）`, 'success');
+            document.getElementById('img-picker-modal').classList.remove('open');
+            if (_pickerResolve) { _pickerResolve({ mode: 'serp', b64 }); _pickerResolve = null; }
+            btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
+            btn.disabled = false;
+            return;
+        } catch(e) {
+            addLog(`⚠ base64 轉換失敗: ${e.message}`, 'warning');
+        }
+    }
+
+    addLog(`⚠ 所有方式失敗，直接嵌入縮圖 URL（建議設定 Apps Script URL）`, 'warning');
+    document.getElementById('img-picker-modal').classList.remove('open');
+    if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: thumbnailUrl }); _pickerResolve = null; }
+    btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
+    btn.disabled = false;
+}
+
+function imgPickerUseAI() {
+    document.getElementById('img-picker-modal').classList.remove('open');
+    addLog(`→ 此頁改用 AI 模型生成配圖`, 'info');
+    if (_pickerResolve) { _pickerResolve({ mode: 'ai', b64: null }); _pickerResolve = null; }
+}
+
+function imgPickerCancel() {
+    document.getElementById('img-picker-modal').classList.remove('open');
+    addLog(`→ 略過此頁配圖`, 'info');
+    if (_pickerResolve) { _pickerResolve({ mode: 'skip', b64: null }); _pickerResolve = null; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// IMAGE ORCHESTRATION 
+// ═══════════════════════════════════════════════════════════════════
+async function getSlideImage(sData, imageMode, slideIndex) {
+    const wantsImage = sData.layout === 'text_and_image';
+    const forceAI    = imageMode === 'all' && !['title_only','diagram_slide'].includes(sData.layout);
+    const noImage    = imageMode === 'none';
+
+    if (noImage) return null;
+
+    const serpModes = ['serp_only', 'serp_primary', 'serp_mixed'];
+    const useSerpAPI = serpModes.includes(imageMode);
+
+    const mixedUsesSerp = imageMode === 'serp_mixed' ? (slideIndex % 2 === 0) : true;
+
+    if (!wantsImage && !forceAI && imageMode === 'auto') return null;
+
+    const serpQuery = [
+        sData.title || '',
+        (sData.bullet_points || []).slice(0,2).join(' '),
+        sData.image_prompt || ''
+    ].join(' ').slice(0, 120);
+
+    if (useSerpAPI && mixedUsesSerp && AppState.serpApiKey) {
+        const result = await showImagePicker(sData.slide_number, sData.title, serpQuery);
+        if (result.mode === 'serp' && result.b64) return result.b64;
+        if (result.mode === 'serp_url' && result.b64) return result.b64; 
+        if (result.mode === 'skip') return null;
+        if (imageMode === 'serp_only') return null;  
+    }
+
+    if (!AppState.cancelRequested && (wantsImage || forceAI || imageMode === 'all')) {
+        try {
+            const ctx = [
+                `Slide Title: ${sData.title}`,
+                `Content: ${(sData.bullet_points||[]).join('; ')}`,
+                `Focus: ${sData.image_prompt || ''}`
+            ].join('\n');
+            return await generateImage(ctx, sData.slide_number);
+        } catch(e) {
+            if (e.message === 'CanceledByUser') throw e;
+            addLog(`⚠ 第 ${sData.slide_number} 頁 AI 配圖失敗`, 'warning');
+            return null;
+        }
+    }
+    return null;
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // MAIN GENERATION LOOP
 // ═══════════════════════════════════════════════════════════════════
 async function startGeneration() {
+    const selectedModel = document.getElementById('sel-text-model').value;
+    const needsGemini = !isGrokModel(selectedModel);
+    const needsGrok   = isGrokModel(selectedModel);
+
+    if (needsGemini && !AppState.googleApiKey) { showToast('❌ 請設定 Gemini API Key'); return; }
+    if (needsGrok   && !AppState.xaiApiKey)    { showToast('❌ 請設定 Grok API Key'); return; }
     const topic = document.getElementById('inp-topic').value.trim();
     if (!topic) { showToast('❌ 請輸入主題'); return; }
 
-    AppState.isGenerating = true; AppState.cancelRequested = false; AppState.abortController = new AbortController(); AppState.generatedSlides = [];
+    AppState.isGenerating = true;
+    AppState.cancelRequested = false;
+    AppState.abortController = new AbortController();
+    AppState.generatedSlides = [];
+
     ['section-empty'].forEach(id => document.getElementById(id).classList.add('hidden'));
     ['section-progress'].forEach(id => document.getElementById(id).classList.remove('hidden'));
     document.getElementById('section-preview').classList.add('hidden');
     document.getElementById('slides-preview-grid').innerHTML = '';
     document.getElementById('log-container').innerHTML = '';
     document.getElementById('btn-generate').classList.add('hidden');
-    document.getElementById('btn-stop').classList.remove('hidden'); document.getElementById('btn-stop').disabled = false;
-    
+    document.getElementById('btn-stop').classList.remove('hidden');
+    document.getElementById('btn-stop').disabled = false;
+
     ['btn-pptx-group', 'btn-save-html', 'btn-preview-html'].forEach(id => {
         const el = document.getElementById(id);
         if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
@@ -1849,67 +2677,105 @@ async function startGeneration() {
     const spinner = document.getElementById('progress-spinner');
     spinner.classList.add('animate-spin');
     spinner.style.cssText = 'width:20px;height:20px;border:2px solid #8b5cf6;border-top-color:transparent;border-radius:50%;';
-    
+
     try {
         addLog('📂 正在讀取附加資料來源...', 'info');
         const context = await buildContextFromSources();
+        const srcCount = AppState.attachedSources.filter(s => s.content).length;
+        if (srcCount > 0) addLog(`✓ 已整合 ${srcCount} 個資料來源（${context.length.toLocaleString()} 字元）`, 'success');
         setProgress(8);
 
         addLog('🧠 正在生成簡報大綱...', 'ai');
         const outlineData = await callGeminiForOutline(topic, context);
+        if (AppState.cancelRequested) throw new Error('CanceledByUser');
         AppState.presentationData = outlineData;
         addLog(`✓ 大綱生成完成：「${outlineData.presentation_title}」共 ${outlineData.slides?.length || 0} 張`, 'success');
         setProgress(15);
 
-        const slides = outlineData.slides || [];
-        const theme = HTML_THEMES[document.getElementById('sel-template').value] || HTML_THEMES.modern;
-        const imageMode = document.getElementById('sel-image-mode').value;
+        const slides     = outlineData.slides || [];
+        const templateKey = document.getElementById('sel-template').value;
+        const theme       = HTML_THEMES[templateKey] || HTML_THEMES.modern;
+        const imageMode   = document.getElementById('sel-image-mode').value;
+
         document.getElementById('section-preview').classList.remove('hidden');
 
         for (let i = 0; i < slides.length; i++) {
             if (AppState.cancelRequested) throw new Error('CanceledByUser');
+
             const sData = slides[i];
-            addLog(`🎨 處理第 ${sData.slide_number}/${slides.length} 頁...`, 'info');
-            
+            addLog(`🎨 第 ${sData.slide_number}/${slides.length} 頁：${sData.title}`, 'info');
+
             let imageB64 = null;
-            try { imageB64 = await getSlideImage(sData, imageMode, i); } catch(e) {}
-            
-            let html;
-            try { 
-                html = await generateSlideHTML(sData, theme, imageB64); 
-                addLog(`✓ 第 ${sData.slide_number} 頁 HTML 生成完成`, 'success');
-            } catch(e) { 
+            try {
+                imageB64 = await getSlideImage(sData, imageMode, i);
+            } catch(e) {
                 if (e.message === 'CanceledByUser') throw e;
-                html = buildFallbackSlideHTML(sData, theme); 
-                addLog(`⚠ 生成失敗，使用備用版型`, 'warning'); 
+                addLog(`⚠ 第 ${sData.slide_number} 頁配圖略過`, 'warning');
             }
 
-            AppState.generatedSlides.push({ slideNumber: sData.slide_number, title: sData.title, layout: sData.layout, slideData: sData, html });
+            let html;
+            try {
+                html = await generateSlideHTML(sData, theme, imageB64);
+                addLog(`✓ 第 ${sData.slide_number} 頁 HTML 生成完成`, 'success');
+            } catch(e) {
+                if (e.message === 'CanceledByUser') throw e;
+                addLog(`⚠ 第 ${sData.slide_number} 頁 HTML 生成失敗，使用備用模板`, 'warning');
+                html = buildFallbackSlideHTML(sData, theme);
+            }
+
+            AppState.generatedSlides.push({
+                slideNumber: sData.slide_number,
+                title: sData.title,
+                layout: sData.layout,
+                slideData: sData,
+                imageB64: imageB64,   // stored for editable PPTX picture objects
+                html
+            });
             renderSlidePreviewCard(sData, html, i);
-            setProgress(15 + ((i + 1) / slides.length) * 80);
-            document.getElementById('preview-slide-count').textContent = `${i + 1} / ${slides.length} 頁`;
+
+            const pct = 15 + ((i + 1) / slides.length) * 80;
+            setProgress(pct);
+            document.getElementById('preview-slide-count').textContent =
+                `${i + 1} / ${slides.length} 頁`;
         }
-        
+
         setProgress(100);
         spinner.classList.remove('animate-spin');
         spinner.style.cssText = 'width:20px;height:20px;border:2px solid #10b981;border-radius:50%;';
 
-        ['btn-pptx-group', 'btn-save-html', 'btn-preview-html'].forEach(id => { document.getElementById(id).classList.remove('hidden'); document.getElementById(id).classList.add('flex'); });
+        document.getElementById('btn-pptx-group').classList.remove('hidden');
+        document.getElementById('btn-pptx-group').classList.add('flex');
+        document.getElementById('btn-save-html').classList.remove('hidden');
+        document.getElementById('btn-save-html').classList.add('flex');
+        document.getElementById('btn-preview-html').classList.remove('hidden');
+        document.getElementById('btn-preview-html').classList.add('flex');
         document.getElementById('btn-generate').classList.remove('hidden');
-        showToast(`✅ 生成完成！`); saveToHistory();
+
+        addLog(`🎉 完成！共 ${AppState.generatedSlides.length} 張 HTML 投影片。可預覽或下載 PPTX。`, 'success');
+        showToast(`✅ ${AppState.generatedSlides.length} 張投影片生成完成！`);
+
+        saveToHistory();
+
     } catch(e) {
-        if(e.message === 'CanceledByUser' || e.name === 'AbortError') {
-            addLog('⛔ 生成已由使用者中斷', 'warning'); showToast('⛔ 生成已中斷');
+        if (e.message === 'CanceledByUser' || e.name === 'AbortError') {
+            addLog('⛔ 生成已由使用者中斷', 'warning');
+            showToast('⛔ 生成已中斷');
+            spinner.style.cssText = 'width:20px;height:20px;border:2px solid #f59e0b;border-radius:50%;';
         } else {
-            addLog(`❌ 錯誤: ${e.message}`, 'error'); showToast('❌ 發生錯誤，請查看 Console');
+            addLog(`❌ 錯誤: ${e.message}`, 'error');
+            addLog(`  → 請開啟瀏覽器 Console（F12）查看詳細錯誤`, 'error');
+            console.error('[AI Slide Generator]', e);
+            showToast('❌ 生成發生錯誤，請查看 Console');
+            spinner.style.cssText = 'width:20px;height:20px;border:2px solid #ef4444;border-radius:50%;';
         }
-        document.getElementById('btn-generate').classList.remove('hidden');
         spinner.classList.remove('animate-spin');
-        spinner.style.cssText = 'width:20px;height:20px;border:2px solid #ef4444;border-radius:50%;';
+        document.getElementById('btn-generate').classList.remove('hidden');
     } finally {
-        AppState.isGenerating = false; document.getElementById('btn-stop').classList.add('hidden');
+        AppState.isGenerating = false;
+        const stopBtn = document.getElementById('btn-stop');
+        if (stopBtn) { stopBtn.classList.add('hidden'); stopBtn.querySelector('span').textContent = '停止生成'; }
     }
 }
 </script>
 </body>
-</html>
+    </html>
