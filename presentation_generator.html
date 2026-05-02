@@ -1018,83 +1018,160 @@ JSON Schema:
 // SHARED INTERACTION SCRIPT 
 // ═══════════════════════════════════════════════════════════════════
 const SLIDE_INTERACTION_SCRIPT = `
+<style>
+.dg{cursor:grab;} .dg:active{cursor:grabbing;}
+.rb{resize:both;overflow:auto;min-width:200px;min-height:80px;position:relative;cursor:default;}
+.rb .dh{cursor:grab;text-align:center;color:rgba(255,255,255,.22);font-size:10px;letter-spacing:4px;padding:3px 0 8px;user-select:none;}
+.ctrl{opacity:0;transition:opacity .18s;pointer-events:none;position:absolute;top:7px;right:7px;display:flex;align-items:center;gap:4px;background:rgba(10,18,36,.94);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:5px 7px;z-index:60;}
+.dg:hover .ctrl,.rb:focus-within .ctrl{opacity:1;pointer-events:auto;}
+.ctrl input[type=color]{width:19px;height:19px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;}
+.ctrl input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+.ctrl input[type=color]::-webkit-color-swatch{border:1px solid rgba(255,255,255,.18);border-radius:3px;}
+.ctrl button{font-size:10px;font-weight:700;padding:2px 5px;border:none;background:rgba(255,255,255,.10);border-radius:3px;cursor:pointer;color:#e2e8f0;}
+.ctrl button:hover{background:rgba(255,255,255,.22);}
+.ctrl .sep{width:1px;height:14px;background:rgba(255,255,255,.15);margin:0 2px;}
+[contenteditable]{border-radius:3px;outline:none;}
+[contenteditable]:hover{background:rgba(255,255,255,.06);}
+[contenteditable]:focus{background:rgba(255,255,255,.08);outline:2px solid rgba(99,102,241,.55);}
+/* Resize handle visible on hover */
+.rb::after{content:"";position:absolute;right:0;bottom:0;width:18px;height:18px;cursor:se-resize;background:linear-gradient(135deg,transparent 50%,rgba(255,255,255,.22) 50%);}
+</style>
 <script>
 (function(){
   var svg = document.getElementById('slide-svg');
-  if (!svg) return;
-  var sel = null, offset = {x:0,y:0}, xf = null;
+  if(!svg) return;
+  var sel=null, offset={x:0,y:0}, xf=null;
 
+  /* ── helpers ── */
   function hexToRgb(h){
-    var r=/^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(h);
+    var r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h);
     return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:null;
   }
-  window.updateThemeColor = function(id, hex){
-    document.documentElement.style.setProperty('--c'+id, hex);
-    var rgb = hexToRgb(hex);
-    if(rgb) document.documentElement.style.setProperty('--c'+id+'-rgb', rgb.r+','+rgb.g+','+rgb.b);
+  window.updateThemeColor=function(id,hex){
+    document.documentElement.style.setProperty('--c'+id,hex);
+    var rgb=hexToRgb(hex);
+    if(rgb) document.documentElement.style.setProperty('--c'+id+'-rgb',rgb.r+','+rgb.g+','+rgb.b);
   };
-  window.adjustFontSize = function(btn, delta){
-    var box = btn.closest('.rb');
-    var cur = parseFloat(box.style.fontSize)||16;
-    cur = Math.max(10, Math.min(32, cur + delta*2));
-    box.style.fontSize = cur+'px';
+  window.adjustFontSize=function(btn,delta){
+    var box=btn.closest('.rb'); if(!box) return;
+    var cur=parseFloat(box.style.fontSize)||16;
+    cur=Math.max(8,Math.min(96,cur+delta*2));
+    box.style.fontSize=cur+'px';
+  };
+  window.changeTextColor=function(inp){
+    var box=inp.closest('.rb'); if(!box) return;
+    box.querySelectorAll('[contenteditable]').forEach(function(el){el.style.color=inp.value;});
+  };
+  window.changeBgColor=function(inp){
+    var box=inp.closest('.rb'); if(!box) return;
+    box.style.background=inp.value; box.style.backgroundColor=inp.value;
   };
 
-  new ResizeObserver(function(entries){
-    entries.forEach(function(e){
-      var fo = e.target.closest('foreignObject');
-      if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
+  /* ── auto-wrap ALL foreignObjects that are not already in .dg ── */
+  /* runs after DOM is ready */
+  function wrapOrphans(){
+    svg.querySelectorAll('foreignObject').forEach(function(fo){
+      var p=fo.parentNode;
+      if(p && !p.classList.contains('dg')){
+        /* create a wrapper g.dg */
+        var g=document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('class','dg');
+        var tx=parseFloat(fo.getAttribute('x')||0);
+        var ty=parseFloat(fo.getAttribute('y')||0);
+        g.setAttribute('transform','translate('+tx+','+ty+')');
+        fo.setAttribute('x','0'); fo.setAttribute('y','0');
+        p.insertBefore(g,fo); g.appendChild(fo);
+      }
+      /* ensure inner div has .rb class and resize:both */
+      var inner=fo.querySelector('div');
+      if(inner && !inner.classList.contains('rb')){
+        inner.classList.add('rb');
+        if(!inner.style.resize) inner.style.resize='both';
+        if(!inner.style.overflow) inner.style.overflow='auto';
+        if(!inner.style.minWidth) inner.style.minWidth='200px';
+        if(!inner.style.minHeight) inner.style.minHeight='80px';
+      }
+      /* inject ctrl bar if missing */
+      if(inner && !inner.querySelector('.ctrl')){
+        var ctrlHtml='<div class="ctrl">'+
+          '<input type="color" value="#818cf8" oninput="updateThemeColor(1,this.value)" title="主題色">'+
+          '<input type="color" value="#ffffff" oninput="changeTextColor(this)" title="文字色">'+
+          '<input type="color" value="#0a0a1a" oninput="changeBgColor(this)" title="卡片底色">'+
+          '<span class="sep"></span>'+
+          '<button onclick="adjustFontSize(this,-1)">A−</button>'+
+          '<button onclick="adjustFontSize(this,+1)">A+</button>'+
+          '</div>';
+        inner.insertAdjacentHTML('afterbegin','<div class="dh">· · ·</div>'+ctrlHtml);
+      }
     });
-  }).observe.call(new ResizeObserver(function(entries){
-    entries.forEach(function(e){
-      var fo = e.target.closest('foreignObject');
-      if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
-    });
-  }), document.createTextNode(''));
-
-  document.querySelectorAll('.rb').forEach(function(b){
-    (new ResizeObserver(function(entries){
-      entries.forEach(function(e){
-        var fo = e.target.closest('foreignObject');
-        if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
-      });
-    })).observe(b);
-  });
-
-  function mpt(evt){
-    var ctm = svg.getScreenCTM();
-    var src = evt.touches?evt.touches[0]:evt;
-    return {x:(src.clientX-ctm.e)/ctm.a, y:(src.clientY-ctm.f)/ctm.d};
   }
+
+  /* ── ResizeObserver: sync .rb size → foreignObject ── */
+  var ro=new ResizeObserver(function(entries){
+    entries.forEach(function(e){
+      var fo=e.target.closest('foreignObject');
+      if(fo){fo.setAttribute('width',e.target.offsetWidth);fo.setAttribute('height',e.target.offsetHeight);}
+    });
+  });
+  function observeAllRb(){
+    svg.querySelectorAll('.rb').forEach(function(b){ ro.observe(b); });
+  }
+
+  /* ── SVG coordinate helper ── */
+  function mpt(evt){
+    var ctm=svg.getScreenCTM();
+    var src=evt.touches?evt.touches[0]:evt;
+    return {x:(src.clientX-ctm.e)/ctm.a,y:(src.clientY-ctm.f)/ctm.d};
+  }
+
+  /* ── Drag ── */
   function startDrag(evt){
-    if(evt.target.closest('.ctrl') || evt.target.tagName.toLowerCase()==='input' || evt.target.isContentEditable) return;
-    var dg = evt.target.closest('.dg');
-    if(!dg) return;
-    var box = evt.target.closest('.rb');
+    /* skip: ctrl inputs, editable content, resize corner */
+    if(evt.target.closest('.ctrl')||evt.target.tagName.toLowerCase()==='input'||evt.target.isContentEditable) return;
+    var dg=evt.target.closest('.dg'); if(!dg) return;
+    var box=evt.target.closest('.rb');
     if(box){
       var rc=box.getBoundingClientRect();
-      if(evt.clientX>rc.right-25&&evt.clientY>rc.bottom-25) return;
+      if(evt.clientX>rc.right-22&&evt.clientY>rc.bottom-22) return; /* resize handle */
     }
-    sel = dg; sel.parentNode.appendChild(sel);
-    var tl = sel.transform.baseVal;
+    evt.preventDefault();
+    sel=dg; sel.parentNode.appendChild(sel);
+    var tl=sel.transform.baseVal;
     if(tl.length===0||tl.getItem(0).type!==SVGTransform.SVG_TRANSFORM_TRANSLATE){
       var t=svg.createSVGTransform(); t.setTranslate(0,0); sel.transform.baseVal.insertItemBefore(t,0);
     }
-    xf = tl.getItem(0);
+    xf=tl.getItem(0);
     var mp=mpt(evt); offset.x=mp.x-xf.matrix.e; offset.y=mp.y-xf.matrix.f;
   }
   function onDrag(evt){
     if(!sel) return; evt.preventDefault();
     var mp=mpt(evt);
-    xf.setMatrix(xf.matrix.translate(mp.x-offset.x-xf.matrix.e, mp.y-offset.y-xf.matrix.f));
+    xf.setMatrix(xf.matrix.translate(mp.x-offset.x-xf.matrix.e,mp.y-offset.y-xf.matrix.f));
   }
   function endDrag(){ sel=null; }
+
   svg.addEventListener('mousedown',startDrag);
   svg.addEventListener('mousemove',onDrag);
   window.addEventListener('mouseup',endDrag);
   svg.addEventListener('touchstart',startDrag,{passive:false});
   svg.addEventListener('touchmove',onDrag,{passive:false});
   window.addEventListener('touchend',endDrag);
+
+  /* ── Keyboard nudge ── */
+  document.addEventListener('keydown',function(e){
+    if(!sel||(document.activeElement&&document.activeElement.isContentEditable)) return;
+    var step=e.shiftKey?20:5,dx=0,dy=0;
+    if(e.key==='ArrowLeft') dx=-step; if(e.key==='ArrowRight') dx=step;
+    if(e.key==='ArrowUp')   dy=-step; if(e.key==='ArrowDown')  dy=step;
+    if(dx||dy){e.preventDefault();xf.setMatrix(xf.matrix.translate(dx,dy));}
+  });
+
+  /* ── init ── */
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',function(){ wrapOrphans(); observeAllRb(); });
+  } else {
+    wrapOrphans(); observeAllRb();
+  }
 })();
 <\/script>`;
 
@@ -1213,7 +1290,14 @@ ${JSON.stringify(slideData, null, 2)}
     正文色: ${theme.text}
     卡片背景: ${theme.card}
 
-14. 只輸出純 HTML，不含任何 markdown 標記。
+14. 【必須遵守】文字對比度 — WCAG AA 標準（對比比率 ≥ 4.5:1）：
+    - 深色背景 → 文字用淺色（#f8fafc / #e2e8f0 / #ffffff）
+    - 淺色背景（白底/淺灰）→ 文字必須用深色（#111827 / #1f2937）
+    - 純白背景時，SVG <text> fill 和 foreignObject 文字 color 絕對禁止使用 #ffffff / #f8fafc 等淺色
+    - 所有 SVG <text> 的 fill 屬性必須與投影片底色有明顯對比
+    - ${AppState.bgTemplateBase64 ? '本張有自訂底稿背景（未知顏色），請預設使用深色文字 #111827 以確保安全' : `本張背景基調為 ${theme.bg}，請確保所有文字與此背景有足夠對比`}
+
+15. 只輸出純 HTML，不含任何 markdown 標記。
 
 請開始輸出完整 HTML：`;
 
@@ -1287,6 +1371,9 @@ ${JSON.stringify(slideData, null, 2)}
                 }
             }
 
+            // Auto contrast fix (inject after all replacements)
+            html = injectContrastFix(html, theme);
+
             return html;
         } catch(e) {
             lastErr = e;
@@ -1295,6 +1382,66 @@ ${JSON.stringify(slideData, null, 2)}
         }
     }
     throw new Error(`HTML 投影片生成失敗: ${lastErr?.message}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONTRAST UTILITY ── ensure text is readable against background
+// ═══════════════════════════════════════════════════════════════════
+function getLuminance(r, g, b) {
+    const toLinear = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+    return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+function hexToRgbArr(hex) {
+    const m = (hex || '').match(/#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})/);
+    if (!m) return [128, 128, 128];
+    return [parseInt(m[1],16), parseInt(m[2],16), parseInt(m[3],16)];
+}
+function getContrastRatio(hex1, hex2) {
+    const l1 = getLuminance(...hexToRgbArr(hex1));
+    const l2 = getLuminance(...hexToRgbArr(hex2));
+    const [L, D] = l1 > l2 ? [l1, l2] : [l2, l1];
+    return (L + 0.05) / (D + 0.05);
+}
+function pickReadableColor(bgHex, preferred, fallbackLight = '#f8fafc', fallbackDark = '#0f172a') {
+    const contrastPreferred = getContrastRatio(bgHex, preferred);
+    if (contrastPreferred >= 4.5) return preferred;
+    const contrastLight = getContrastRatio(bgHex, fallbackLight);
+    const contrastDark  = getContrastRatio(bgHex, fallbackDark);
+    return contrastLight >= contrastDark ? fallbackLight : fallbackDark;
+}
+
+// Inject contrast-safe CSS overrides into an HTML slide string
+function injectContrastFix(html, theme) {
+    const bgHex = AppState.bgTemplateBase64
+        ? '#808080'   // unknown bg image → use mid-grey assumption, safer to use light text
+        : (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[0] || '#0f172a');
+
+    const [bgR, bgG, bgB] = hexToRgbArr(bgHex);
+    const bgLum = getLuminance(bgR, bgG, bgB);
+    const bgIsLight = bgLum > 0.18;
+
+    // Pick safe text color based on bg luminance
+    const safeText    = bgIsLight ? '#111827' : '#f1f5f9';
+    const safeSubText = bgIsLight ? '#374151' : '#cbd5e1';
+    const safeAccent  = (() => {
+        const a = theme.accent || '#818cf8';
+        return getContrastRatio(bgHex, a) >= 3.0 ? a : (bgIsLight ? '#1d4ed8' : '#a5b4fc');
+    })();
+
+    // Build override CSS block
+    const overrideCss = `
+<style id="contrast-override">
+/* Auto contrast override */
+body { --safe-text:${safeText}; --safe-sub:${safeSubText}; --safe-accent:${safeAccent}; }
+svg text { fill: ${safeText}; }
+.rb, .rb p, .rb span, .rb li { color: ${safeText}; }
+</style>`;
+
+    // Inject after <head> or before first </head>
+    if (html.includes('</head>')) {
+        html = html.replace('</head>', overrideCss + '\n</head>');
+    }
+    return html;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1635,7 +1782,7 @@ input[type=color]::-webkit-color-swatch{border:1px solid rgba(255,255,255,.2);bo
 [contenteditable]:focus{outline:2px solid rgba(${accentRgb},.5);border-radius:3px;}`;
 
     if (isCover) {
-        return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${sharedStyle}</style></head>
+        let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${sharedStyle}</style></head>
 <body>
 <svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
 ${bgLayer}
@@ -1648,12 +1795,13 @@ ${subtitle ? `<text x="114" y="560" font-family="Segoe UI,sans-serif" font-size=
 ${SLIDE_INTERACTION_SCRIPT}
 ${buildLogoTag()}
 </body></html>`;
+        return injectContrastFix(html, theme);
     }
 
     const isDiagram = slideData.layout === 'diagram_slide';
     const diagDesc  = (slideData.diagram_description || title).replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${sharedStyle}
+    let fallbackHtml = `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>${sharedStyle}
 .rb-card{background:rgba(15,23,42,.78);border:1px solid rgba(${accentRgb},0.3);border-top:4px solid ${accent};border-radius:16px;padding:28px 32px;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 20px 60px rgba(0,0,0,.4);}
 </style></head>
 <body>
@@ -1706,6 +1854,7 @@ ${i<3?`<line x1="${bx+340}" y1="90" x2="${bx+380}" y2="90" stroke="${accent}" st
 ${SLIDE_INTERACTION_SCRIPT}
 ${buildLogoTag()}
 </body></html>`;
+    return injectContrastFix(fallbackHtml, theme);
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1945,26 +2094,37 @@ async function downloadEditablePptx() {
                 });
                 slide.addShape('rect', { x:0.3, y:1.05, w:1.2, h:0.05, fill:{ color: accentHex } });
 
-                const bullets = (sd.bullet_points || []).map(b => ({
-                    text: b,
-                    options: { bullet:{ type:'number' }, color:textHex, fontSize:18, paraSpaceAfter:14, fontFace:'Arial' }
-                }));
-
-                if (bullets.length > 0) {
-                    slide.addShape('rect', {
-                        x:0.3, y:1.2, w:9.4, h:4.1,
-                        fill:{ color: accentHex, transparency: 94 },
-                        line:{ color: accentHex, transparency: 75, width: 1.5 },
-                        rectRadius: 0.1
-                    });
-                    slide.addText(bullets, { x:0.5, y:1.35, w:9.0, h:3.9, valign:'top', fontFace:'Arial' });
-                }
-
-                if (sd.layout === 'diagram_slide' && sd.diagram_description) {
-                    slide.addText(`📊 ${sd.diagram_description}`, {
-                        x:0.5, y:4.8, w:9.0, h:0.6,
-                        fontSize:11, color:accentHex, italic:true, fontFace:'Arial'
-                    });
+                if (sd.layout === 'diagram_slide') {
+                    // ── Diagram: screenshot the HTML slide and add as picture object ──
+                    // This is the most faithful conversion since SVG diagrams can't
+                    // be represented as editable PPT shapes without SVG-to-shapes library
+                    addLog(`📸 截圖流程圖頁 ${s.slideNumber}（圖解轉圖片物件）...`, 'info');
+                    const diagramImgB64 = await slideHTMLToBase64(s.html, s.slideNumber);
+                    if (diagramImgB64) {
+                        // Add the diagram screenshot as a movable/resizable picture object
+                        slide.addImage({ data: diagramImgB64, x:0.3, y:1.2, w:9.4, h:4.1,
+                            sizing:{ type:'contain', w:9.4, h:4.1 } });
+                    } else {
+                        // Fallback: text description
+                        slide.addText(`📊 ${sd.diagram_description || sd.title}`, {
+                            x:0.5, y:1.5, w:9.0, h:3.5,
+                            fontSize:20, color:textHex, fontFace:'Arial', valign:'middle', align:'center'
+                        });
+                    }
+                } else {
+                    const bullets = (sd.bullet_points || []).map(b => ({
+                        text: b,
+                        options: { bullet:{ type:'number' }, color:textHex, fontSize:18, paraSpaceAfter:14, fontFace:'Arial' }
+                    }));
+                    if (bullets.length > 0) {
+                        slide.addShape('rect', {
+                            x:0.3, y:1.2, w:9.4, h:4.1,
+                            fill:{ color: accentHex, transparency: 94 },
+                            line:{ color: accentHex, transparency: 75, width: 1.5 },
+                            rectRadius: 0.1
+                        });
+                        slide.addText(bullets, { x:0.5, y:1.35, w:9.0, h:3.9, valign:'top', fontFace:'Arial' });
+                    }
                 }
             }
 
