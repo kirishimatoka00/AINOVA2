@@ -1055,9 +1055,24 @@ async function generateSlideHTML(slideData, theme, imageB64) {
     const uniqueModels = [...new Set(FALLBACK_MODELS)];
 
     const hasImage = !!imageB64;
+    // Detect if imageB64 is actually a URL (serp_url fallback) vs real base64
+    const isDirectUrl = hasImage && imageB64.startsWith('http');
     const imgInstruction = hasImage
-        ? `本投影片有圖片可使用。在 SVG 內使用 <image href="REPLACE_IMAGE_SRC" .../> 標籤放置圖片，或在 foreignObject 的 <img> 中使用 src="REPLACE_IMAGE_SRC"。`
+        ? (isDirectUrl
+            ? `本投影片有圖片 URL 可使用。在 foreignObject 的 <img> 中使用 src="${imageB64}"，或在 SVG 使用 <image href="${imageB64}"/>。`
+            : `本投影片有圖片可使用。在 SVG 內使用 <image href="REPLACE_IMAGE_SRC" .../> 標籤放置圖片，或在 foreignObject 的 <img> 中使用 src="REPLACE_IMAGE_SRC"。`)
         : `本投影片無圖片，請以純 SVG 圖形、漸層、幾何裝飾填補視覺。`;
+
+    const logoPos = document.getElementById('sel-logo-pos')?.value || 'TR';
+    const logoPosMap = {
+        TR: 'right:40px; top:30px;',
+        TL: 'left:40px;  top:30px;',
+        BR: 'right:40px; bottom:30px;',
+        BL: 'left:40px;  bottom:30px;'
+    };
+    const logoInstruction = AppState.logoBase64
+        ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 外層（body 內）用 <img id="slide-logo" src="REPLACE_LOGO_SRC" style="position:fixed;${logoPosMap[logoPos]}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;"> 放置 Logo。`
+        : '';
 
     const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師，專精 SVG+foreignObject 架構。
 請為以下投影片資料生成一份完整的、視覺上令人驚豔的 HTML 單頁投影片。
@@ -1066,6 +1081,8 @@ async function generateSlideHTML(slideData, theme, imageB64) {
 ${JSON.stringify(slideData, null, 2)}
 
 【圖片】${imgInstruction}
+
+【Logo】${logoInstruction || '本投影片無 Logo。'}
 
 【核心架構規範 — 必須嚴格遵守】
 
@@ -1202,8 +1219,21 @@ ${JSON.stringify(slideData, null, 2)}
             }
 
             // Inject actual image src
-            if (hasImage) {
+            if (hasImage && !isDirectUrl) {
                 html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
+            }
+
+            // Inject logo — always do this programmatically (don't rely on LLM placing it)
+            if (AppState.logoBase64) {
+                const pos = logoPos;
+                const posStyle = logoPosMap[pos] || logoPosMap['TR'];
+                const logoTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posStyle}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
+                // Replace placeholder if LLM included it, otherwise inject before </body>
+                if (html.includes('REPLACE_LOGO_SRC')) {
+                    html = html.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
+                } else if (!html.includes('slide-logo')) {
+                    html = html.replace('</body>', logoTag + '\n</body>');
+                }
             }
 
             return html;
@@ -1496,6 +1526,13 @@ async function downloadPptx(mode = 'image') {
 // ═══════════════════════════════════════════════════════════════════
 // FALLBACK HTML  ── SVG + foreignObject quality fallback ──
 // ═══════════════════════════════════════════════════════════════════
+function buildLogoTag() {
+    if (!AppState.logoBase64) return '';
+    const pos = document.getElementById('sel-logo-pos')?.value || 'TR';
+    const posStyles = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
+    return `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posStyles[pos]||posStyles.TR}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
+}
+
 function buildFallbackSlideHTML(slideData, theme) {
     const title   = (slideData.title || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const subtitle= (slideData.subtitle || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1579,6 +1616,7 @@ ${subtitle ? `<text x="114" y="560" font-family="Segoe UI,sans-serif" font-size=
 <rect x="322" y="632" width="80" height="1.5" rx="0.75" fill="${accent}" opacity="0.4"/>
 </svg>
 ${SLIDE_INTERACTION_SCRIPT}
+${buildLogoTag()}
 </body></html>`;
     }
 
@@ -1700,6 +1738,7 @@ ${!isDiagram ? `
 ` : ''}
 </svg>
 ${SLIDE_INTERACTION_SCRIPT}
+${buildLogoTag()}
 </body></html>`;
 }
 
@@ -2174,17 +2213,71 @@ async function searchSerpImages(query, count = 20) {
 }
 
 // Convert an external image URL → base64 data URI (via proxy to bypass CORS)
+// Convert image URL → base64 via canvas (no external proxy needed)
+// Tries multiple methods in order until one succeeds
 async function fetchImageAsBase64(url) {
-    // Use allorigins as a universal CORS proxy for images
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-    const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
-    if (!resp.ok) throw new Error(`Image fetch failed: ${resp.status}`);
-    const blob = await resp.blob();
+    // Method 1: direct canvas draw (works if CORS header present)
+    try {
+        const b64 = await loadImageViaCanvas(url, { crossOrigin: 'anonymous' });
+        return b64;
+    } catch(e1) {}
+
+    // Method 2: canvas without crossOrigin (tainted canvas, only works for same-origin but worth trying)
+    try {
+        const b64 = await loadImageViaCanvas(url, {});
+        return b64;
+    } catch(e2) {}
+
+    // Method 3: fetch via corsproxy.io
+    try {
+        const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
+        if (resp.ok) {
+            const blob = await resp.blob();
+            return await blobToDataURL(blob);
+        }
+    } catch(e3) {}
+
+    // Method 4: allorigins raw (last resort)
+    try {
+        const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
+        if (resp.ok) {
+            const blob = await resp.blob();
+            return await blobToDataURL(blob);
+        }
+    } catch(e4) {}
+
+    throw new Error('所有圖片載入方式均失敗，請改用 AI 生成');
+}
+
+function loadImageViaCanvas(url, attrs) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        if (attrs.crossOrigin) img.crossOrigin = attrs.crossOrigin;
+        img.onload = () => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width  = img.naturalWidth  || img.width;
+                canvas.height = img.naturalHeight || img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/jpeg', 0.88));
+            } catch(e) { reject(e); }
+        };
+        img.onerror = () => reject(new Error('Image load error'));
+        img.src = url;
+        // Timeout
+        setTimeout(() => reject(new Error('Image timeout')), 8000);
+    });
+}
+
+function blobToDataURL(blob) {
     return new Promise((res, rej) => {
-        const reader = new FileReader();
-        reader.onload  = e => res(e.target.result);
-        reader.onerror = rej;
-        reader.readAsDataURL(blob);
+        const r = new FileReader();
+        r.onload  = e => res(e.target.result);
+        r.onerror = rej;
+        r.readAsDataURL(blob);
     });
 }
 
@@ -2254,26 +2347,36 @@ function showImagePicker(slideNum, slideTitle, serpQuery) {
 
 async function imgPickerConfirm() {
     const btn = document.getElementById('img-picker-confirm-btn');
-    const url = btn.getAttribute('data-url') || '';
-    if (!url) return;
+    const originalUrl  = btn.getAttribute('data-url')   || '';
+    const thumbnailUrl = btn.getAttribute('data-thumb')  || originalUrl;
+    if (!originalUrl) return;
 
     btn.disabled = true;
-    btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 載入中...';
+    btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 載入圖片中...';
 
-    try {
-        addLog(`⬇ 載入選定圖片...`, 'info');
-        const b64 = await fetchImageAsBase64(url);
-        addLog(`✓ 圖片載入完成`, 'success');
-        document.getElementById('img-picker-modal').classList.remove('open');
-        if (_pickerResolve) { _pickerResolve({ mode: 'serp', b64 }); _pickerResolve = null; }
-    } catch(e) {
-        addLog(`⚠ 圖片載入失敗: ${e.message}，改用 AI 生成`, 'warning');
-        document.getElementById('img-picker-modal').classList.remove('open');
-        if (_pickerResolve) { _pickerResolve({ mode: 'ai', b64: null }); _pickerResolve = null; }
-    } finally {
-        btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
-        btn.disabled = false;
+    // Try original first, then thumbnail as fallback
+    for (const url of [originalUrl, thumbnailUrl]) {
+        try {
+            addLog(`⬇ 嘗試載入圖片: ${url.slice(0, 60)}...`, 'info');
+            const b64 = await fetchImageAsBase64(url);
+            addLog(`✓ 圖片轉換完成`, 'success');
+            document.getElementById('img-picker-modal').classList.remove('open');
+            if (_pickerResolve) { _pickerResolve({ mode: 'serp', b64 }); _pickerResolve = null; }
+            btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
+            btn.disabled = false;
+            return;
+        } catch(e) {
+            addLog(`⚠ ${url.slice(0,40)}... 載入失敗: ${e.message}`, 'warning');
+        }
     }
+
+    // All base64 attempts failed → use thumbnail URL directly in HTML (no base64)
+    addLog(`⚠ 無法轉換為 base64，直接使用圖片 URL 嵌入投影片（預覽可能受 CORS 限制）`, 'warning');
+    document.getElementById('img-picker-modal').classList.remove('open');
+    // Return the thumbnail URL as-is; generateSlideHTML will embed it as <img src="URL">
+    if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: thumbnailUrl }); _pickerResolve = null; }
+    btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
+    btn.disabled = false;
 }
 
 function imgPickerUseAI() {
@@ -2318,6 +2421,7 @@ async function getSlideImage(sData, imageMode, slideIndex) {
         // Show picker and await user choice
         const result = await showImagePicker(sData.slide_number, sData.title, serpQuery);
         if (result.mode === 'serp' && result.b64) return result.b64;
+        if (result.mode === 'serp_url' && result.b64) return result.b64; // direct URL fallback
         if (result.mode === 'skip') return null;
         // mode === 'ai' → fall through to AI generation
         if (imageMode === 'serp_only') return null;  // no AI fallback in serp_only
