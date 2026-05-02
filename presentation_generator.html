@@ -13,6 +13,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@300;400;500;700&display=swap" rel="stylesheet">
 
     <script>
@@ -137,6 +138,13 @@
                 <span class="text-[11px] text-slate-400 flex-1">SerpAPI: <span id="api-serp-status" class="font-semibold">...</span></span>
                 <button onclick="promptApiKey('serpapi')" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors">設定</button>
             </div>
+            <!-- 修改為 Google Apps Script Web App URL -->
+            <div class="flex items-center gap-2 pt-2 border-t border-slate-800">
+                <i class="ph-fill ph-cloud-arrow-up text-indigo-400 shrink-0 text-base"></i>
+                <span class="text-[11px] text-slate-400 flex-1 truncate max-w-[180px]">GAS API: <span id="api-gas-status" class="font-semibold">...</span></span>
+                <button onclick="promptApiKey('gas')" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors shrink-0">設定</button>
+            </div>
+            <p class="text-[10px] text-slate-500 leading-tight">貼上部署好的 Google Apps Script 網頁應用程式 URL，可將圖片儲存至 Google 硬碟。</p>
         </div>
 
         <!-- Attached Sources -->
@@ -151,7 +159,6 @@
             </button>
             <div id="panel-sources" class="panel-body open">
                 <div class="px-4 pb-4 space-y-3 text-xs">
-                    <!-- File Drop Zone -->
                     <div id="file-drop-zone" class="drop-zone rounded-xl p-4 text-center cursor-pointer select-none"
                         onclick="document.getElementById('file-input').click()"
                         ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleFileDrop(event)">
@@ -160,7 +167,6 @@
                         <p class="text-slate-600 mt-1">TXT · PDF · DOCX · XLSX · PPTX · CSV</p>
                         <input type="file" id="file-input" multiple accept=".txt,.md,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv" class="hidden" onchange="handleFileSelect(event)">
                     </div>
-                    <!-- URL Input -->
                     <div class="flex gap-2">
                         <input type="text" id="url-input" placeholder="貼入網頁連結或 YouTube URL..."
                             class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-slate-200 text-[11px] outline-none focus:border-sky-500 transition-colors"
@@ -169,7 +175,6 @@
                             <i class="ph-bold ph-plus"></i>
                         </button>
                     </div>
-                    <!-- Sources List -->
                     <div id="sources-list" class="space-y-2 max-h-52 overflow-y-auto"></div>
                     <p id="no-sources-hint" class="text-slate-600 text-center py-2">尚未附加任何資料來源</p>
                 </div>
@@ -187,33 +192,20 @@
             </button>
             <div id="panel-config" class="panel-body open">
                 <div class="px-4 pb-4 space-y-4 text-xs">
-
                     <div>
                         <label class="block text-slate-400 mb-1.5 font-semibold">首選文字模型 (LLM)</label>
                         <select id="sel-text-model" onchange="updateHeaderBadge()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                             <optgroup label="── Gemini 系列 ──">
-                                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview (最新旗艦)</option>
-                                <option value="gemini-3-flash-preview">Gemini 3 Flash Preview (最新快速)</option>
-                                <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro (深度邏輯推薦)</option>
-                                <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速均衡)</option>
+                                <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro Preview</option>
+                                <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                                <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro (深度推薦)</option>
+                                <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                             </optgroup>
                             <optgroup label="── Grok 系列 ──">
-                                <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning ⚡</option>
-                                <option value="grok-4-1-fast-non-reasoning">Grok 4.1 Fast Non-Reasoning</option>
+                                <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning</option>
                                 <option value="grok-4-fast-reasoning">Grok 4 Fast Reasoning</option>
                             </optgroup>
                         </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-slate-400 mb-1.5 font-semibold">首選配圖模型 (Image)</label>
-                        <select id="sel-img-model" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                            <option value="grok-imagine-image-pro">Grok Imagine Image Pro (推薦)</option>
-                            <option value="grok-imagine-image">Grok Imagine Image</option>
-                            <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
-                            <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
-                        </select>
-                        <p class="text-slate-500 mt-1">若失敗會自動依序降級調用其他模型</p>
                     </div>
 
                     <div class="border-t border-slate-800 pt-3">
@@ -232,34 +224,14 @@
                         <select id="sel-image-mode" onchange="updateImageModeHint()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
                             <optgroup label="── AI 生成 ──">
                                 <option value="auto">🤖 自動判斷（AI 決定哪頁需要圖片）</option>
-                                <option value="all">🤖 強制每張都插入 AI 生成圖片</option>
                                 <option value="none">🚫 不插入圖片（純 HTML/CSS）</option>
                             </optgroup>
                             <optgroup label="── SerpAPI 搜尋圖片 ──">
-                                <option value="serp_only">🔍 純 SerpAPI 搜尋圖片（20 張供選）</option>
-                                <option value="serp_primary">🔍 SerpAPI 為主 + AI 生成輔助</option>
+                                <option value="serp_only">🔍 純 SerpAPI 搜尋圖片（供選）</option>
                                 <option value="serp_mixed">🔀 SerpAPI 搜尋 + AI 生成混合</option>
                             </optgroup>
                         </select>
-                        <p id="image-mode-hint" class="text-slate-500 mt-1.5 leading-relaxed">若失敗會自動依序降級調用其他模型</p>
-                    </div>
-
-                    <div class="border-t border-slate-800 pt-3">
-                        <label class="block text-slate-400 mb-1.5 font-semibold">Logo / 浮水印</label>
-                        <div class="flex items-center gap-2">
-                            <button onclick="document.getElementById('logo-upload').click()" class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-xl px-3 py-2 text-slate-300 transition-colors">上傳圖片</button>
-                            <select id="sel-logo-pos" class="bg-slate-950 border border-slate-700 rounded-xl p-2 text-slate-200 focus:border-amber-500 outline-none">
-                                <option value="TR">右上角</option>
-                                <option value="BR">右下角</option>
-                                <option value="TL">左上角</option>
-                                <option value="BL">左下角</option>
-                            </select>
-                            <input type="file" id="logo-upload" accept="image/*" class="hidden" onchange="handleLogoUpload(event)">
-                        </div>
-                        <div id="logo-preview-wrapper" class="hidden mt-2 relative inline-block">
-                            <img id="logo-preview" class="h-10 object-contain bg-white/10 rounded p-1">
-                            <button onclick="removeLogo()" class="absolute -top-1 -right-1 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px]">&times;</button>
-                        </div>
+                        <p id="image-mode-hint" class="text-slate-500 mt-1.5 leading-relaxed">...</p>
                     </div>
 
                     <div>
@@ -269,48 +241,23 @@
                         </label>
                         <input type="range" id="range-slide-count" min="2" max="50" value="10"
                             oninput="document.getElementById('slide-count-val').textContent=this.value+' 張'" class="w-full">
-                        <div class="flex justify-between text-slate-600 text-[10px] mt-1"><span>2</span><span>50</span></div>
                     </div>
-
                 </div>
             </div>
         </div>
-
-        <!-- Generation History Panel -->
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
-            <button onclick="togglePanel('panel-history')" class="w-full flex items-center justify-between p-4 hover:bg-slate-800/50 transition-colors">
-                <div class="flex items-center gap-2.5">
-                    <i class="ph-fill ph-clock-counter-clockwise text-violet-400"></i>
-                    <span class="text-sm font-semibold text-white">生成歷史</span>
-                    <span id="history-count-badge" class="hidden text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400">0</span>
-                </div>
-                <i id="panel-history-icon" class="ph-bold ph-caret-down text-slate-400 transition-transform"></i>
-            </button>
-            <div id="panel-history" class="panel-body">
-                <div class="px-4 pb-4">
-                    <div id="history-list" class="space-y-2 max-h-80 overflow-y-auto"></div>
-                    <p id="no-history-hint" class="text-slate-600 text-[11px] text-center py-4">尚無生成記錄</p>
-                    <button id="btn-clear-history" onclick="clearAllHistory()" class="hidden w-full mt-2 text-[11px] text-rose-500 hover:text-rose-400 transition-colors py-1">清除全部記錄</button>
-                </div>
-            </div>
-        </div>
-
     </aside>
 
     <!-- MAIN CONTENT -->
     <div class="flex-1 min-w-0 flex flex-col gap-5">
-
-        <!-- Topic Input -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5">
             <label class="block text-sm font-semibold text-white mb-3">
                 <i class="ph-fill ph-pencil-simple-line text-violet-400 mr-1"></i>簡報主題 / 指令
             </label>
             <textarea id="inp-topic" rows="4"
-                placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告，需包含大量數據、具體案例與未來預測...&#10;&#10;也可附加左側資料來源，AI 會先摘要分析後製作簡報。"
+                placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告..."
                 class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors resize-none"></textarea>
         </div>
 
-        <!-- Progress -->
         <div id="section-progress" class="hidden bg-slate-900 border border-slate-800 rounded-2xl p-5">
             <div class="flex items-center gap-2.5 mb-3">
                 <div id="progress-spinner" class="w-5 h-5 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0"></div>
@@ -322,7 +269,6 @@
             <div id="log-container" class="space-y-1 max-h-52 overflow-y-auto text-[11px]"></div>
         </div>
 
-        <!-- Slide Preview Grid -->
         <div id="section-preview" class="hidden">
             <div class="flex items-center justify-between mb-3">
                 <h3 class="text-sm font-bold text-white">生成結果預覽</h3>
@@ -331,31 +277,12 @@
             <div id="slides-preview-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
         </div>
 
-        <!-- Empty State -->
         <div id="section-empty" class="flex-1 flex flex-col items-center justify-center py-16 text-center">
             <div class="w-20 h-20 bg-violet-500/10 rounded-3xl flex items-center justify-center mb-5 border border-violet-500/20">
                 <i class="ph-bold ph-presentation-chart text-violet-400 text-3xl"></i>
             </div>
             <h2 class="text-xl font-bold text-white mb-2">AI HTML 簡報生成器</h2>
-            <p class="text-slate-500 text-sm max-w-md">輸入主題，可選擇性附加資料來源，AI 將生成精美的 HTML/CSS 投影片並可一鍵轉為 PPTX 下載。</p>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-8 max-w-lg">
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
-                    <i class="ph-fill ph-file-text text-sky-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">TXT · PDF<br>DOCX · XLSX · PPTX</p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
-                    <i class="ph-fill ph-globe text-emerald-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">網頁連結<br>YouTube 影片</p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
-                    <i class="ph-fill ph-code text-amber-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">LLM 生成<br>HTML/CSS 投影片</p>
-                </div>
-                <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5 text-center">
-                    <i class="ph-fill ph-file-ppt text-violet-400 text-2xl mb-2 block"></i>
-                    <p class="text-[11px] text-slate-400 leading-tight">一鍵轉換<br>PPTX 下載</p>
-                </div>
-            </div>
+            <p class="text-slate-500 text-sm max-w-md">結合 Google Apps Script 後端，支援自動上傳圖片至您的 Google 硬碟中。</p>
         </div>
     </div>
 </main>
@@ -374,48 +301,22 @@
             <div class="flex items-center gap-2 shrink-0">
                 <span class="text-[11px] text-slate-500" id="img-picker-selected-label">尚未選擇</span>
                 <button onclick="imgPickerUseAI()" class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/40 text-violet-300 rounded-xl transition-colors">
-                    <i class="ph-bold ph-sparkle"></i>改用 AI 生成
+                    <i class="ph-bold ph-sparkle"></i>改用純設計
                 </button>
                 <button onclick="imgPickerConfirm()" id="img-picker-confirm-btn" class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors disabled:opacity-40" disabled>
                     <i class="ph-bold ph-check"></i>確認使用此圖
                 </button>
             </div>
         </div>
-        <!-- Loading state -->
         <div id="img-picker-loading" class="flex flex-col items-center justify-center py-16 gap-3">
             <div class="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin"></div>
             <p class="text-slate-400 text-sm">搜尋相關圖片中...</p>
         </div>
-        <!-- Grid -->
         <div id="img-picker-grid" class="hidden flex-1 overflow-y-auto p-4 grid grid-cols-4 gap-3"></div>
-        <!-- Error -->
         <div id="img-picker-error" class="hidden flex-col items-center justify-center py-12 gap-3 text-center px-8">
             <i class="ph-bold ph-warning text-amber-400 text-3xl"></i>
             <p class="text-slate-300 text-sm font-semibold" id="img-picker-error-msg">搜尋失敗</p>
-            <p class="text-slate-500 text-xs">請確認 SerpAPI Key 是否正確，或改用 AI 生成圖片</p>
-            <button onclick="imgPickerUseAI()" class="mt-2 text-xs font-bold px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl transition-colors">改用 AI 生成</button>
-        </div>
-    </div>
-</div>
-
-<!-- ── HISTORY MODAL ─────────────────────────────────────────────── -->
-<div id="history-modal" class="fixed inset-0 z-[100] items-center justify-center bg-black/70 backdrop-blur-sm p-4" onclick="if(event.target===this)closeHistoryModal()">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">
-        <div class="flex items-center justify-between p-5 border-b border-slate-800 shrink-0">
-            <div class="flex items-center gap-3">
-                <i class="ph-fill ph-clock-counter-clockwise text-violet-400 text-xl"></i>
-                <h2 class="text-base font-bold text-white">簡報生成歷史</h2>
-                <span id="modal-history-count" class="text-xs text-slate-500"></span>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="clearAllHistory()" class="text-xs text-rose-500 hover:text-rose-400 px-3 py-1.5 rounded-lg hover:bg-rose-500/10 transition-colors">清除全部</button>
-                <button onclick="closeHistoryModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
-                    <i class="ph-bold ph-x text-base"></i>
-                </button>
-            </div>
-        </div>
-        <div id="modal-history-list" class="flex-1 overflow-y-auto p-5 space-y-3">
-            <p class="text-slate-500 text-sm text-center py-10">尚無任何生成記錄</p>
+            <button onclick="imgPickerUseAI()" class="mt-2 text-xs font-bold px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl transition-colors">跳過配圖</button>
         </div>
     </div>
 </div>
@@ -429,47 +330,22 @@
 // ═══════════════════════════════════════════════════════════════════
 const AppState = {
     googleApiKey: '', xaiApiKey: '', serpApiKey: '',
-    attachedSources: [],      // [{id,type,icon,name,content,status}]
+    gasUrl: '',               // Google Apps Script Web App URL
+    attachedSources: [],      
     logoBase64: null,
-    generatedSlides: [],      // [{slideNumber,title,html}]
+    generatedSlides: [],      
     presentationData: null,
     isGenerating: false,
     cancelRequested: false,
     abortController: null
 };
 
-// ─── THEME DEFINITIONS ──────────────────────────────────────────────
 const HTML_THEMES = {
-    modern: {
-        label: '現代極簡 (Modern Dark)',
-        bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        titleColor: '#f8fafc', accent: '#818cf8', text: '#cbd5e1',
-        muted: '#475569', card: 'rgba(30,41,59,0.85)', border: 'rgba(99,102,241,0.35)'
-    },
-    tech: {
-        label: '科技未來 (Tech Cyber)',
-        bg: 'linear-gradient(135deg, #020617 0%, #082844 50%, #061830 100%)',
-        titleColor: '#38bdf8', accent: '#0ea5e9', text: '#bae6fd',
-        muted: '#0369a1', card: 'rgba(14,165,233,0.12)', border: 'rgba(56,189,248,0.35)'
-    },
-    corporate: {
-        label: '商務專業 (Corporate Blue)',
-        bg: 'linear-gradient(160deg, #1e3a8a 0%, #1e40af 60%, #1d4ed8 100%)',
-        titleColor: '#ffffff', accent: '#93c5fd', text: '#dbeafe',
-        muted: '#60a5fa', card: 'rgba(255,255,255,0.09)', border: 'rgba(147,197,253,0.3)'
-    },
-    creative: {
-        label: '活潑創意 (Creative Vivid)',
-        bg: 'linear-gradient(135deg, #18021a 0%, #3b0764 50%, #4a044e 100%)',
-        titleColor: '#fdf4ff', accent: '#e879f9', text: '#f0abfc',
-        muted: '#a21caf', card: 'rgba(232,121,249,0.1)', border: 'rgba(232,121,249,0.3)'
-    },
-    elegant: {
-        label: '高雅精緻 (Elegant Light)',
-        bg: 'linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%)',
-        titleColor: '#0f172a', accent: '#3b82f6', text: '#374151',
-        muted: '#6b7280', card: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.2)'
-    }
+    modern: { label: '現代極簡 (Modern Dark)', bg: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', titleColor: '#f8fafc', accent: '#818cf8', text: '#cbd5e1', muted: '#475569', card: 'rgba(30,41,59,0.85)', border: 'rgba(99,102,241,0.35)' },
+    tech: { label: '科技未來 (Tech Cyber)', bg: 'linear-gradient(135deg, #020617 0%, #082844 50%, #061830 100%)', titleColor: '#38bdf8', accent: '#0ea5e9', text: '#bae6fd', muted: '#0369a1', card: 'rgba(14,165,233,0.12)', border: 'rgba(56,189,248,0.35)' },
+    corporate: { label: '商務專業 (Corporate Blue)', bg: 'linear-gradient(160deg, #1e3a8a 0%, #1e40af 60%, #1d4ed8 100%)', titleColor: '#ffffff', accent: '#93c5fd', text: '#dbeafe', muted: '#60a5fa', card: 'rgba(255,255,255,0.09)', border: 'rgba(147,197,253,0.3)' },
+    creative: { label: '活潑創意 (Creative Vivid)', bg: 'linear-gradient(135deg, #18021a 0%, #3b0764 50%, #4a044e 100%)', titleColor: '#fdf4ff', accent: '#e879f9', text: '#f0abfc', muted: '#a21caf', card: 'rgba(232,121,249,0.1)', border: 'rgba(232,121,249,0.3)' },
+    elegant: { label: '高雅精緻 (Elegant Light)', bg: 'linear-gradient(160deg, #f8fafc 0%, #e2e8f0 100%)', titleColor: '#0f172a', accent: '#3b82f6', text: '#374151', muted: '#6b7280', card: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.2)' }
 };
 
 // ═══════════════════════════════════════════════════════════════════
@@ -479,28 +355,20 @@ function init() {
     AppState.googleApiKey = localStorage.getItem('nova_key_gemini') || '';
     AppState.xaiApiKey    = localStorage.getItem('nova_key_grok')   || '';
     AppState.serpApiKey   = localStorage.getItem('nova_key_serpapi') || '';
+    AppState.gasUrl       = localStorage.getItem('nova_key_gas')     || '';
 
     const keyStatus = (k) => k ? '✓ 已設定' : '❌ 未設定';
     document.getElementById('api-gemini-status').textContent = keyStatus(AppState.googleApiKey);
     document.getElementById('api-grok-status').textContent   = keyStatus(AppState.xaiApiKey);
     document.getElementById('api-serp-status').textContent   = keyStatus(AppState.serpApiKey);
+    document.getElementById('api-gas-status').textContent    = AppState.gasUrl ? '✓ 連線已配置' : '❌ 未設定 URL';
 
     updateHeaderBadge();
     updateImageModeHint();
 
     if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc =
-            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
-
-    renderHistoryPanels();
-
-    // Close PPTX menu on outside click
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('#btn-pptx-group')) {
-            document.getElementById('pptx-menu')?.classList.add('hidden');
-        }
-    });
 }
 document.addEventListener('DOMContentLoaded', init);
 
@@ -508,27 +376,19 @@ document.addEventListener('DOMContentLoaded', init);
 // UI HELPERS
 // ═══════════════════════════════════════════════════════════════════
 function togglePanel(id) {
-    const el = document.getElementById(id);
-    const icon = document.getElementById(id + '-icon');
-    el.classList.toggle('open');
-    icon && icon.classList.toggle('rotate-180');
+    const el = document.getElementById(id); const icon = document.getElementById(id + '-icon');
+    el.classList.toggle('open'); icon && icon.classList.toggle('rotate-180');
 }
 
 function showToast(msg) {
     const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.remove('opacity-0', 'translate-y-4');
-    t.classList.add('opacity-100', 'translate-y-0');
-    setTimeout(() => {
-        t.classList.add('opacity-0', 'translate-y-4');
-        t.classList.remove('opacity-100', 'translate-y-0');
-    }, 3500);
+    t.textContent = msg; t.classList.remove('opacity-0', 'translate-y-4'); t.classList.add('opacity-100', 'translate-y-0');
+    setTimeout(() => { t.classList.add('opacity-0', 'translate-y-4'); t.classList.remove('opacity-100', 'translate-y-0'); }, 3500);
 }
 
 function updateHeaderBadge() {
     const s = document.getElementById('sel-text-model');
-    document.getElementById('header-model-name').textContent =
-        s.options[s.selectedIndex].text.split('(')[0].trim();
+    document.getElementById('header-model-name').textContent = s.options[s.selectedIndex].text.split('(')[0].trim();
 }
 
 function setProgress(pct) {
@@ -537,30 +397,24 @@ function setProgress(pct) {
 }
 
 function addLog(msg, type = 'info') {
-    const c = document.getElementById('log-container');
-    const el = document.createElement('div');
-    const colors = {
-        info: 'text-slate-300', success: 'text-emerald-300',
-        warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300'
-    };
-    el.className = `py-0.5 ${colors[type] || 'text-slate-300'}`;
-    el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-    c.appendChild(el);
-    c.scrollTop = c.scrollHeight;
+    const c = document.getElementById('log-container'); const el = document.createElement('div');
+    const colors = { info: 'text-slate-300', success: 'text-emerald-300', warning: 'text-amber-300', error: 'text-rose-300', ai: 'text-violet-300' };
+    el.className = `py-0.5 ${colors[type] || 'text-slate-300'}`; el.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+    c.appendChild(el); c.scrollTop = c.scrollHeight;
 }
 
 function promptApiKey(type = 'gemini') {
-    const labels = { gemini: 'Gemini API Key', grok: 'Grok (xAI) API Key', serpapi: 'SerpAPI Key' };
-    const storageKeys = { gemini: 'nova_key_gemini', grok: 'nova_key_grok', serpapi: 'nova_key_serpapi' };
-    const statusIds   = { gemini: 'api-gemini-status', grok: 'api-grok-status', serpapi: 'api-serp-status' };
-    const stateKeys   = { gemini: 'googleApiKey', grok: 'xaiApiKey', serpapi: 'serpApiKey' };
+    const labels = { gemini: 'Gemini API Key', grok: 'Grok (xAI) API Key', serpapi: 'SerpAPI Key', gas: 'Google Apps Script Web App URL (用於上傳 Google 硬碟)' };
+    const storageKeys = { gemini: 'nova_key_gemini', grok: 'nova_key_grok', serpapi: 'nova_key_serpapi', gas: 'nova_key_gas' };
+    const statusIds   = { gemini: 'api-gemini-status', grok: 'api-grok-status', serpapi: 'api-serp-status', gas: 'api-gas-status' };
+    const stateKeys   = { gemini: 'googleApiKey', grok: 'xaiApiKey', serpapi: 'serpApiKey', gas: 'gasUrl' };
 
-    const key = prompt(`請輸入 ${labels[type]}:`);
-    if (key && key.trim()) {
+    const key = prompt(`請輸入 ${labels[type]}:`, AppState[stateKeys[type]] || '');
+    if (key !== null) {
         const trimmed = key.trim();
         localStorage.setItem(storageKeys[type], trimmed);
         AppState[stateKeys[type]] = trimmed;
-        document.getElementById(statusIds[type]).textContent = '✓ 已設定';
+        document.getElementById(statusIds[type]).textContent = trimmed ? '✓ 已設定' : '❌ 未設定';
         showToast(`✅ ${labels[type]} 已更新`);
     }
 }
@@ -568,1783 +422,127 @@ function promptApiKey(type = 'gemini') {
 function updateImageModeHint() {
     const mode = document.getElementById('sel-image-mode')?.value || 'auto';
     const hints = {
-        auto:        'AI 自動決定哪些頁面需要插圖，其餘頁面純 HTML/CSS',
-        all:         '所有投影片強制使用配圖模型生成圖片',
-        none:        '不插入任何圖片，全部用 SVG/CSS 視覺設計',
-        serp_only:   '🔍 每頁需圖時呼叫 SerpAPI 搜尋 20 張供您選擇（需設定 SerpAPI Key）',
-        serp_primary:'🔍 優先使用 SerpAPI 搜尋圖片，搜尋失敗時自動改用 AI 生成',
-        serp_mixed:  '🔀 奇數頁用 SerpAPI 搜尋，偶數頁用 AI 生成，形成視覺多樣性'
+        auto: '🤖 自動判斷哪些頁面需要插圖，其餘純設計',
+        none: '🚫 不插入圖片，全部用純 CSS/SVG',
+        serp_only: '🔍 呼叫 SerpAPI 搜尋，選定後透過 GAS Web App 上傳硬碟 (需設定 GAS URL)',
+        serp_mixed: '🔀 奇數頁用 SerpAPI，偶數頁用 AI 生成'
     };
     const el = document.getElementById('image-mode-hint');
     if (el) el.textContent = hints[mode] || '';
 }
 
-// ─── Logo ─────────────────────────────────────────────────────────
-function handleLogoUpload(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-        AppState.logoBase64 = ev.target.result;
-        document.getElementById('logo-preview').src = AppState.logoBase64;
-        document.getElementById('logo-preview-wrapper').classList.remove('hidden');
-        showToast('✅ Logo 上傳成功');
-    };
-    reader.readAsDataURL(file);
-}
-function removeLogo() {
-    AppState.logoBase64 = null;
-    document.getElementById('logo-upload').value = '';
-    document.getElementById('logo-preview-wrapper').classList.add('hidden');
-}
-
 // ═══════════════════════════════════════════════════════════════════
-// SOURCE MANAGEMENT
+// GOOGLE APPS SCRIPT WEB APP API (UPLOAD)
 // ═══════════════════════════════════════════════════════════════════
-function handleDragOver(e) {
-    e.preventDefault();
-    document.getElementById('file-drop-zone').classList.add('drag-over');
-}
-function handleDragLeave() {
-    document.getElementById('file-drop-zone').classList.remove('drag-over');
-}
-function handleFileDrop(e) {
-    e.preventDefault();
-    document.getElementById('file-drop-zone').classList.remove('drag-over');
-    Array.from(e.dataTransfer.files).forEach(processFile);
-}
-function handleFileSelect(e) {
-    Array.from(e.target.files).forEach(processFile);
-    e.target.value = '';
-}
+async function uploadToGasWebApp(base64Data, filename) {
+    const gasUrl = AppState.gasUrl;
+    if (!gasUrl) throw new Error("尚未設定 GAS Web App URL");
 
-async function processFile(file) {
-    const ext  = file.name.split('.').pop().toLowerCase();
-    const icons = { txt:'📄', md:'📄', pdf:'📕', doc:'📘', docx:'📘',
-                    xls:'📗', xlsx:'📗', csv:'📊', ppt:'📙', pptx:'📙' };
-    const id = 'src_' + Date.now() + Math.random().toString(36).slice(2,5);
-    const src = { id, type:'file', icon: icons[ext]||'📄', name: file.name, content: null, status: 'loading' };
-    AppState.attachedSources.push(src);
-    renderSources();
-    try {
-        src.content = await extractFileContent(file);
-        src.status = 'ready';
-    } catch(e) {
-        src.status = 'error';
-        src.content = `[解析失敗: ${e.message}]`;
-    }
-    renderSources();
-}
-
-async function addURLSource() {
-    const input = document.getElementById('url-input');
-    const url = input.value.trim();
-    if (!url) return;
-    if (!/^https?:\/\//i.test(url)) { showToast('❌ 請輸入完整 URL（含 http://）'); return; }
-    input.value = '';
-
-    const isYT = /youtu(be\.com|\.be)/i.test(url);
-    const id = 'src_' + Date.now();
-    const src = {
-        id, type: isYT ? 'youtube' : 'url',
-        icon: isYT ? '▶️' : '🌐',
-        name: url.length > 48 ? url.slice(0,45) + '...' : url,
-        url, content: null, status: 'loading'
-    };
-    AppState.attachedSources.push(src);
-    renderSources();
-    try {
-        src.content = await extractURLContent(url, isYT);
-        src.status = 'ready';
-    } catch(e) {
-        src.status = 'error';
-        src.content = `[連結: ${url}]`;
-    }
-    renderSources();
-}
-
-function removeSource(id) {
-    AppState.attachedSources = AppState.attachedSources.filter(s => s.id !== id);
-    renderSources();
-}
-
-function renderSources() {
-    const list  = document.getElementById('sources-list');
-    const hint  = document.getElementById('no-sources-hint');
-    const badge = document.getElementById('source-count-badge');
-    const count = AppState.attachedSources.length;
-
-    badge.textContent = count;
-    badge.classList.toggle('hidden', count === 0);
-    hint.classList.toggle('hidden', count > 0);
-    list.innerHTML = '';
-
-    AppState.attachedSources.forEach(src => {
-        const dot   = src.status === 'loading' ? '⏳' : src.status === 'error' ? '❌' : '✓';
-        const color = src.status === 'loading' ? 'text-amber-400' : src.status === 'error' ? 'text-rose-400' : 'text-emerald-400';
-        const el = document.createElement('div');
-        el.className = 'flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded-lg px-3 py-2';
-        el.innerHTML = `
-            <span class="text-base shrink-0">${src.icon}</span>
-            <span class="flex-1 text-[11px] text-slate-300 truncate min-w-0">${src.name}</span>
-            <span class="text-[10px] font-bold ${color} shrink-0">${dot}</span>
-            <button onclick="removeSource('${src.id}')" class="text-slate-500 hover:text-rose-400 shrink-0 text-sm leading-none ml-1 transition-colors">×</button>
-        `;
-        list.appendChild(el);
-    });
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// CONTENT EXTRACTION
-// ═══════════════════════════════════════════════════════════════════
-async function extractFileContent(file) {
-    const ext = file.name.split('.').pop().toLowerCase();
-    switch(ext) {
-        case 'txt': case 'md': case 'csv': return await readAsText(file);
-        case 'pdf':  return await extractPDF(file);
-        case 'doc': case 'docx': return await extractDOCX(file);
-        case 'xls': case 'xlsx': return await extractXLSX(file);
-        case 'ppt': case 'pptx': return await extractPPTX(file);
-        default: return `[檔案 ${file.name} 格式不支援自動解析，僅供參考]`;
-    }
-}
-
-function readAsText(file) {
-    return new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload  = e => res(e.target.result.slice(0, 60000));
-        r.onerror = rej;
-        r.readAsText(file, 'UTF-8');
-    });
-}
-
-async function extractPDF(file) {
-    if (typeof pdfjsLib === 'undefined') return `[PDF.js 未載入，無法解析 PDF: ${file.name}]`;
-    const ab  = await file.arrayBuffer();
-    const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-    let text = `[PDF: ${file.name} | ${pdf.numPages} 頁]\n`;
-    for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
-        const page    = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        text += content.items.map(it => it.str).join(' ') + '\n';
-    }
-    return text.slice(0, 80000);
-}
-
-async function extractDOCX(file) {
-    if (typeof mammoth === 'undefined') return `[Mammoth.js 未載入，無法解析 DOCX: ${file.name}]`;
-    const ab     = await file.arrayBuffer();
-    const result = await mammoth.extractRawText({ arrayBuffer: ab });
-    return `[DOCX: ${file.name}]\n${result.value.slice(0, 80000)}`;
-}
-
-async function extractXLSX(file) {
-    if (typeof XLSX === 'undefined') return `[SheetJS 未載入，無法解析 XLSX: ${file.name}]`;
-    const ab = await file.arrayBuffer();
-    const wb = XLSX.read(ab, { type: 'array' });
-    let text = `[XLSX: ${file.name}]\n`;
-    wb.SheetNames.slice(0, 5).forEach(name => {
-        text += `\n=== Sheet: ${name} ===\n`;
-        text += XLSX.utils.sheet_to_csv(wb.Sheets[name]).slice(0, 12000) + '\n';
-    });
-    return text.slice(0, 80000);
-}
-
-async function extractPPTX(file) {
-    if (typeof JSZip === 'undefined') return `[JSZip 未載入，無法解析 PPTX: ${file.name}]`;
-    const ab  = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(ab);
-    const slideFiles = Object.keys(zip.files)
-        .filter(n => /^ppt\/slides\/slide\d+\.xml$/.test(n))
-        .sort((a, b) => parseInt(a.match(/\d+/)[0]) - parseInt(b.match(/\d+/)[0]));
-    let text = `[PPTX: ${file.name} | ${slideFiles.length} 張投影片]\n`;
-    for (const path of slideFiles.slice(0, 20)) {
-        const xml   = await zip.files[path].async('string');
-        const plain = xml.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
-        text += plain.slice(0, 2000) + '\n';
-    }
-    return text.slice(0, 80000);
-}
-
-async function extractURLContent(url, isYouTube) {
-    if (isYouTube) {
-        const videoId = url.match(/(?:v=|youtu\.be\/)([^&\s?]+)/)?.[1] || '';
-        return `[YouTube 影片 URL: ${url}\n影片 ID: ${videoId}\n請根據此 YouTube 影片的主題與相關知識生成簡報內容]`;
-    }
-    try {
-        const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
-        if (resp.ok) {
-            const data = await resp.json();
-            const div  = document.createElement('div');
-            div.innerHTML = data.contents || '';
-            const text = (div.innerText || div.textContent || '').replace(/\s+/g,' ').trim();
-            return `[網頁: ${url}]\n${text.slice(0, 40000)}`;
-        }
-    } catch(e) {}
-    return `[網頁 URL: ${url}\n請根據此網址的已知內容生成簡報]`;
-}
-
-async function buildContextFromSources() {
-    const ready = AppState.attachedSources.filter(s => s.content);
-    if (!ready.length) return '';
-    return ready.map(s => `\n\n━━━ 來源: ${s.name} ━━━\n${s.content}`).join('');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// API HELPERS
-// ═══════════════════════════════════════════════════════════════════
-const GROK_PROXY      = 'https://grokcaller.kirishimatoka00.workers.dev/';
-const GROK_CHAT_API   = 'https://api.x.ai/v1/chat/completions';
-const GROK_IMG_API    = 'https://api.x.ai/v1/images/generations';   // kept for generateImage()
-const SERP_PROXY      = 'https://serpapi.kirishimatoka00.workers.dev/';
-
-function isGrokModel(modelName) {
-    return modelName && modelName.toLowerCase().startsWith('grok');
-}
-
-function getGeminiApiVersion(modelName) {
-    if (modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3')) {
-        return 'v1alpha';
-    }
-    return 'v1beta';
-}
-
-// ── Grok Text Completion (via Cloudflare Workers proxy) ──────────
-async function callGrokText(modelId, systemPrompt, userContent, signal) {
-    const key = AppState.xaiApiKey;
-    if (!key) throw new Error('Grok API Key 未設定，請在左側設定 Grok Key');
-
-    const targetUrl = GROK_CHAT_API;
-    const proxyUrl  = `${GROK_PROXY}?url=${encodeURIComponent(targetUrl)}`;
-
-    const resp = await fetch(proxyUrl, {
+    addLog(`☁️ 正在透過 Google Apps Script 將圖片存入 Google 硬碟...`, 'info');
+    
+    // 使用 text/plain 可以繞過某些嚴格的 CORS 限制
+    const response = await fetch(gasUrl, {
         method: 'POST',
-        headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'text/plain;charset=utf-8'
+        },
         body: JSON.stringify({
-            model: modelId,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user',   content: userContent  }
-            ],
-            temperature: 0.7
-        }),
-        signal
+            filename: filename,
+            base64: base64Data,
+            mimeType: 'image/jpeg'
+        })
     });
 
-    if (!resp.ok) {
-        const errText = await resp.text().catch(() => '');
-        throw new Error(`Grok API HTTP ${resp.status}: ${errText.slice(0, 200)}`);
+    const result = await response.json();
+    if (!result.success) {
+        throw new Error(result.error || '未知的後端錯誤');
     }
-    const data = await resp.json();
-    const text = data.choices?.[0]?.message?.content;
-    if (!text) throw new Error('Grok 回傳內容為空');
-    return text;
-}
-
-function stopGeneration() {
-    if (AppState.isGenerating) {
-        AppState.cancelRequested = true;
-        if (AppState.abortController) AppState.abortController.abort();
-        addLog('⚠️ 使用者要求中斷生成...', 'warning');
-        const btn = document.getElementById('btn-stop');
-        btn.disabled = true;
-        btn.querySelector('span').textContent = '正在中止...';
-    }
+    return result.url;
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// LLM: OUTLINE GENERATION  ── supports Gemini + Grok ──
-// ═══════════════════════════════════════════════════════════════════
-async function callGeminiForOutline(topic, context) {
-    if (AppState.cancelRequested) throw new Error('CanceledByUser');
-
-    const userModel  = document.getElementById('sel-text-model').value;
-    const slideCount = document.getElementById('range-slide-count').value;
-    const templateKey = document.getElementById('sel-template').value;
-    const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-    const imageMode = document.getElementById('sel-image-mode').value;
-
-    // Build Gemini fallback chain (only Gemini models)
-    const GEMINI_FALLBACKS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3-flash-preview'];
-    // Build full priority queue
-    const MODEL_QUEUE = isGrokModel(userModel)
-        ? [userModel, ...GEMINI_FALLBACKS]
-        : [userModel, 'gemini-2.5-pro', 'gemini-2.5-flash', 'grok-4-1-fast-reasoning'];
-    const uniqueModels = [...new Set(MODEL_QUEUE)];
-
-    const imageModeHint = {
-        auto:         'AI 自行判斷哪些投影片適合圖文並排（text_and_image），其餘用 text_only 或 diagram_slide',
-        all:          '大多數投影片使用 text_and_image 版型',
-        none:         '禁止使用 text_and_image，只用 text_only、title_only、diagram_slide',
-        serp_only:    'SerpAPI 搜尋圖片模式，有需要配圖時使用 text_and_image，並在 image_prompt 描述圖片主題',
-        serp_primary: 'SerpAPI 優先搜尋，有需要配圖時使用 text_and_image',
-        serp_mixed:   'SerpAPI + AI 混合模式，有需要配圖時使用 text_and_image'
-    }[imageMode] || '';
-
-    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。
-
-視覺風格主題：${theme.label || 'Modern Dark'}
-投影片張數：${slideCount} 張
-圖片使用策略：${imageModeHint}
-
-【內容品質要求】
-1. 拒絕空泛：必須含具體案例、數據預估、深度邏輯推演
-2. 每張的 bullet_points 必須 3~5 點，每點 15~40 字
-3. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
-4. diagram_slide 表示需要流程圖、圖表、架構圖的頁面
-5. image_prompt 為具體英文 AI 繪圖提示詞 (text_and_image 時必填)
-6. diagram_description 描述圖解內容 (diagram_slide 時必填)
-7. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
-
-JSON Schema:
-{
-  "presentation_title": "string",
-  "slides": [
-    {
-      "slide_number": 1,
-      "layout": "title_only",
-      "title": "string",
-      "subtitle": "string or null",
-      "bullet_points": ["string"],
-      "image_prompt": "English prompt or null",
-      "diagram_description": "描述要畫什麼圖 or null"
-    }
-  ]
-}`;
-
-    const userContent = `主題指令：${topic}${context ? '\n\n參考資料：' + context.slice(0, 80000) : ''}`;
-
-    let lastErr = null;
-    for (const modelId of uniqueModels) {
-        if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        try {
-            addLog(`嘗試呼叫大綱引擎 ${modelId}...`, 'ai');
-
-            let raw = '';
-            if (isGrokModel(modelId)) {
-                // ── Grok path ──
-                if (!AppState.xaiApiKey) { addLog(`⚠ 跳過 ${modelId}：未設定 Grok Key`, 'warning'); continue; }
-                raw = await callGrokText(modelId, systemPrompt, userContent, AppState.abortController.signal);
-            } else {
-                // ── Gemini path ──
-                if (!AppState.googleApiKey) { addLog(`⚠ 跳過 ${modelId}：未設定 Gemini Key`, 'warning'); continue; }
-                const ver = getGeminiApiVersion(modelId);
-                const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${AppState.googleApiKey}`;
-                const resp = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userContent }] }],
-                        generationConfig: { responseMimeType: 'application/json', temperature: 0.85, maxOutputTokens: 8192 }
-                    }),
-                    signal: AppState.abortController.signal
-                });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const data = await resp.json();
-                raw = data.candidates[0].content.parts[0].text;
-            }
-
-            const m = raw.match(/\{[\s\S]*\}/);
-            if (m) raw = m[0];
-            addLog(`✓ 成功使用 ${modelId} 生成大綱`, 'success');
-            return JSON.parse(raw);
-        } catch(e) {
-            lastErr = e;
-            if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
-            addLog(`⚠ ${modelId} 失敗: ${e.message}，準備降級...`, 'warning');
-        }
-    }
-    throw new Error(`所有大綱引擎皆失敗。最後錯誤: ${lastErr?.message}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SHARED INTERACTION SCRIPT  (injected into every slide)
-// ═══════════════════════════════════════════════════════════════════
-const SLIDE_INTERACTION_SCRIPT = `
-<script>
-(function(){
-  var svg = document.getElementById('slide-svg');
-  if (!svg) return;
-  var sel = null, offset = {x:0,y:0}, xf = null;
-
-  function hexToRgb(h){
-    var r=/^#?([a-f\\d]{2})([a-f\\d]{2})([a-f\\d]{2})$/i.exec(h);
-    return r?{r:parseInt(r[1],16),g:parseInt(r[2],16),b:parseInt(r[3],16)}:null;
-  }
-  window.updateThemeColor = function(id, hex){
-    document.documentElement.style.setProperty('--c'+id, hex);
-    var rgb = hexToRgb(hex);
-    if(rgb) document.documentElement.style.setProperty('--c'+id+'-rgb', rgb.r+','+rgb.g+','+rgb.b);
-  };
-  window.adjustFontSize = function(btn, delta){
-    var box = btn.closest('.rb');
-    var cur = parseFloat(box.style.fontSize)||16;
-    cur = Math.max(10, Math.min(32, cur + delta*2));
-    box.style.fontSize = cur+'px';
-  };
-
-  new ResizeObserver(function(entries){
-    entries.forEach(function(e){
-      var fo = e.target.closest('foreignObject');
-      if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
-    });
-  }).observe.call(new ResizeObserver(function(entries){
-    entries.forEach(function(e){
-      var fo = e.target.closest('foreignObject');
-      if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
-    });
-  }), document.createTextNode(''));
-
-  document.querySelectorAll('.rb').forEach(function(b){
-    (new ResizeObserver(function(entries){
-      entries.forEach(function(e){
-        var fo = e.target.closest('foreignObject');
-        if(fo){ fo.setAttribute('width',e.target.offsetWidth); fo.setAttribute('height',e.target.offsetHeight); }
-      });
-    })).observe(b);
-  });
-
-  function mpt(evt){
-    var ctm = svg.getScreenCTM();
-    var src = evt.touches?evt.touches[0]:evt;
-    return {x:(src.clientX-ctm.e)/ctm.a, y:(src.clientY-ctm.f)/ctm.d};
-  }
-  function startDrag(evt){
-    if(evt.target.closest('.ctrl') || evt.target.tagName.toLowerCase()==='input' || evt.target.isContentEditable) return;
-    var dg = evt.target.closest('.dg');
-    if(!dg) return;
-    var box = evt.target.closest('.rb');
-    if(box){
-      var rc=box.getBoundingClientRect();
-      if(evt.clientX>rc.right-25&&evt.clientY>rc.bottom-25) return;
-    }
-    sel = dg; sel.parentNode.appendChild(sel);
-    var tl = sel.transform.baseVal;
-    if(tl.length===0||tl.getItem(0).type!==SVGTransform.SVG_TRANSFORM_TRANSLATE){
-      var t=svg.createSVGTransform(); t.setTranslate(0,0); sel.transform.baseVal.insertItemBefore(t,0);
-    }
-    xf = tl.getItem(0);
-    var mp=mpt(evt); offset.x=mp.x-xf.matrix.e; offset.y=mp.y-xf.matrix.f;
-  }
-  function onDrag(evt){
-    if(!sel) return; evt.preventDefault();
-    var mp=mpt(evt);
-    xf.setMatrix(xf.matrix.translate(mp.x-offset.x-xf.matrix.e, mp.y-offset.y-xf.matrix.f));
-  }
-  function endDrag(){ sel=null; }
-  svg.addEventListener('mousedown',startDrag);
-  svg.addEventListener('mousemove',onDrag);
-  window.addEventListener('mouseup',endDrag);
-  svg.addEventListener('touchstart',startDrag,{passive:false});
-  svg.addEventListener('touchmove',onDrag,{passive:false});
-  window.addEventListener('touchend',endDrag);
-})();
-<\/script>`;
-
-// ═══════════════════════════════════════════════════════════════════
-// LLM: HTML/CSS SLIDE GENERATION  ── SVG+foreignObject Architecture ──
-// ═══════════════════════════════════════════════════════════════════
-async function generateSlideHTML(slideData, theme, imageB64) {
-    if (AppState.cancelRequested) throw new Error('CanceledByUser');
-
-    const userModel = document.getElementById('sel-text-model').value;
-    const FALLBACK_MODELS = isGrokModel(userModel)
-        ? [userModel, 'gemini-2.5-pro', 'gemini-2.5-flash']
-        : [userModel, 'gemini-2.5-pro', 'gemini-2.5-flash'];
-    const uniqueModels = [...new Set(FALLBACK_MODELS)];
-
-    const hasImage = !!imageB64;
-    // Detect if imageB64 is actually a URL (serp_url fallback) vs real base64
-    const isDirectUrl = hasImage && imageB64.startsWith('http');
-    const imgInstruction = hasImage
-        ? (isDirectUrl
-            ? `本投影片有圖片 URL 可使用。在 foreignObject 的 <img> 中使用 src="${imageB64}"，或在 SVG 使用 <image href="${imageB64}"/>。`
-            : `本投影片有圖片可使用。在 SVG 內使用 <image href="REPLACE_IMAGE_SRC" .../> 標籤放置圖片，或在 foreignObject 的 <img> 中使用 src="REPLACE_IMAGE_SRC"。`)
-        : `本投影片無圖片，請以純 SVG 圖形、漸層、幾何裝飾填補視覺。`;
-
-    const logoPos = document.getElementById('sel-logo-pos')?.value || 'TR';
-    const logoPosMap = {
-        TR: 'right:40px; top:30px;',
-        TL: 'left:40px;  top:30px;',
-        BR: 'right:40px; bottom:30px;',
-        BL: 'left:40px;  bottom:30px;'
-    };
-    const logoInstruction = AppState.logoBase64
-        ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 外層（body 內）用 <img id="slide-logo" src="REPLACE_LOGO_SRC" style="position:fixed;${logoPosMap[logoPos]}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;"> 放置 Logo。`
-        : '';
-
-    const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師，專精 SVG+foreignObject 架構。
-請為以下投影片資料生成一份完整的、視覺上令人驚豔的 HTML 單頁投影片。
-
-【投影片資料】
-${JSON.stringify(slideData, null, 2)}
-
-【圖片】${imgInstruction}
-
-【Logo】${logoInstruction || '本投影片無 Logo。'}
-
-【核心架構規範 — 必須嚴格遵守】
-
-1. 完整 HTML 結構，從 <!DOCTYPE html> 到 </html>
-2. body 固定為 1920×1080px，overflow:hidden，margin/padding:0
-3. 字體只用系統字體棧："Segoe UI","PingFang SC","Microsoft YaHei",sans-serif
-4. 禁止引用任何外部 CSS 或 JS 資源（CDN / Google Fonts 等）
-5. 必須使用 CSS 變數主題系統，在 :root 定義（可根據投影片色彩創意調整，但需符合主題風格）：
-   :root {
-     --c1: [強調主色]; --c1-rgb: [R,G,B];
-     --c2: [輔助色2]; --c2-rgb: [R,G,B];
-     --c3: [輔助色3]; --c3-rgb: [R,G,B];
-     --c4: [輔助色4]; --c4-rgb: [R,G,B];
-   }
-
-6. 主畫布必須是一個 SVG，id="slide-svg"，viewBox="0 0 1920 1080"，填滿 body。
-   SVG 內部結構：
-   a) <defs> — 定義所有漸層(linearGradient/radialGradient)、濾鏡(filter: shadow, glow)、pattern
-   b) 背景層 — 全尺寸矩形或複雜背景圖形
-   c) 裝飾層 — 幾何形狀、光暈、動態線條等視覺元素（直接在 SVG 內繪製，非 foreignObject）
-   d) 內容 <g class="dg"> 元素 — 每個可拖曳的文字卡片或圖解區塊
-
-7. 文字卡片用 <g class="dg" transform="translate(x,y)"> 包裹，內含 <foreignObject>：
-   <g class="dg" transform="translate(X,Y)">
-     <foreignObject x="0" y="0" width="W" height="H">
-       <div class="rb" style="width:Wpx;height:Hpx;font-size:16px; ...可拖曳、可縮放的卡片樣式...">
-         <!-- 拖曳把手 -->
-         <div class="dh">⋯⋯⋯</div>
-         <!-- 控制列（hover 顯示）-->
-         <div class="ctrl">
-           <input type="color" value="#HEXVAL" oninput="updateThemeColor(1,this.value)">
-           <button onclick="adjustFontSize(this,-1)">A−</button>
-           <button onclick="adjustFontSize(this,+1)">A+</button>
-         </div>
-         <!-- 可編輯標題 -->
-         <h3 contenteditable="true" spellcheck="false" style="color:var(--c1)">標題</h3>
-         <!-- 可編輯內容 -->
-         <p contenteditable="true" spellcheck="false">內容...</p>
-       </div>
-     </foreignObject>
-   </g>
-
-8. 卡片 CSS（.rb class）需包含：resize:both; overflow:auto; min-width:280px; min-height:150px;
-   控制列（.ctrl）預設 opacity:0，hover 時 opacity:1。
-   所有可編輯文字（h3/p/span）加 contenteditable="true" spellcheck="false"。
-
-9. 在 SVG 主體之外（</svg>之後）插入一個特殊 placeholder：
-   <!--SLIDE_INTERACTION_SCRIPT-->
-   這個 placeholder 將被替換為互動 JS（拖曳、縮放同步、色彩更新）。
-
-10. layout 版型設計指引：
-
-  ★ title_only（封面）：
-    - 全螢幕震撼視覺，不需要 foreignObject 卡片
-    - 使用大型 SVG 文字元素 <text> 直接在 SVG 繪製標題
-    - 背景要極具視覺衝擊（漸層+光暈+幾何形狀）
-    - 副標題、頁碼等可用小型 <text>
-
-  ★ text_only（純文字）：
-    - 左側大面積裝飾 SVG 插圖（幾何抽象、圖標群組）
-    - 右側 1~2 個 foreignObject 文字卡，含編號、標題、要點清單
-    - 要點清單每項前面要有自訂 SVG bullet
-
-  ★ text_and_image（圖文）：
-    - 圖片佔 50% 畫面（左或右），用 SVG <image> 或 foreignObject <img> 放置
-    - 圖片區要有 clip-path 或遮罩裝飾（斜切、波浪等）
-    - 文字側含 1~2 個 foreignObject 卡片
-    - 圖片 src 用 "REPLACE_IMAGE_SRC"
-
-  ★ diagram_slide（圖解）：
-    - 根據 diagram_description 在 SVG 內用純 SVG 繪製精美的流程圖/架構圖/時間軸
-    - 使用箭頭（marker）、圓角矩形、連接線、圖示
-    - 頂部小型 foreignObject 顯示標題與說明
-    - 整體佔滿畫面，資訊豐富
-
-11. 視覺品質要求：
-    - 善用 SVG filter：<feDropShadow>、<feGaussianBlur>（glow 效果）
-    - 大膽使用漸層填充（linearGradient/radialGradient）
-    - 裝飾元素要有層次感（前中後景）
-    - 每張投影片的視覺風格要有獨特性，不千篇一律
-
-12. 整體配色風格參考（可創意演繹）：
-    背景基調: ${theme.bg}
-    主標題色: ${theme.titleColor}
-    主強調色: ${theme.accent}
-    正文色: ${theme.text}
-    卡片背景: ${theme.card}
-
-13. 最後只輸出純 HTML 程式碼，不含任何 markdown 標記或說明文字。
-
-請開始輸出完整 HTML：`;
-
-    let lastErr = null;
-    for (const modelId of uniqueModels) {
-        if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        try {
-            let html = '';
-            if (isGrokModel(modelId)) {
-                if (!AppState.xaiApiKey) { addLog(`⚠ 跳過 ${modelId}：未設定 Grok Key`, 'warning'); continue; }
-                addLog(`🎨 HTML 生成：呼叫 ${modelId} (Grok)...`, 'ai');
-                const sysPrompt = '你是世界最頂級的 HTML/SVG 互動式投影片設計師。請嚴格按照使用者指令生成完整 HTML。';
-                html = await callGrokText(modelId, sysPrompt, prompt, AppState.abortController.signal);
-            } else {
-                if (!AppState.googleApiKey) { addLog(`⚠ 跳過 ${modelId}：未設定 Gemini Key`, 'warning'); continue; }
-                addLog(`🎨 HTML 生成：呼叫 ${modelId} (Gemini)...`, 'ai');
-                const ver = getGeminiApiVersion(modelId);
-                const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${modelId}:generateContent?key=${AppState.googleApiKey}`;
-                const resp = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: 0.75, maxOutputTokens: 16384 }
-                    }),
-                    signal: AppState.abortController.signal
-                });
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                const data = await resp.json();
-                html = data.candidates[0].content.parts[0].text;
-            }
-
-            // Clean markdown fences
-            html = html.replace(/^```html\s*/im, '').replace(/^```\s*/im, '').replace(/\s*```$/im, '').trim();
-            if (!html.toLowerCase().startsWith('<!doctype')) {
-                const m = html.match(/<html[\s\S]*<\/html>/i);
-                if (m) html = '<!DOCTYPE html>\n' + m[0];
-            }
-
-            // Inject interaction script
-            html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', SLIDE_INTERACTION_SCRIPT);
-            // If placeholder was omitted by LLM, append before </body>
-            if (!html.includes(SLIDE_INTERACTION_SCRIPT.slice(0, 30))) {
-                html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
-            }
-
-            // Inject actual image src
-            if (hasImage && !isDirectUrl) {
-                html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
-            }
-
-            // Inject logo — always do this programmatically (don't rely on LLM placing it)
-            if (AppState.logoBase64) {
-                const pos = logoPos;
-                const posStyle = logoPosMap[pos] || logoPosMap['TR'];
-                const logoTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posStyle}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
-                // Replace placeholder if LLM included it, otherwise inject before </body>
-                if (html.includes('REPLACE_LOGO_SRC')) {
-                    html = html.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
-                } else if (!html.includes('slide-logo')) {
-                    html = html.replace('</body>', logoTag + '\n</body>');
-                }
-            }
-
-            return html;
-        } catch(e) {
-            lastErr = e;
-            if (e.name === 'AbortError') throw new Error('CanceledByUser');
-            addLog(`⚠ HTML 生成 ${modelId} 失敗: ${e.message}`, 'warning');
-        }
-    }
-    throw new Error(`HTML 投影片生成失敗: ${lastErr?.message}`);
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// IMAGE GENERATION  ── PRESERVED FROM ORIGINAL ──
-// ═══════════════════════════════════════════════════════════════════
-async function buildImagePrompt(contextText) {
-    const gKey = AppState.googleApiKey;
-    if (!gKey) return `Professional modern presentation illustration about: ${contextText}`;
-    try {
-        const r = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${gKey}`,
-            {
-                method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ role: 'user', parts: [{ text: `Extract the core concept from this slide context and create a HIGHLY SPECIFIC, visually concrete English image generation prompt (max 40 words). Focus on tangible objects, explicit scenes, and actions that PERFECTLY align with the context. DO NOT use abstract words. Style: Professional, minimalist corporate illustration, highly detailed, 4k. Return ONLY the prompt text.\n\nSlide Context:\n${contextText}` }] }],
-                    generationConfig: { maxOutputTokens: 100, temperature: 0.5 }
-                }),
-                signal: AppState.abortController.signal
-            }
-        );
-        return (await r.json()).candidates?.[0]?.content?.parts?.[0]?.text?.trim() || `Professional illustration: ${contextText}`;
-    } catch { return `Professional business illustration: ${contextText}`; }
-}
-
-async function generateImage(contextText, slideNum) {
-    if (AppState.cancelRequested) throw new Error('CanceledByUser');
-    addLog(`為第 ${slideNum} 頁提取精準繪圖提示詞...`, 'info');
-    const finalPrompt = await buildImagePrompt(contextText);
-
-    const preferredModel = document.getElementById('sel-img-model').value;
-    const fallbackQueue  = [
-        preferredModel, 'grok-imagine-image-pro', 'grok-imagine-image',
-        'gemini-3.1-flash-image-preview', 'gemini-2.5-flash-image'
-    ];
-    const uniqueModels = [...new Set(fallbackQueue)];
-
-    for (const model of uniqueModels) {
-        if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        try {
-            addLog(`🎨 嘗試呼叫配圖引擎 ${model}...`, 'ai');
-            if (model.startsWith('grok')) {
-                if (!AppState.xaiApiKey) { addLog(`⚠ 缺少 Grok Key，跳過 ${model}`, 'warning'); continue; }
-                const r = await fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
-                    method: 'POST',
-                    headers: { 'Authorization': `Bearer ${AppState.xaiApiKey}`, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model, prompt: finalPrompt, response_format: 'b64_json' }),
-                    signal: AppState.abortController.signal
-                });
-                if (r.ok) {
-                    const item = (await r.json()).data?.[0];
-                    if (item?.b64_json) {
-                        addLog(`✓ 成功使用 ${model} 生成配圖`, 'success');
-                        return `data:image/png;base64,${item.b64_json}`;
-                    }
-                }
-            } else if (model.startsWith('gemini')) {
-                if (!AppState.googleApiKey) continue;
-                const ver = model.includes('preview') ? 'v1alpha' : 'v1beta';
-                const r = await fetch(
-                    `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${AppState.googleApiKey}`,
-                    {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
-                            generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
-                        }),
-                        signal: AppState.abortController.signal
-                    }
-                );
-                if (r.ok) {
-                    const imgPart = (await r.json()).candidates?.[0]?.content?.parts
-                        ?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
-                    if (imgPart?.inlineData?.data) {
-                        addLog(`✓ 成功使用 ${model} 生成配圖`, 'success');
-                        return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
-                    }
-                }
-            }
-        } catch(e) {
-            if (e.name === 'AbortError') throw new Error('CanceledByUser');
-            addLog(`⚠ ${model} 失敗: ${e.message}`, 'warning');
-        }
-    }
-    addLog(`⚠ 所有配圖引擎失敗，此頁改用純 HTML/CSS 設計`, 'warning');
-    return null;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SLIDE PREVIEW RENDERING
-// ═══════════════════════════════════════════════════════════════════
-function renderSlidePreviewCard(slideData, html, index) {
-    const grid = document.getElementById('slides-preview-grid');
-    const card = document.createElement('div');
-    card.className = 'slide-preview-card bg-slate-900 border border-slate-800 rounded-xl overflow-hidden fade-in';
-    card.style.animationDelay = `${Math.min(index * 50, 400)}ms`;
-
-    // Escape for srcdoc attribute
-    const escaped = html.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-
-    card.innerHTML = `
-        <div class="slide-iframe-wrap" style="--ps:0.25">
-            <iframe srcdoc="${escaped}" sandbox="allow-scripts" loading="lazy"></iframe>
-        </div>
-        <div class="px-3 py-2.5 flex items-start justify-between gap-2">
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1.5 mb-1">
-                    <span class="text-[10px] font-bold text-violet-400">PAGE ${slideData.slide_number}</span>
-                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-500">${slideData.layout}</span>
-                </div>
-                <p class="text-xs font-semibold text-slate-200 truncate">${slideData.title || '（無標題）'}</p>
-            </div>
-            <div class="flex gap-1.5 shrink-0">
-                <button onclick="previewSingleSlide(${index})" title="全螢幕預覽"
-                    class="text-slate-500 hover:text-sky-400 transition-colors p-1">
-                    <i class="ph-bold ph-arrows-out text-base"></i>
-                </button>
-                <button onclick="copySlideHTML(${index})" title="複製 HTML"
-                    class="text-slate-500 hover:text-amber-400 transition-colors p-1">
-                    <i class="ph-bold ph-code text-base"></i>
-                </button>
-            </div>
-        </div>
-    `;
-    grid.appendChild(card);
-}
-
-function previewSingleSlide(index) {
-    const s = AppState.generatedSlides[index];
-    if (!s) return;
-    const win = window.open('', '_blank', `width=1280,height=720,scrollbars=no`);
-    if (win) { win.document.write(s.html); win.document.close(); }
-}
-
-function copySlideHTML(index) {
-    const s = AppState.generatedSlides[index];
-    if (!s) return;
-    navigator.clipboard.writeText(s.html).then(() => showToast(`✓ 第 ${s.slideNumber} 頁 HTML 已複製`));
-}
-
-function previewAllSlides() {
-    if (!AppState.generatedSlides.length) return;
-    const viewer = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<title>投影片全覽 · ${AppState.presentationData?.presentation_title || ''}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#111;display:flex;flex-direction:column;align-items:center;padding:24px;gap:16px;font-family:sans-serif;}
-h1{color:#e2e8f0;font-size:18px;font-weight:700;margin-bottom:8px;}
-.slide-wrap{width:960px;height:540px;overflow:hidden;border-radius:10px;box-shadow:0 4px 32px rgba(0,0,0,0.6);position:relative;}
-.slide-wrap iframe{width:1920px;height:1080px;border:none;transform:scale(0.5);transform-origin:top left;}
-.slide-label{color:#64748b;font-size:11px;margin-bottom:4px;align-self:flex-start;width:960px;}
-</style></head><body>
-<h1>${AppState.presentationData?.presentation_title || '簡報預覽'}</h1>
-${AppState.generatedSlides.map((s,i) => `
-<div class="slide-label">Page ${s.slideNumber}: ${s.title || ''}</div>
-<div class="slide-wrap"><iframe srcdoc="${s.html.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" sandbox="allow-scripts"></iframe></div>
-`).join('')}
-</body></html>`;
-    const win = window.open('', '_blank');
-    if (win) { win.document.write(viewer); win.document.close(); }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// HTML → PPTX CONVERSION
-// ═══════════════════════════════════════════════════════════════════
-async function slideHTMLToBase64(html, slideNum) {
-    return new Promise((resolve) => {
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;width:1920px;height:1080px;top:-99999px;left:-99999px;border:none;visibility:hidden;z-index:-999;';
-        document.body.appendChild(iframe);
-
-        const cleanup = () => {
-            if (document.body.contains(iframe)) document.body.removeChild(iframe);
-        };
-        const timeout = setTimeout(() => {
-            cleanup();
-            addLog(`⚠ 第 ${slideNum} 頁截圖超時，將使用文字備用`, 'warning');
-            resolve(null);
-        }, 20000);
-
-        iframe.addEventListener('load', async () => {
-            try {
-                // Wait for fonts & SVG rendering
-                await new Promise(r => setTimeout(r, 700));
-                const canvas = await html2canvas(iframe.contentDocument.body, {
-                    width: 1920, height: 1080,
-                    scale: 1,
-                    backgroundColor: null,
-                    logging: false,
-                    useCORS: true,
-                    allowTaint: true
-                });
-                clearTimeout(timeout);
-                resolve(canvas.toDataURL('image/jpeg', 0.93));
-            } catch(e) {
-                clearTimeout(timeout);
-                addLog(`⚠ 第 ${slideNum} 頁截圖失敗: ${e.message}`, 'warning');
-                resolve(null);
-            } finally {
-                cleanup();
-            }
-        });
-
-        iframe.srcdoc = html;
-    });
-}
-
-function togglePptxMenu() {
-    document.getElementById('pptx-menu').classList.toggle('hidden');
-}
-
-async function downloadPptx(mode = 'image') {
-    if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
-    if (mode === 'editable') {
-        await downloadEditablePptx();
-        return;
-    }
-
-    const groupBtn = document.getElementById('btn-pptx-group');
-    const origHTML = groupBtn.innerHTML;
-    groupBtn.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;color:white;font-size:12px;font-weight:700;"><i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i>截圖轉換中...</div>';
-    groupBtn.style.pointerEvents = 'none';
-
-    // Add spin keyframe if not present
-    if (!document.getElementById('spin-style')) {
-        const s = document.createElement('style');
-        s.id = 'spin-style';
-        s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
-        document.head.appendChild(s);
-    }
-
-    try {
-        const pres = new PptxGenJS();
-        pres.layout = 'LAYOUT_16x9';
-
-        const logoPos = document.getElementById('sel-logo-pos').value;
-        const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
-        const [lx, ly] = logoPosMap[logoPos] || [8.5, 0.2];
-
-        for (let i = 0; i < AppState.generatedSlides.length; i++) {
-            const s = AppState.generatedSlides[i];
-            addLog(`📸 截圖第 ${s.slideNumber}/${AppState.generatedSlides.length} 頁...`, 'info');
-
-            const imgB64 = await slideHTMLToBase64(s.html, s.slideNumber);
-            const slide  = pres.addSlide();
-
-            if (imgB64) {
-                slide.addImage({ data: imgB64, x: 0, y: 0, w: '100%', h: '100%' });
-                addLog(`✓ 第 ${s.slideNumber} 頁轉換成功`, 'success');
-            } else {
-                // Text fallback
-                slide.addShape('rect', { x:0,y:0,w:10,h:5.625, fill:{color:'0f172a'} });
-                slide.addText(s.title || `Slide ${s.slideNumber}`, {
-                    x:0.5, y:2.0, w:9.0, h:1.5,
-                    fontSize: 36, bold: true, color: 'FFFFFF', align: 'center'
-                });
-            }
-
-            // Overlay Logo
-            if (AppState.logoBase64) {
-                slide.addImage({ data: AppState.logoBase64, x: lx, y: ly, w: 1.0, h: 0.5,
-                    sizing: { type:'contain', w:1.0, h:0.5 } });
-            }
-        }
-
-        const fileName = (AppState.presentationData?.presentation_title || 'AI_HTML_Presentation')
-            .replace(/[^\w\u4e00-\u9fa5\s-]/g, '').replace(/\s+/g, '_').slice(0, 80) + '.pptx';
-
-        await pres.writeFile({ fileName });
-        showToast(`✅ ${fileName} 下載完成！`);
-
-    } catch(e) {
-        showToast('❌ PPTX 轉換失敗: ' + e.message);
-        console.error(e);
-    } finally {
-        groupBtn.innerHTML = origHTML;
-        groupBtn.style.pointerEvents = '';
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// FALLBACK HTML  ── SVG + foreignObject quality fallback ──
-// ═══════════════════════════════════════════════════════════════════
-function buildLogoTag() {
-    if (!AppState.logoBase64) return '';
-    const pos = document.getElementById('sel-logo-pos')?.value || 'TR';
-    const posStyles = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
-    return `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posStyles[pos]||posStyles.TR}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
-}
-
-function buildFallbackSlideHTML(slideData, theme) {
-    const title   = (slideData.title || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const subtitle= (slideData.subtitle || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    const bullets = slideData.bullet_points || [];
-    const accent  = theme.accent;
-    const accentRgb = hexToRgbStr(accent);
-    const isCover = slideData.layout === 'title_only';
-
-    // Helper: extract a pure hex from any CSS color string for SVG
-    function hexToRgbStr(c) {
-        // try to find a hex-like value
-        const m = (c||'').match(/#([0-9a-fA-F]{6})/);
-        if (m) {
-            const n = parseInt(m[1], 16);
-            return `${(n>>16)&255},${(n>>8)&255},${n&255}`;
-        }
-        return '99,102,241';
-    }
-
-    if (isCover) {
-        return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
-:root{--c1:${accent};--c1-rgb:${accentRgb};}
-.rb{resize:both;overflow:auto;min-width:280px;min-height:120px;}
-.ctrl{opacity:0;transition:opacity .2s;position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(255,255,255,.9);border-radius:6px;padding:4px;box-shadow:0 2px 8px rgba(0,0,0,.12);}
-.dg:hover .ctrl{opacity:1;}
-.dh{text-align:center;color:rgba(255,255,255,.3);font-size:10px;letter-spacing:4px;padding:2px 0 6px;cursor:grab;}
-input[type=color]{width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;}
-input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
-input[type=color]::-webkit-color-swatch{border:1px solid rgba(0,0,0,.15);border-radius:3px;}
-.ctrl button{font-size:10px;font-weight:700;padding:2px 6px;border:none;background:#f1f5f9;border-radius:3px;cursor:pointer;color:#475569;}
-.ctrl button:hover{background:#e2e8f0;}
-[contenteditable]:focus{outline:2px solid rgba(var(--c1-rgb),.4);border-radius:3px;}
-</style></head>
-<body>
-<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
-<defs>
-  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#0a0a1a"/>
-    <stop offset="50%" stop-color="#12122a"/>
-    <stop offset="100%" stop-color="#0f0f20"/>
-  </linearGradient>
-  <radialGradient id="glow1" cx="75%" cy="50%" r="55%">
-    <stop offset="0%" stop-color="${accent}" stop-opacity="0.18"/>
-    <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
-  </radialGradient>
-  <radialGradient id="glow2" cx="15%" cy="80%" r="40%">
-    <stop offset="0%" stop-color="${accent}" stop-opacity="0.10"/>
-    <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
-  </radialGradient>
-  <filter id="blur5"><feGaussianBlur stdDeviation="5"/></filter>
-  <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  <clipPath id="diagClip"><polygon points="1100,0 1920,0 1920,1080 900,1080"/></clipPath>
-</defs>
-<!-- Background -->
-<rect width="1920" height="1080" fill="url(#bg)"/>
-<rect width="1920" height="1080" fill="url(#glow1)"/>
-<rect width="1920" height="1080" fill="url(#glow2)"/>
-<!-- Diagonal accent band -->
-<polygon points="1200,0 1920,0 1920,1080 950,1080" fill="${accent}" opacity="0.07"/>
-<polygon points="1260,0 1320,0 1070,1080 1010,1080" fill="${accent}" opacity="0.06"/>
-<!-- Decorative circles -->
-<circle cx="1680" cy="200" r="280" fill="none" stroke="${accent}" stroke-width="1.5" opacity="0.15"/>
-<circle cx="1680" cy="200" r="180" fill="none" stroke="${accent}" stroke-width="1" opacity="0.10"/>
-<circle cx="150" cy="950" r="200" fill="${accent}" opacity="0.05" filter="url(#blur5)"/>
-<!-- Grid lines -->
-<line x1="0" y1="540" x2="1920" y2="540" stroke="${accent}" stroke-width="0.5" opacity="0.06"/>
-<line x1="960" y1="0" x2="960" y2="1080" stroke="${accent}" stroke-width="0.5" opacity="0.06"/>
-<!-- Accent left bar -->
-<rect x="80" y="200" width="6" height="480" rx="3" fill="${accent}" opacity="0.8" filter="url(#glow)"/>
-<!-- Slide number -->
-<text x="110" y="190" font-family="Segoe UI,sans-serif" font-size="13" font-weight="700" fill="${accent}" letter-spacing="5" opacity="0.7">SLIDE ${slideData.slide_number || '01'}</text>
-<!-- Main title -->
-<text x="110" y="460" font-family="Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="108" font-weight="900" fill="white" filter="url(#glow)">${title}</text>
-<!-- Subtitle -->
-${subtitle ? `<text x="114" y="560" font-family="Segoe UI,sans-serif" font-size="34" font-weight="300" fill="${accent}" opacity="0.85">${subtitle}</text>` : ''}
-<!-- Bottom line -->
-<rect x="110" y="630" width="200" height="5" rx="2.5" fill="${accent}"/>
-<rect x="322" y="632" width="80" height="1.5" rx="0.75" fill="${accent}" opacity="0.4"/>
-</svg>
-${SLIDE_INTERACTION_SCRIPT}
-${buildLogoTag()}
-</body></html>`;
-    }
-
-    // ── Non-cover: SVG canvas + foreignObject card ──────────────────
-    const bulletItems = bullets.map((b, i) => {
-        const safe = b.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        return `<div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:18px;">
-          <div style="width:28px;height:28px;border-radius:50%;background:rgba(${accentRgb},0.18);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
-            <span style="color:${accent};font-size:13px;font-weight:700;">${i+1}</span>
-          </div>
-          <p contenteditable="true" spellcheck="false" style="color:#cbd5e1;font-size:1em;line-height:1.6;flex:1;margin:0;cursor:text;">${safe}</p>
-        </div>`;
-    }).join('');
-
-    // Layout variations
-    const isDiagram = slideData.layout === 'diagram_slide';
-    const diagDesc  = (slideData.diagram_description || title).replace(/</g,'&lt;').replace(/>/g,'&gt;');
-
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;}
-:root{--c1:${accent};--c1-rgb:${accentRgb};}
-.rb{resize:both;overflow:auto;min-width:320px;min-height:180px;background:rgba(15,23,42,.75);border:1px solid rgba(${accentRgb},0.3);border-top:4px solid ${accent};border-radius:16px;padding:28px 32px;position:relative;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);box-shadow:0 20px 60px rgba(0,0,0,.4);}
-.ctrl{opacity:0;transition:opacity .2s;position:absolute;top:10px;right:10px;display:flex;align-items:center;gap:4px;background:rgba(15,23,42,.9);border:1px solid rgba(${accentRgb},.3);border-radius:6px;padding:4px 6px;z-index:20;}
-.dg:hover .ctrl{opacity:1;}
-.dh{text-align:center;color:rgba(255,255,255,.2);font-size:10px;letter-spacing:4px;padding-bottom:10px;cursor:grab;user-select:none;}
-input[type=color]{width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;}
-input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
-input[type=color]::-webkit-color-swatch{border:1px solid rgba(255,255,255,.2);border-radius:3px;}
-.ctrl button{font-size:10px;font-weight:700;padding:2px 7px;border:none;background:rgba(${accentRgb},.15);border-radius:3px;cursor:pointer;color:${accent};}
-.ctrl button:hover{background:rgba(${accentRgb},.3);}
-[contenteditable]:hover{background:rgba(${accentRgb},.06);border-radius:4px;}
-[contenteditable]:focus{outline:2px solid rgba(${accentRgb},.5);border-radius:4px;}
-</style></head>
-<body>
-<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
-<defs>
-  <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#060a18"/>
-    <stop offset="100%" stop-color="#0e1628"/>
-  </linearGradient>
-  <radialGradient id="aura" cx="80%" cy="20%" r="60%">
-    <stop offset="0%" stop-color="${accent}" stop-opacity="0.10"/>
-    <stop offset="100%" stop-color="${accent}" stop-opacity="0"/>
-  </radialGradient>
-  <filter id="shadow"><feDropShadow dx="0" dy="15" stdDeviation="20" flood-color="#000" flood-opacity="0.35"/></filter>
-  <filter id="glow"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-  <filter id="blur10"><feGaussianBlur stdDeviation="10"/></filter>
-</defs>
-<rect width="1920" height="1080" fill="url(#bg)"/>
-<rect width="1920" height="1080" fill="url(#aura)"/>
-<!-- Decorative bg elements -->
-<circle cx="1800" cy="100" r="300" fill="${accent}" opacity="0.04" filter="url(#blur10)"/>
-<circle cx="100" cy="1000" r="200" fill="${accent}" opacity="0.05" filter="url(#blur10)"/>
-<!-- Top accent line -->
-<rect x="0" y="0" width="1920" height="4" fill="${accent}" opacity="0.5"/>
-<!-- Left accent pillar -->
-<rect x="60" y="60" width="5" height="960" rx="2.5" fill="${accent}" opacity="0.25"/>
-<!-- Page number -->
-<text x="1840" y="1050" font-family="Segoe UI,sans-serif" font-size="16" fill="${accent}" opacity="0.4" text-anchor="end">${slideData.slide_number || 1} / —</text>
-
-${isDiagram ? `
-<!-- Diagram: boxes and arrows from description -->
-<g transform="translate(200,180)">
-  <!-- Title bar -->
-  <rect x="0" y="0" width="1500" height="60" rx="8" fill="${accent}" opacity="0.15"/>
-  <text x="20" y="42" font-family="Segoe UI,PingFang SC,sans-serif" font-size="28" font-weight="700" fill="${accent}">${diagDesc}</text>
-  <!-- Box row -->
-  <g transform="translate(0,100)">
-    ${bullets.slice(0,4).map((b,i) => {
-        const safe2 = (b||'').replace(/</g,'&lt;').replace(/>/g,'&gt;').slice(0,40);
-        const bx = i * 380;
-        return `<rect x="${bx}" y="0" width="340" height="180" rx="12" fill="rgba(${accentRgb},0.12)" stroke="${accent}" stroke-width="1.5" opacity="0.9"/>
-<text x="${bx+170}" y="70" font-size="16" font-weight="700" fill="${accent}" text-anchor="middle" font-family="Segoe UI,sans-serif">${i+1}</text>
-<text x="${bx+170}" y="110" font-size="15" fill="white" text-anchor="middle" font-family="Segoe UI,PingFang SC,sans-serif" opacity="0.85">${safe2}</text>
-${i<3?`<polygon points="${bx+350},90 ${bx+370},90 ${bx+360},100" fill="${accent}" opacity="0.7"/>
-<line x1="${bx+340}" y1="90" x2="${bx+375}" y2="90" stroke="${accent}" stroke-width="2" opacity="0.7"/>
-<line x1="${bx+375}" y1="90" x2="${bx+380}" y2="90" stroke="${accent}" stroke-width="2" opacity="0.7"/>`:''}`;
-    }).join('')}
-  </g>
-  <!-- Connection lines -->
-  <line x1="340" y1="190" x2="380" y2="190" stroke="${accent}" stroke-width="2" opacity="0.5"/>
-  <line x1="720" y1="190" x2="760" y2="190" stroke="${accent}" stroke-width="2" opacity="0.5"/>
-  <line x1="1100" y1="190" x2="1140" y2="190" stroke="${accent}" stroke-width="2" opacity="0.5"/>
-</g>
-` : ''}
-
-<!-- Title text (SVG native for crisp rendering) -->
-<text x="110" y="120" font-family="Segoe UI,PingFang SC,Microsoft YaHei,sans-serif" font-size="62" font-weight="800" fill="white">${title}</text>
-<rect x="110" y="138" width="120" height="4" rx="2" fill="${accent}" opacity="0.9"/>
-
-${!isDiagram ? `
-<!-- foreignObject: content card -->
-<g class="dg" transform="translate(110, 180)" filter="url(#shadow)">
-  <foreignObject x="0" y="0" width="1680" height="820">
-    <div class="rb" style="width:1680px;height:820px;font-size:18px;">
-      <div class="dh">· · · · ·</div>
-      <div class="ctrl">
-        <input type="color" value="${accent.startsWith('#') ? accent : '#6366f1'}" oninput="updateThemeColor(1,this.value)" title="主題色">
-        <div style="width:1px;height:16px;background:rgba(255,255,255,.15);margin:0 3px;"></div>
-        <button onclick="adjustFontSize(this,-1)">A−</button>
-        <button onclick="adjustFontSize(this,+1)">A+</button>
-      </div>
-      <div style="margin-bottom:24px;">
-        ${bullets.map((b,i) => {
-            const safe2 = b.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-            return `<div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:22px;">
-              <div style="width:32px;height:32px;border-radius:50%;background:rgba(${accentRgb},.2);border:1.5px solid rgba(${accentRgb},.5);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:2px;">
-                <span style="color:${accent};font-size:14px;font-weight:700;">${i+1}</span>
-              </div>
-              <p contenteditable="true" spellcheck="false" style="color:#cbd5e1;font-size:1em;line-height:1.65;flex:1;margin:0;">${safe2}</p>
-            </div>`;
-        }).join('')}
-      </div>
-    </div>
-  </foreignObject>
-</g>
-` : ''}
-</svg>
-${SLIDE_INTERACTION_SCRIPT}
-${buildLogoTag()}
-</body></html>`;
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SAVE ALL SLIDES AS INTERACTIVE HTML FILE
-// ═══════════════════════════════════════════════════════════════════
-function saveAllSlidesAsHTML() {
-    if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
-
-    const title = AppState.presentationData?.presentation_title || 'Presentation';
-    const totalSlides = AppState.generatedSlides.length;
-
-    // Build slide iframes content as data URIs embedded inline (no external deps)
-    const slideContents = AppState.generatedSlides.map((s, i) => {
-        // Escape for use in JS string inside the viewer
-        const encoded = encodeURIComponent(s.html);
-        return `{ title: ${JSON.stringify(s.title || '')}, src: decodeURIComponent(${JSON.stringify(encoded)}) }`;
-    }).join(',\n');
-
-    const viewer = `<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${title.replace(/</g,'&lt;')}</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#020617;font-family:"Segoe UI","PingFang SC",sans-serif;color:#e2e8f0;height:100vh;display:flex;flex-direction:column;overflow:hidden;}
-header{background:#0f172a;border-bottom:1px solid #1e293b;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;shrink:0;}
-.title{font-size:14px;font-weight:700;color:#fff;truncate:hidden;}
-.nav-controls{display:flex;align-items:center;gap:8px;}
-.nav-btn{background:#1e293b;border:1px solid #334155;color:#94a3b8;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:all .15s;}
-.nav-btn:hover{background:#334155;color:#fff;}
-.nav-btn:disabled{opacity:0.35;cursor:not-allowed;}
-.slide-counter{font-size:13px;color:#64748b;min-width:80px;text-align:center;}
-.slide-viewport{flex:1;display:flex;align-items:center;justify-content:center;background:#020617;padding:16px;overflow:hidden;}
-.slide-frame-wrap{position:relative;background:#0f172a;border-radius:12px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,.6);aspect-ratio:16/9;max-height:calc(100vh - 130px);}
-.slide-frame-wrap iframe{width:1920px;height:1080px;border:none;transform-origin:top left;}
-footer{background:#0f172a;border-top:1px solid #1e293b;padding:8px 20px;display:flex;align-items:center;gap:8px;overflow-x:auto;}
-.thumb{width:80px;height:45px;background:#1e293b;border:2px solid #334155;border-radius:5px;overflow:hidden;cursor:pointer;shrink:0;position:relative;}
-.thumb iframe{width:800px;height:450px;border:none;transform:scale(0.1);transform-origin:top left;pointer-events:none;}
-.thumb.active{border-color:#818cf8;}
-.thumb:hover{border-color:#64748b;}
-</style>
-</head>
-<body>
-<header>
-  <div class="title">${title.replace(/</g,'&lt;')}</div>
-  <div class="nav-controls">
-    <button class="nav-btn" id="btn-prev" onclick="go(-1)">◀ 上一頁</button>
-    <span class="slide-counter" id="counter">1 / ${totalSlides}</span>
-    <button class="nav-btn" id="btn-next" onclick="go(1)">下一頁 ▶</button>
-    <button class="nav-btn" onclick="toggleFullscreen()" title="全螢幕">⛶</button>
-  </div>
-</header>
-<div class="slide-viewport" id="viewport">
-  <div class="slide-frame-wrap" id="frame-wrap">
-    <iframe id="main-frame" sandbox="allow-scripts"></iframe>
-  </div>
-</div>
-<footer id="thumb-bar"></footer>
-<script>
-const slides = [${slideContents}];
-let cur = 0;
-function scaleFrame(){
-  const wrap = document.getElementById('frame-wrap');
-  const vp = document.getElementById('viewport');
-  const maxW = vp.clientWidth - 32;
-  const maxH = vp.clientHeight - 32;
-  const scale = Math.min(maxW/1920, maxH/1080);
-  wrap.style.width = (1920*scale)+'px';
-  wrap.style.height = (1080*scale)+'px';
-  document.getElementById('main-frame').style.transform = 'scale('+scale+')';
-  document.querySelectorAll('.thumb iframe').forEach(f=>f.style.transform='scale('+80/1920+')');
-}
-function show(n){
-  cur = Math.max(0, Math.min(slides.length-1, n));
-  document.getElementById('main-frame').srcdoc = slides[cur].src;
-  document.getElementById('counter').textContent = (cur+1)+' / '+slides.length;
-  document.getElementById('btn-prev').disabled = cur===0;
-  document.getElementById('btn-next').disabled = cur===slides.length-1;
-  document.querySelectorAll('.thumb').forEach((t,i)=>t.classList.toggle('active',i===cur));
-  document.querySelectorAll('.thumb')[cur]?.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
-}
-function go(d){ show(cur+d); }
-function toggleFullscreen(){
-  if(!document.fullscreenElement) document.documentElement.requestFullscreen();
-  else document.exitFullscreen();
-}
-// Build thumbnails
-const bar = document.getElementById('thumb-bar');
-slides.forEach((s,i)=>{
-  const d = document.createElement('div');
-  d.className='thumb'+(i===0?' active':'');
-  d.title = s.title;
-  d.onclick=()=>show(i);
-  const f=document.createElement('iframe');
-  f.sandbox='allow-scripts';
-  f.srcdoc=s.src;
-  d.appendChild(f);
-  bar.appendChild(d);
-});
-show(0);
-window.addEventListener('resize', scaleFrame);
-scaleFrame();
-document.addEventListener('keydown', e=>{
-  if(e.key==='ArrowRight'||e.key==='ArrowDown') go(1);
-  if(e.key==='ArrowLeft'||e.key==='ArrowUp') go(-1);
-  if(e.key==='f'||e.key==='F') toggleFullscreen();
-});
-<\/script>
-</body>
-</html>`;
-
-    const blob = new Blob([viewer], { type: 'text/html;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = (title.replace(/[^\w\u4e00-\u9fa5\s-]/g,'').replace(/\s+/g,'_').slice(0,60) || 'presentation') + '.html';
-    a.click();
-    URL.revokeObjectURL(url);
-    showToast('✅ HTML 投影片檔案已儲存');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// EDITABLE PPTX  (text + shapes, not screenshot)
-// ═══════════════════════════════════════════════════════════════════
-async function downloadEditablePptx() {
-    if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
-
-    const groupBtn = document.getElementById('btn-pptx-group');
-    const origHTML = groupBtn.innerHTML;
-    groupBtn.innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:8px 12px;color:white;font-size:12px;font-weight:700;"><i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i>建立可編輯 PPTX...</div>';
-    groupBtn.style.pointerEvents = 'none';
-
-    try {
-        const pres = new PptxGenJS();
-        pres.layout = 'LAYOUT_16x9';
-
-        const templateKey = document.getElementById('sel-template').value;
-        const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-
-        // Extract a usable hex from theme accent
-        const accentHex = (theme.accent.match(/#([0-9a-fA-F]{6})/)?.[1] || '818cf8');
-        const bgHex     = (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[1] || '0f172a');
-        const titleHex  = (theme.titleColor.match(/#([0-9a-fA-F]{6})/)?.[1] || 'ffffff');
-        const textHex   = (theme.text.match(/#([0-9a-fA-F]{6})/)?.[1] || 'cbd5e1');
-
-        const logoPos    = document.getElementById('sel-logo-pos').value;
-        const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
-        const [lx, ly]   = logoPosMap[logoPos] || [8.5, 0.2];
-
-        for (const s of AppState.generatedSlides) {
-            const sd    = s.slideData || {};
-            const slide = pres.addSlide();
-
-            // Background
-            slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
-            // Accent bar
-            slide.addShape('rect', { x:0, y:0, w:10, h:0.06, fill:{ color: accentHex } });
-            slide.addShape('rect', { x:0, y:0, w:0.08, h:5.625, fill:{ color: accentHex, transparency: 60 } });
-
-            if (sd.layout === 'title_only') {
-                // Large diagonal accent
-                slide.addShape('rect', {
-                    x:5.5, y:0, w:4.5, h:5.625,
-                    fill:{ color: accentHex, transparency: 92 },
-                    line:{ color: accentHex, transparency: 80, width: 0 }
-                });
-                slide.addText(sd.title || '', {
-                    x:0.5, y:1.5, w:8.5, h:2.0,
-                    fontSize: 52, bold: true, color: titleHex,
-                    fontFace: 'Arial', lineSpacingMultiple: 1.15
-                });
-                if (sd.subtitle) {
-                    slide.addText(sd.subtitle, {
-                        x:0.5, y:3.7, w:6, h:0.8,
-                        fontSize: 24, color: accentHex, fontFace: 'Arial'
-                    });
-                }
-                // Accent line
-                slide.addShape('rect', { x:0.5, y:4.6, w:1.5, h:0.06, fill:{ color: accentHex } });
-
-            } else {
-                // Title
-                slide.addText(sd.title || '', {
-                    x:0.3, y:0.25, w:9.4, h:0.75,
-                    fontSize: 30, bold: true, color: titleHex, fontFace: 'Arial'
-                });
-                // Underline accent
-                slide.addShape('rect', { x:0.3, y:1.05, w:1.2, h:0.05, fill:{ color: accentHex } });
-
-                // Bullet points
-                const bullets = (sd.bullet_points || []).map(b => ({
-                    text: b,
-                    options: {
-                        bullet: { type: 'number' },
-                        color: textHex,
-                        fontSize: 18,
-                        paraSpaceAfter: 14,
-                        fontFace: 'Arial'
-                    }
-                }));
-
-                if (bullets.length > 0) {
-                    // Background card
-                    slide.addShape('rect', {
-                        x:0.3, y:1.2, w:9.4, h:4.1,
-                        fill:{ color: accentHex, transparency: 94 },
-                        line:{ color: accentHex, transparency: 75, width: 1.5 },
-                        rectRadius: 0.1
-                    });
-                    slide.addText(bullets, {
-                        x:0.5, y:1.35, w:9.0, h:3.9,
-                        valign: 'top', fontFace: 'Arial'
-                    });
-                }
-
-                // Diagram note for diagram slides
-                if (sd.layout === 'diagram_slide' && sd.diagram_description) {
-                    slide.addText(`📊 ${sd.diagram_description}`, {
-                        x:0.5, y:4.8, w:9.0, h:0.6,
-                        fontSize:11, color:accentHex, italic:true, fontFace:'Arial'
-                    });
-                }
-            }
-
-            // Page number
-            slide.addText(`${s.slideNumber}`, {
-                x:9.2, y:5.3, w:0.6, h:0.25,
-                fontSize:10, color:accentHex, align:'right', fontFace:'Arial'
-            });
-
-            // Logo overlay
-            if (AppState.logoBase64) {
-                slide.addImage({ data: AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
-                    sizing:{ type:'contain', w:1.0, h:0.5 } });
-            }
-        }
-
-        const fileName = (AppState.presentationData?.presentation_title || 'Editable_Presentation')
-            .replace(/[^\w\u4e00-\u9fa5\s-]/g,'').replace(/\s+/g,'_').slice(0,60) + '_可編輯.pptx';
-
-        await pres.writeFile({ fileName });
-        showToast(`✅ 可編輯 PPTX「${fileName}」已下載`);
-
-    } catch(e) {
-        showToast('❌ 可編輯 PPTX 生成失敗: ' + e.message);
-        console.error(e);
-    } finally {
-        groupBtn.innerHTML = origHTML;
-        groupBtn.style.pointerEvents = '';
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// GENERATION HISTORY  (localStorage)
-// ═══════════════════════════════════════════════════════════════════
-const HISTORY_KEY   = 'nova_ppt_history';
-const HISTORY_LIMIT = 20;  // max sessions stored
-const SLIDE_HTML_SIZE_LIMIT = 150000; // per-slide HTML chars for storage
-
-function saveToHistory() {
-    if (!AppState.generatedSlides.length || !AppState.presentationData) return;
-    try {
-        const history = loadRawHistory();
-        const id = 'h_' + Date.now();
-
-        // Trim each slide HTML to stay within storage budget
-        const slidesForStorage = AppState.generatedSlides.map(s => ({
-            slideNumber: s.slideNumber,
-            title: s.title,
-            layout: s.layout,
-            slideData: s.slideData,
-            html: (s.html || '').slice(0, SLIDE_HTML_SIZE_LIMIT)
-        }));
-
-        const entry = {
-            id,
-            date: new Date().toLocaleString('zh-TW'),
-            title: AppState.presentationData.presentation_title || '未命名簡報',
-            slideCount: AppState.generatedSlides.length,
-            templateKey: document.getElementById('sel-template').value,
-            slides: slidesForStorage
-        };
-
-        history.unshift(entry);
-        if (history.length > HISTORY_LIMIT) history.splice(HISTORY_LIMIT);
-
-        try {
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-            addLog(`📁 已儲存至歷史記錄（共 ${history.length} 筆）`, 'success');
-        } catch(storageErr) {
-            // Storage full: keep only last 5 entries, strip HTML
-            const slim = history.slice(0, 5).map(e => ({ ...e, slides: e.slides.map(s => ({ ...s, html: '' })) }));
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
-            addLog(`⚠ 儲存空間不足，已儲存精簡版歷史`, 'warning');
-        }
-
-        renderHistoryPanels();
-    } catch(e) {
-        console.warn('History save failed:', e);
-    }
-}
-
-function loadRawHistory() {
-    try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
-    catch { return []; }
-}
-
-function renderHistoryPanels() {
-    const history = loadRawHistory();
-    const count   = history.length;
-
-    // Update badges
-    const badge    = document.getElementById('history-badge');
-    const sideBadge = document.getElementById('history-count-badge');
-    if (badge)    { badge.textContent = count; badge.classList.toggle('hidden', count === 0); }
-    if (sideBadge){ sideBadge.textContent = count; sideBadge.classList.toggle('hidden', count === 0); }
-
-    // Modal count
-    const modalCount = document.getElementById('modal-history-count');
-    if (modalCount) modalCount.textContent = count > 0 ? `共 ${count} 筆記錄` : '';
-
-    // Sidebar panel
-    const sideList   = document.getElementById('history-list');
-    const sideHint   = document.getElementById('no-history-hint');
-    const clearBtn   = document.getElementById('btn-clear-history');
-    if (sideList && sideHint && clearBtn) {
-        sideHint.classList.toggle('hidden', count > 0);
-        clearBtn.classList.toggle('hidden', count === 0);
-        sideList.innerHTML = '';
-        history.slice(0, 6).forEach(entry => {
-            sideList.appendChild(buildHistoryCard(entry, 'sidebar'));
-        });
-    }
-
-    // Modal panel
-    const modalList = document.getElementById('modal-history-list');
-    if (modalList) {
-        if (count === 0) {
-            modalList.innerHTML = '<p class="text-slate-500 text-sm text-center py-10">尚無任何生成記錄</p>';
-        } else {
-            modalList.innerHTML = '';
-            history.forEach(entry => {
-                modalList.appendChild(buildHistoryCard(entry, 'modal'));
-            });
-        }
-    }
-}
-
-function buildHistoryCard(entry, mode) {
-    const card = document.createElement('div');
-    card.className = 'history-card border border-slate-800 rounded-xl p-3 cursor-pointer';
-    const hasHTML = entry.slides?.some(s => s.html && s.html.length > 100);
-
-    card.innerHTML = `
-        <div class="flex items-start justify-between gap-2">
-            <div class="flex-1 min-w-0">
-                <p class="text-[13px] font-semibold text-slate-200 truncate">${entry.title || '未命名'}</p>
-                <p class="text-[11px] text-slate-500 mt-0.5">${entry.date} · ${entry.slideCount} 張 · ${entry.templateKey || 'modern'}</p>
-            </div>
-            <div class="flex gap-1 shrink-0">
-                <button onclick="loadFromHistory('${entry.id}')" title="載入此記錄"
-                    class="text-[10px] font-bold px-2 py-1 bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 rounded-lg transition-colors">載入</button>
-                ${hasHTML ? `<button onclick="redownloadHTML('${entry.id}')" title="重新下載 HTML"
-                    class="text-[10px] font-bold px-2 py-1 bg-teal-600/20 hover:bg-teal-600/40 text-teal-400 rounded-lg transition-colors">HTML</button>` : ''}
-                <button onclick="deleteHistoryEntry('${entry.id}')" title="刪除此記錄"
-                    class="text-[10px] font-bold px-2 py-1 bg-slate-700 hover:bg-rose-600/30 text-slate-500 hover:text-rose-400 rounded-lg transition-colors">✕</button>
-            </div>
-        </div>
-    `;
-    return card;
-}
-
-function loadFromHistory(id) {
-    const history = loadRawHistory();
-    const entry   = history.find(e => e.id === id);
-    if (!entry) { showToast('❌ 找不到此記錄'); return; }
-
-    // Restore state
-    AppState.generatedSlides   = entry.slides || [];
-    AppState.presentationData  = { presentation_title: entry.title, slides: entry.slides?.map(s => s.slideData) };
-
-    // Re-render preview grid
-    document.getElementById('section-empty').classList.add('hidden');
-    document.getElementById('section-preview').classList.remove('hidden');
-    const grid = document.getElementById('slides-preview-grid');
-    grid.innerHTML = '';
-    entry.slides?.forEach((s, i) => renderSlidePreviewCard(s.slideData || { slide_number: s.slideNumber, title: s.title, layout: s.layout }, s.html, i));
-
-    document.getElementById('preview-slide-count').textContent = `${entry.slides?.length || 0} 張`;
-    document.getElementById('btn-pptx-group').classList.remove('hidden');
-    document.getElementById('btn-pptx-group').classList.add('flex');
-    document.getElementById('btn-save-html').classList.remove('hidden');
-    document.getElementById('btn-save-html').classList.add('flex');
-    document.getElementById('btn-preview-html').classList.remove('hidden');
-    document.getElementById('btn-preview-html').classList.add('flex');
-
-    closeHistoryModal();
-    showToast(`✅ 已載入「${entry.title}」`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
-function redownloadHTML(id) {
-    const history = loadRawHistory();
-    const entry   = history.find(e => e.id === id);
-    if (!entry) return;
-    // Temporarily restore slides for saveAllSlidesAsHTML
-    const backup = AppState.generatedSlides;
-    const backupData = AppState.presentationData;
-    AppState.generatedSlides  = entry.slides || [];
-    AppState.presentationData = { presentation_title: entry.title };
-    saveAllSlidesAsHTML();
-    AppState.generatedSlides  = backup;
-    AppState.presentationData = backupData;
-}
-
-function deleteHistoryEntry(id) {
-    let history = loadRawHistory();
-    history = history.filter(e => e.id !== id);
-    localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-    renderHistoryPanels();
-    showToast('🗑 已刪除記錄');
-}
-
-function clearAllHistory() {
-    if (!confirm('確定要清除所有生成歷史嗎？')) return;
-    localStorage.removeItem(HISTORY_KEY);
-    renderHistoryPanels();
-    showToast('🗑 已清除所有歷史記錄');
-}
-
-function openHistoryModal() {
-    renderHistoryPanels();
-    document.getElementById('history-modal').classList.add('open');
-}
-
-function closeHistoryModal() {
-    document.getElementById('history-modal').classList.remove('open');
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// SERPAPI IMAGE SEARCH
+// SERPAPI IMAGE SEARCH & BLOB FETCH
 // ═══════════════════════════════════════════════════════════════════
 async function searchSerpImages(query, count = 20) {
     const key = AppState.serpApiKey;
-    if (!key) throw new Error('SerpAPI Key 未設定，請在左側設定 SerpAPI Key');
-
-    // Worker URL format: double-slash // + q + api_key directly (NOT a generic proxy)
-    // Matches the working pattern in Picture_search.html
+    if (!key) throw new Error('SerpAPI Key 未設定');
     const workerUrl = `https://serpapi.kirishimatoka00.workers.dev//?q=${encodeURIComponent(query)}&api_key=${key}`;
-
-    addLog(`🔍 SerpAPI 呼叫：${workerUrl.split('api_key=')[0]}api_key=***`, 'info');
-
     const resp = await fetch(workerUrl, { signal: AbortSignal.timeout(20000) });
     const data = await resp.json();
-
-    if (!resp.ok || data.error) {
-        throw new Error(data.error || `HTTP ${resp.status}`);
-    }
-
+    if (!resp.ok || data.error) throw new Error(data.error || `HTTP ${resp.status}`);
     const results = data.images_results || [];
-    if (!results.length) throw new Error('搜尋結果為空，請更換關鍵字');
-
+    if (!results.length) throw new Error('搜尋結果為空');
     return results.slice(0, count).map(img => ({
         original:  img.original  || '',
         thumbnail: img.thumbnail || img.original || '',
-        title:     img.title     || '',
-        source:    img.source    || ''
+        title:     img.title     || ''
     })).filter(img => img.thumbnail || img.original);
 }
 
-// Convert an external image URL → base64 data URI (via proxy to bypass CORS)
-// Convert image URL → base64 via canvas (no external proxy needed)
-// Tries multiple methods in order until one succeeds
-async function fetchImageAsBase64(url) {
-    // Method 1: direct canvas draw (works if CORS header present)
-    try {
-        const b64 = await loadImageViaCanvas(url, { crossOrigin: 'anonymous' });
-        return b64;
-    } catch(e1) {}
-
-    // Method 2: canvas without crossOrigin (tainted canvas, only works for same-origin but worth trying)
-    try {
-        const b64 = await loadImageViaCanvas(url, {});
-        return b64;
-    } catch(e2) {}
-
-    // Method 3: fetch via corsproxy.io
-    try {
-        const proxy = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
-        if (resp.ok) {
-            const blob = await resp.blob();
-            return await blobToDataURL(blob);
-        }
-    } catch(e3) {}
-
-    // Method 4: allorigins raw (last resort)
-    try {
-        const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-        const resp  = await fetch(proxy, { signal: AbortSignal.timeout(10000) });
-        if (resp.ok) {
-            const blob = await resp.blob();
-            return await blobToDataURL(blob);
-        }
-    } catch(e4) {}
-
-    throw new Error('所有圖片載入方式均失敗，請改用 AI 生成');
-}
-
-function loadImageViaCanvas(url, attrs) {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        if (attrs.crossOrigin) img.crossOrigin = attrs.crossOrigin;
-        img.onload = () => {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width  = img.naturalWidth  || img.width;
-                canvas.height = img.naturalHeight || img.height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                resolve(canvas.toDataURL('image/jpeg', 0.88));
-            } catch(e) { reject(e); }
-        };
-        img.onerror = () => reject(new Error('Image load error'));
-        img.src = url;
-        // Timeout
-        setTimeout(() => reject(new Error('Image timeout')), 8000);
-    });
+async function fetchImageAsBlob(url) {
+    try { const res = await fetch(url); if (res.ok) return await res.blob(); } catch(e) {}
+    try { const res = await fetch(`https://corsproxy.io/?${encodeURIComponent(url)}`); if (res.ok) return await res.blob(); } catch(e) {}
+    try { const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`); if (res.ok) return await res.blob(); } catch(e) {}
+    return null;
 }
 
 function blobToDataURL(blob) {
     return new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload  = e => res(e.target.result);
-        r.onerror = rej;
-        r.readAsDataURL(blob);
+        const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(blob);
     });
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// IMAGE PICKER MODAL
+// IMAGE PICKER MODAL & CONFIRMATION
 // ═══════════════════════════════════════════════════════════════════
-let _pickerResolve = null;    // resolves with { mode:'serp'|'ai', b64: string|null }
+let _pickerResolve = null;
 
 function showImagePicker(slideNum, slideTitle, serpQuery) {
     return new Promise(async (resolve) => {
         _pickerResolve = resolve;
 
-        // Setup modal UI
         document.getElementById('img-picker-title').textContent    = `第 ${slideNum} 頁：選擇配圖`;
         document.getElementById('img-picker-subtitle').textContent = slideTitle || '';
         document.getElementById('img-picker-selected-label').textContent = '尚未選擇';
         document.getElementById('img-picker-confirm-btn').disabled = true;
-        document.getElementById('img-picker-confirm-btn').setAttribute('data-b64', '');
 
-        // Show modal in loading state
         const modal = document.getElementById('img-picker-modal');
         const grid  = document.getElementById('img-picker-grid');
         const loading = document.getElementById('img-picker-loading');
         const error   = document.getElementById('img-picker-error');
-        grid.classList.add('hidden');
-        error.classList.add('hidden');
-        loading.classList.remove('hidden');
-        grid.innerHTML = '';
-        modal.classList.add('open');
+        
+        grid.classList.add('hidden'); error.classList.add('hidden'); loading.classList.remove('hidden');
+        grid.innerHTML = ''; modal.classList.add('open');
 
         try {
-            addLog(`🔍 SerpAPI 搜尋「${serpQuery}」相關圖片...`, 'info');
             const images = await searchSerpImages(serpQuery, 20);
-            if (!images.length) throw new Error('搜尋結果為空');
-
-            loading.classList.add('hidden');
-            grid.classList.remove('hidden');
+            loading.classList.add('hidden'); grid.classList.remove('hidden');
             grid.className = 'flex-1 overflow-y-auto p-4 grid grid-cols-4 gap-3';
 
             images.forEach((img, idx) => {
                 const div = document.createElement('div');
                 div.className = 'img-pick-thumb';
-                div.title = img.title || img.source || `圖片 ${idx+1}`;
-                div.innerHTML = `<img src="${img.thumbnail || img.original}" onerror="this.parentNode.innerHTML='<div class=\\'err-ph\\'>圖片無法載入</div>'" loading="lazy" style="width:100%;height:100%;object-fit:cover;">`;
-
+                div.innerHTML = `<img src="${img.thumbnail}" onerror="this.parentNode.innerHTML='<div class=\\'err-ph\\'>圖片無法載入</div>'" loading="lazy">`;
                 div.addEventListener('click', () => {
                     grid.querySelectorAll('.img-pick-thumb').forEach(t => t.classList.remove('selected'));
                     div.classList.add('selected');
                     document.getElementById('img-picker-selected-label').textContent = `已選：圖片 ${idx+1}`;
-                    const confirmBtn = document.getElementById('img-picker-confirm-btn');
-                    confirmBtn.disabled = false;
-                    confirmBtn.setAttribute('data-url', img.original);
-                    confirmBtn.setAttribute('data-thumb', img.thumbnail || img.original);
+                    const btn = document.getElementById('img-picker-confirm-btn');
+                    btn.disabled = false;
+                    btn.setAttribute('data-url', img.original);
+                    btn.setAttribute('data-thumb', img.thumbnail);
                 });
                 grid.appendChild(div);
             });
-            addLog(`✓ 找到 ${images.length} 張搜尋結果`, 'success');
         } catch(e) {
             loading.classList.add('hidden');
             document.getElementById('img-picker-error-msg').textContent = `搜尋失敗：${e.message}`;
-            error.classList.remove('hidden');
-            error.classList.add('flex');
-            addLog(`⚠ SerpAPI 搜尋失敗: ${e.message}`, 'warning');
+            error.classList.remove('hidden'); error.classList.add('flex');
         }
     });
 }
 
+// 確認使用圖片：先轉 Base64，再發送給 GAS Web App 儲存
 async function imgPickerConfirm() {
     const btn = document.getElementById('img-picker-confirm-btn');
     const originalUrl  = btn.getAttribute('data-url')   || '';
@@ -2352,28 +550,49 @@ async function imgPickerConfirm() {
     if (!originalUrl) return;
 
     btn.disabled = true;
-    btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 載入圖片中...';
 
-    // Try original first, then thumbnail as fallback
-    for (const url of [originalUrl, thumbnailUrl]) {
+    if (AppState.gasUrl) {
+        btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 透過 GAS 儲存至硬碟...';
         try {
-            addLog(`⬇ 嘗試載入圖片: ${url.slice(0, 60)}...`, 'info');
-            const b64 = await fetchImageAsBase64(url);
-            addLog(`✓ 圖片轉換完成`, 'success');
+            // 1. 抓取圖片轉為 Blob -> Base64
+            addLog(`⬇ 正在將外部圖片暫存...`, 'info');
+            const blob = await fetchImageAsBlob(originalUrl) || await fetchImageAsBlob(thumbnailUrl);
+            if (!blob) throw new Error('無法擷取該圖片 (CORS)');
+            const base64Str = await blobToDataURL(blob);
+
+            // 2. 傳遞 Base64 給 Google Apps Script 網頁應用程式
+            const gdriveUrl = await uploadToGasWebApp(base64Str, `NovaSlide_Image_${Date.now()}.jpg`);
+            addLog(`✓ 圖片已成功透過 GAS 上傳至 Google 硬碟！`, 'success');
+
+            document.getElementById('img-picker-modal').classList.remove('open');
+            if (_pickerResolve) { _pickerResolve({ mode: 'gdrive_url', b64: gdriveUrl }); _pickerResolve = null; }
+            
+            btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
+            btn.disabled = false;
+            return;
+        } catch(e) {
+            addLog(`⚠ GAS 上傳失敗: ${e.message}。改為直接 Base64 內嵌模式...`, 'warning');
+        }
+    } else {
+        addLog(`ℹ 尚未設定 GAS Web App URL，直接使用 Base64 內嵌`, 'info');
+    }
+
+    // Fallback: 如果沒有填寫 GAS URL 或是上傳失敗，直接回傳 Base64
+    btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 轉換圖片中...';
+    try {
+        const blob = await fetchImageAsBlob(originalUrl) || await fetchImageAsBlob(thumbnailUrl);
+        if (blob) {
+            const b64 = await blobToDataURL(blob);
             document.getElementById('img-picker-modal').classList.remove('open');
             if (_pickerResolve) { _pickerResolve({ mode: 'serp', b64 }); _pickerResolve = null; }
             btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
             btn.disabled = false;
             return;
-        } catch(e) {
-            addLog(`⚠ ${url.slice(0,40)}... 載入失敗: ${e.message}`, 'warning');
         }
-    }
+    } catch(e) { }
 
-    // All base64 attempts failed → use thumbnail URL directly in HTML (no base64)
-    addLog(`⚠ 無法轉換為 base64，直接使用圖片 URL 嵌入投影片（預覽可能受 CORS 限制）`, 'warning');
+    // 最底層 Fallback：直接丟原始 URL
     document.getElementById('img-picker-modal').classList.remove('open');
-    // Return the thumbnail URL as-is; generateSlideHTML will embed it as <img src="URL">
     if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: thumbnailUrl }); _pickerResolve = null; }
     btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
     btn.disabled = false;
@@ -2381,210 +600,176 @@ async function imgPickerConfirm() {
 
 function imgPickerUseAI() {
     document.getElementById('img-picker-modal').classList.remove('open');
-    addLog(`→ 此頁改用 AI 模型生成配圖`, 'info');
     if (_pickerResolve) { _pickerResolve({ mode: 'ai', b64: null }); _pickerResolve = null; }
 }
 
 function imgPickerCancel() {
     document.getElementById('img-picker-modal').classList.remove('open');
-    addLog(`→ 略過此頁配圖`, 'info');
     if (_pickerResolve) { _pickerResolve({ mode: 'skip', b64: null }); _pickerResolve = null; }
 }
 
+
 // ═══════════════════════════════════════════════════════════════════
-// IMAGE ORCHESTRATION  (routes to SerpAPI picker or AI generator)
+// API HELPERS (LLM) & MAIN LOOP
 // ═══════════════════════════════════════════════════════════════════
+const GROK_PROXY = 'https://grokcaller.kirishimatoka00.workers.dev/';
+const GROK_CHAT_API = 'https://api.x.ai/v1/chat/completions';
+
+function isGrokModel(modelName) { return modelName && modelName.toLowerCase().startsWith('grok'); }
+function getGeminiApiVersion(modelName) { return (modelName.includes('preview') || modelName.includes('exp') || modelName.includes('gemini-3')) ? 'v1alpha' : 'v1beta'; }
+
+async function callGrokText(modelId, systemPrompt, userContent, signal) {
+    const proxyUrl  = `${GROK_PROXY}?url=${encodeURIComponent(GROK_CHAT_API)}`;
+    const resp = await fetch(proxyUrl, {
+        method: 'POST', headers: { 'Authorization': `Bearer ${AppState.xaiApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelId, messages: [{ role: 'system', content: systemPrompt }, { role: 'user', content: userContent }], temperature: 0.7 }), signal
+    });
+    if (!resp.ok) throw new Error(`Grok API HTTP ${resp.status}`);
+    return (await resp.json()).choices?.[0]?.message?.content;
+}
+
+async function callGeminiForOutline(topic, context) {
+    const userModel = document.getElementById('sel-text-model').value;
+    const slideCount = document.getElementById('range-slide-count').value;
+    const uniqueModels = [...new Set(isGrokModel(userModel) ? [userModel, 'gemini-2.5-pro'] : [userModel, 'gemini-2.5-pro'])];
+
+    const systemPrompt = `你是頂級簡報策略師。為以下主題生成高品質 HTML 簡報大綱 JSON。
+投影片張數：${slideCount} 張。
+要求：具體知識密度，layout 限定 "title_only", "text_only", "text_and_image", "diagram_slide"。`;
+    const userContent = `主題：${topic}`;
+
+    for (const modelId of uniqueModels) {
+        if (AppState.cancelRequested) throw new Error('CanceledByUser');
+        try {
+            addLog(`大綱呼叫：${modelId}...`, 'ai');
+            let raw = '';
+            if (isGrokModel(modelId)) {
+                if (!AppState.xaiApiKey) continue;
+                raw = await callGrokText(modelId, systemPrompt, userContent, AppState.abortController.signal);
+            } else {
+                if (!AppState.googleApiKey) continue;
+                const resp = await fetch(`https://generativelanguage.googleapis.com/${getGeminiApiVersion(modelId)}/models/${modelId}:generateContent?key=${AppState.googleApiKey}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n' + userContent }] }], generationConfig: { responseMimeType: 'application/json' } }),
+                    signal: AppState.abortController.signal
+                });
+                raw = (await resp.json()).candidates[0].content.parts[0].text;
+            }
+            const m = raw.match(/\{[\s\S]*\}/);
+            return JSON.parse(m ? m[0] : raw);
+        } catch(e) { if (e.message === 'CanceledByUser') throw e; }
+    }
+    throw new Error('所有模型失敗');
+}
+
+async function generateSlideHTML(slideData, theme, imageB64) {
+    if (AppState.cancelRequested) throw new Error('CanceledByUser');
+    const userModel = document.getElementById('sel-text-model').value;
+    const hasImage = !!imageB64;
+    const imgInstruction = hasImage ? `在 foreignObject 的 <img> 中使用 src="REPLACE_IMAGE_SRC"` : `無圖片。`;
+    const prompt = `生成完整的 HTML 投影片 (含 foreignObject 可編輯卡片架構)。
+資料：${JSON.stringify(slideData)}
+圖片：${imgInstruction}
+背景與主色請參考：${theme.bg}, ${theme.accent}。`;
+
+    for (const modelId of [userModel, 'gemini-2.5-pro']) {
+        if (AppState.cancelRequested) throw new Error('CanceledByUser');
+        try {
+            let html = '';
+            if (isGrokModel(modelId) && AppState.xaiApiKey) {
+                html = await callGrokText(modelId, '嚴格輸出完整 HTML', prompt, AppState.abortController.signal);
+            } else if (!isGrokModel(modelId) && AppState.googleApiKey) {
+                const resp = await fetch(`https://generativelanguage.googleapis.com/${getGeminiApiVersion(modelId)}/models/${modelId}:generateContent?key=${AppState.googleApiKey}`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }),
+                    signal: AppState.abortController.signal
+                });
+                html = (await resp.json()).candidates[0].content.parts[0].text;
+            }
+            if (!html) continue;
+
+            html = html.replace(/^```html\s*/im, '').replace(/```\s*$/im, '').trim();
+            if (hasImage) html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
+            return html;
+        } catch(e) { if (e.message === 'CanceledByUser') throw e; }
+    }
+    return `<div>HTML 生成失敗</div>`;
+}
+
 async function getSlideImage(sData, imageMode, slideIndex) {
-    // Determine if this slide wants an image
     const wantsImage = sData.layout === 'text_and_image';
-    const forceAI    = imageMode === 'all' && !['title_only','diagram_slide'].includes(sData.layout);
-    const noImage    = imageMode === 'none';
+    if (imageMode === 'none' || (!wantsImage && imageMode === 'auto')) return null;
 
-    if (noImage) return null;
-
-    const serpModes = ['serp_only', 'serp_primary', 'serp_mixed'];
+    const serpModes = ['serp_only', 'serp_mixed'];
     const useSerpAPI = serpModes.includes(imageMode);
-
-    // serp_mixed: alternate odd=serp, even=ai
     const mixedUsesSerp = imageMode === 'serp_mixed' ? (slideIndex % 2 === 0) : true;
 
-    if (!wantsImage && !forceAI && imageMode === 'auto') return null;
-
-    // Build image search query from slide data
-    const serpQuery = [
-        sData.title || '',
-        (sData.bullet_points || []).slice(0,2).join(' '),
-        sData.image_prompt || ''
-    ].join(' ').slice(0, 120);
-
     if (useSerpAPI && mixedUsesSerp && AppState.serpApiKey) {
-        // Show picker and await user choice
+        const serpQuery = [sData.title || '', sData.image_prompt || ''].join(' ').slice(0, 100);
         const result = await showImagePicker(sData.slide_number, sData.title, serpQuery);
-        if (result.mode === 'serp' && result.b64) return result.b64;
-        if (result.mode === 'serp_url' && result.b64) return result.b64; // direct URL fallback
-        if (result.mode === 'skip') return null;
-        // mode === 'ai' → fall through to AI generation
-        if (imageMode === 'serp_only') return null;  // no AI fallback in serp_only
-    }
-
-    // AI generation path
-    if (!AppState.cancelRequested && (wantsImage || forceAI || imageMode === 'all')) {
-        try {
-            const ctx = [
-                `Slide Title: ${sData.title}`,
-                `Content: ${(sData.bullet_points||[]).join('; ')}`,
-                `Focus: ${sData.image_prompt || ''}`
-            ].join('\n');
-            return await generateImage(ctx, sData.slide_number);
-        } catch(e) {
-            if (e.message === 'CanceledByUser') throw e;
-            addLog(`⚠ 第 ${sData.slide_number} 頁 AI 配圖失敗`, 'warning');
-            return null;
-        }
+        if (result.b64) return result.b64;
     }
     return null;
 }
 
-// ═══════════════════════════════════════════════════════════════════
-async function startGeneration() {
-    const selectedModel = document.getElementById('sel-text-model').value;
-    const needsGemini = !isGrokModel(selectedModel);
-    const needsGrok   = isGrokModel(selectedModel);
+function renderSlidePreviewCard(slideData, html, index) {
+    const grid = document.getElementById('slides-preview-grid');
+    const card = document.createElement('div');
+    card.className = 'slide-preview-card bg-slate-900 border border-slate-800 rounded-xl overflow-hidden fade-in';
+    card.innerHTML = `<div class="slide-iframe-wrap" style="--ps:0.25"><iframe srcdoc="${html.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" sandbox="allow-scripts" loading="lazy"></iframe></div>
+        <div class="px-3 py-2.5"><p class="text-xs font-semibold text-slate-200 truncate">${slideData.title}</p></div>`;
+    grid.appendChild(card);
+}
 
-    if (needsGemini && !AppState.googleApiKey) { showToast('❌ 請設定 Gemini API Key'); return; }
-    if (needsGrok   && !AppState.xaiApiKey)    { showToast('❌ 請設定 Grok API Key'); return; }
+function stopGeneration() {
+    if (AppState.isGenerating) {
+        AppState.cancelRequested = true;
+        if (AppState.abortController) AppState.abortController.abort();
+    }
+}
+
+async function startGeneration() {
     const topic = document.getElementById('inp-topic').value.trim();
     if (!topic) { showToast('❌ 請輸入主題'); return; }
 
-    // State reset
-    AppState.isGenerating = true;
-    AppState.cancelRequested = false;
+    AppState.isGenerating = true; AppState.cancelRequested = false;
     AppState.abortController = new AbortController();
     AppState.generatedSlides = [];
 
-    // UI reset
-    ['section-empty'].forEach(id => document.getElementById(id).classList.add('hidden'));
-    ['section-progress'].forEach(id => document.getElementById(id).classList.remove('hidden'));
+    document.getElementById('section-empty').classList.add('hidden');
+    document.getElementById('section-progress').classList.remove('hidden');
     document.getElementById('section-preview').classList.add('hidden');
     document.getElementById('slides-preview-grid').innerHTML = '';
     document.getElementById('log-container').innerHTML = '';
-    document.getElementById('btn-generate').classList.add('hidden');
-    document.getElementById('btn-stop').classList.remove('hidden');
-    document.getElementById('btn-stop').disabled = false;
-
-    // Hide result buttons safely (they may or may not exist yet)
-    ['btn-pptx-group', 'btn-save-html', 'btn-preview-html'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) { el.classList.add('hidden'); el.classList.remove('flex'); }
-    });
-    setProgress(2);
-
-    const spinner = document.getElementById('progress-spinner');
-    spinner.classList.add('animate-spin');
-    spinner.style.cssText = 'width:20px;height:20px;border:2px solid #8b5cf6;border-top-color:transparent;border-radius:50%;';
-
+    
     try {
-        // ── Step 1: Extract context from all sources ──────────────
-        addLog('📂 正在讀取附加資料來源...', 'info');
-        const context = await buildContextFromSources();
-        const srcCount = AppState.attachedSources.filter(s => s.content).length;
-        if (srcCount > 0) addLog(`✓ 已整合 ${srcCount} 個資料來源（${context.length.toLocaleString()} 字元）`, 'success');
-        setProgress(8);
-
-        // ── Step 2: Generate outline JSON ────────────────────────
-        addLog('🧠 正在生成簡報大綱...', 'ai');
-        const outlineData = await callGeminiForOutline(topic, context);
+        addLog('🧠 生成大綱中...', 'ai');
+        const outlineData = await callGeminiForOutline(topic, "");
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
-        AppState.presentationData = outlineData;
-        addLog(`✓ 大綱生成完成：「${outlineData.presentation_title}」共 ${outlineData.slides?.length || 0} 張`, 'success');
-        setProgress(15);
-
-        const slides     = outlineData.slides || [];
-        const templateKey = document.getElementById('sel-template').value;
-        const theme       = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-        const imageMode   = document.getElementById('sel-image-mode').value;
+        
+        const slides = outlineData.slides || [];
+        const theme = HTML_THEMES[document.getElementById('sel-template').value] || HTML_THEMES.modern;
+        const imageMode = document.getElementById('sel-image-mode').value;
 
         document.getElementById('section-preview').classList.remove('hidden');
 
-        // ── Step 3: Generate each slide ──────────────────────────
         for (let i = 0; i < slides.length; i++) {
             if (AppState.cancelRequested) throw new Error('CanceledByUser');
-
             const sData = slides[i];
-            addLog(`🎨 第 ${sData.slide_number}/${slides.length} 頁：${sData.title}`, 'info');
+            addLog(`🎨 處理第 ${sData.slide_number} 頁...`, 'info');
 
-            // 3a: Get image (SerpAPI picker or AI generation)
-            let imageB64 = null;
-            try {
-                imageB64 = await getSlideImage(sData, imageMode, i);
-            } catch(e) {
-                if (e.message === 'CanceledByUser') throw e;
-                addLog(`⚠ 第 ${sData.slide_number} 頁配圖略過`, 'warning');
-            }
-
-            // 3b: Generate HTML/CSS for this slide
-            let html;
-            try {
-                html = await generateSlideHTML(sData, theme, imageB64);
-                addLog(`✓ 第 ${sData.slide_number} 頁 HTML 生成完成`, 'success');
-            } catch(e) {
-                if (e.message === 'CanceledByUser') throw e;
-                addLog(`⚠ 第 ${sData.slide_number} 頁 HTML 生成失敗，使用備用模板`, 'warning');
-                html = buildFallbackSlideHTML(sData, theme);
-            }
-
-            AppState.generatedSlides.push({
-                slideNumber: sData.slide_number,
-                title: sData.title,
-                layout: sData.layout,
-                slideData: sData,   // ← keep outline for editable PPTX
-                html
-            });
+            const imageB64 = await getSlideImage(sData, imageMode, i);
+            const html = await generateSlideHTML(sData, theme, imageB64);
+            
+            AppState.generatedSlides.push({ slideNumber: sData.slide_number, title: sData.title, html });
             renderSlidePreviewCard(sData, html, i);
-
-            const pct = 15 + ((i + 1) / slides.length) * 80;
-            setProgress(pct);
-            document.getElementById('preview-slide-count').textContent =
-                `${i + 1} / ${slides.length} 頁`;
         }
 
-        // ── Done ─────────────────────────────────────────────────
-        setProgress(100);
-        spinner.classList.remove('animate-spin');
-        spinner.style.cssText = 'width:20px;height:20px;border:2px solid #10b981;border-radius:50%;';
-
-        document.getElementById('btn-pptx-group').classList.remove('hidden');
-        document.getElementById('btn-pptx-group').classList.add('flex');
-        document.getElementById('btn-save-html').classList.remove('hidden');
-        document.getElementById('btn-save-html').classList.add('flex');
-        document.getElementById('btn-preview-html').classList.remove('hidden');
-        document.getElementById('btn-preview-html').classList.add('flex');
-        document.getElementById('btn-generate').classList.remove('hidden');
-
-        addLog(`🎉 完成！共 ${AppState.generatedSlides.length} 張 HTML 投影片。可預覽或下載 PPTX。`, 'success');
-        showToast(`✅ ${AppState.generatedSlides.length} 張投影片生成完成！`);
-
-        // Auto-save to history
-        saveToHistory();
-
-    } catch(e) {
-        if (e.message === 'CanceledByUser' || e.name === 'AbortError') {
-            addLog('⛔ 生成已由使用者中斷', 'warning');
-            showToast('⛔ 生成已中斷');
-            spinner.style.cssText = 'width:20px;height:20px;border:2px solid #f59e0b;border-radius:50%;';
-        } else {
-            addLog(`❌ 錯誤: ${e.message}`, 'error');
-            addLog(`  → 請開啟瀏覽器 Console（F12）查看詳細錯誤`, 'error');
-            console.error('[AI Slide Generator]', e);
-            showToast('❌ 生成發生錯誤，請查看 Console');
-            spinner.style.cssText = 'width:20px;height:20px;border:2px solid #ef4444;border-radius:50%;';
-        }
-        spinner.classList.remove('animate-spin');
-        document.getElementById('btn-generate').classList.remove('hidden');
+        addLog(`🎉 完成！共 ${slides.length} 張投影片。`, 'success');
+    } catch (e) {
+        if (e.message !== 'CanceledByUser') { addLog(`❌ 錯誤: ${e.message}`, 'error'); }
     } finally {
         AppState.isGenerating = false;
-        const stopBtn = document.getElementById('btn-stop');
-        if (stopBtn) { stopBtn.classList.add('hidden'); stopBtn.querySelector('span').textContent = '停止生成'; }
     }
 }
 </script>
