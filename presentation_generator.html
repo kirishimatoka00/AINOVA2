@@ -2226,30 +2226,38 @@ async function searchSerpImages(query, count = 20) {
 // ═══════════════════════════════════════════════════════════════════
 // GOOGLE APPS SCRIPT IMAGE UPLOAD → GOOGLE DRIVE PUBLIC URL
 // ═══════════════════════════════════════════════════════════════════
-async function uploadToGoogleDriveViaGAS(base64DataUri, filename) {
+async function uploadToGoogleDriveViaGAS(imageUrl, filename) {
     const gasUrl = AppState.gasUrl;
     if (!gasUrl) throw new Error('Apps Script URL 未設定');
 
-    // Apps Script accepts base64 with or without data-URI prefix
-    // Send as text/plain to avoid CORS preflight (no OPTIONS request)
+    addLog(`☁ 傳送圖片 URL 至 Apps Script → Google Drive...`, 'info');
+    addLog(`  GAS URL: ${gasUrl.slice(0, 60)}...`, 'info');
+    addLog(`  圖片 URL: ${imageUrl.slice(0, 60)}...`, 'info');
+
+    // Send image URL directly — GAS will fetch it server-side (no CORS issue)
     const payload = JSON.stringify({
+        imageUrl: imageUrl,
         filename: filename || ('slide_img_' + Date.now() + '.jpg'),
-        mimeType: base64DataUri.startsWith('data:image/png') ? 'image/png' : 'image/jpeg',
-        base64: base64DataUri
+        mimeType: 'image/jpeg'
     });
 
     const resp = await fetch(gasUrl, {
         method: 'POST',
-        // text/plain avoids preflight — Apps Script backend handles parsing
+        // text/plain avoids CORS preflight — GAS parses JSON from postData.contents
         headers: { 'Content-Type': 'text/plain' },
         body: payload,
-        signal: AbortSignal.timeout(30000)
+        signal: AbortSignal.timeout(40000)
     });
 
-    if (!resp.ok) throw new Error(`Apps Script HTTP ${resp.status}`);
-    const data = await resp.json();
-    if (!data.success) throw new Error(data.error || 'Apps Script 回傳失敗');
+    const text = await resp.text();
+    addLog(`  GAS 回應 (HTTP ${resp.status}): ${text.slice(0, 120)}`, 'info');
 
+    let data;
+    try { data = JSON.parse(text); }
+    catch(e) { throw new Error(`GAS 回傳非 JSON: ${text.slice(0,100)}`); }
+
+    if (!resp.ok || !data.success) throw new Error(data.error || `GAS 失敗 HTTP ${resp.status}`);
+    addLog(`✓ Google Drive URL: ${data.url}`, 'success');
     return data.url;  // "https://drive.google.com/uc?export=view&id=..."
 }
 
@@ -2406,36 +2414,28 @@ async function imgPickerConfirm() {
     btn.disabled = true;
     btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 處理圖片中...';
 
-    // ── Strategy 1: Google Apps Script backend ──────────────────────
+    // ── Strategy 1: GAS URL mode — send image URL to server, no client CORS issue ──
     if (AppState.gasUrl) {
-        try {
-            addLog(`⬇ 下載圖片並轉換為 base64...`, 'info');
-            // First get the image as base64 (any working method)
-            let base64 = null;
-            for (const url of [originalUrl, thumbnailUrl]) {
-                try { base64 = await fetchImageAsBase64(url); break; } catch(e) {}
+        // Try original URL first, then thumbnail
+        for (const imgUrl of [originalUrl, thumbnailUrl]) {
+            try {
+                const driveUrl = await uploadToGoogleDriveViaGAS(imgUrl, `slide_${Date.now()}.jpg`);
+                document.getElementById('img-picker-modal').classList.remove('open');
+                if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: driveUrl }); _pickerResolve = null; }
+                btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
+                btn.disabled = false;
+                return;
+            } catch(e) {
+                addLog(`⚠ GAS 上傳失敗 (${imgUrl.slice(0,40)}...): ${e.message}`, 'warning');
             }
-            if (!base64) throw new Error('無法取得圖片 base64');
-
-            addLog(`☁ 上傳圖片至 Google Drive...`, 'info');
-            const driveUrl = await uploadToGoogleDriveViaGAS(base64, `slide_${Date.now()}.jpg`);
-            addLog(`✓ 已上傳至 Google Drive：${driveUrl}`, 'success');
-
-            document.getElementById('img-picker-modal').classList.remove('open');
-            // Return the clean Google Drive URL directly — LLM will embed it as <img src>
-            if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: driveUrl }); _pickerResolve = null; }
-            btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
-            btn.disabled = false;
-            return;
-        } catch(e) {
-            addLog(`⚠ Google Drive 上傳失敗 (${e.message})，改用本地 base64`, 'warning');
         }
+        addLog(`⚠ 所有 GAS 上傳嘗試失敗，降級為本地 base64 模式`, 'warning');
     }
 
-    // ── Strategy 2: Local base64 embedding (no GAS) ─────────────────
+    // ── Strategy 2: Local base64 — client-side canvas conversion ──
     for (const url of [originalUrl, thumbnailUrl]) {
         try {
-            addLog(`⬇ 嘗試載入圖片: ${url.slice(0, 60)}...`, 'info');
+            addLog(`⬇ 嘗試本地轉換圖片 base64: ${url.slice(0, 55)}...`, 'info');
             const b64 = await fetchImageAsBase64(url);
             addLog(`✓ 圖片轉換完成（本地 base64）`, 'success');
             document.getElementById('img-picker-modal').classList.remove('open');
@@ -2444,12 +2444,12 @@ async function imgPickerConfirm() {
             btn.disabled = false;
             return;
         } catch(e) {
-            addLog(`⚠ ${url.slice(0,40)}... 載入失敗: ${e.message}`, 'warning');
+            addLog(`⚠ base64 轉換失敗: ${e.message}`, 'warning');
         }
     }
 
-    // ── Strategy 3: Use thumbnail URL directly in HTML ───────────────
-    addLog(`⚠ 圖片無法轉換，直接嵌入縮圖 URL（建議設定 Apps Script URL）`, 'warning');
+    // ── Strategy 3: Direct URL embed (last resort) ──
+    addLog(`⚠ 所有方式失敗，直接嵌入縮圖 URL（建議設定 Apps Script URL）`, 'warning');
     document.getElementById('img-picker-modal').classList.remove('open');
     if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: thumbnailUrl }); _pickerResolve = null; }
     btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
