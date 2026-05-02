@@ -798,7 +798,6 @@ const GROK_PROXY      = 'https://grokcaller.kirishimatoka00.workers.dev/';
 const GROK_CHAT_API   = 'https://api.x.ai/v1/chat/completions';
 const GROK_IMG_API    = 'https://api.x.ai/v1/images/generations';   // kept for generateImage()
 const SERP_PROXY      = 'https://serpapi.kirishimatoka00.workers.dev/';
-const SERP_API_BASE   = 'https://serpapi.com/search.json';
 
 function isGrokModel(modelName) {
     return modelName && modelName.toLowerCase().startsWith('grok');
@@ -2148,22 +2147,30 @@ function closeHistoryModal() {
 // ═══════════════════════════════════════════════════════════════════
 async function searchSerpImages(query, count = 20) {
     const key = AppState.serpApiKey;
-    if (!key) throw new Error('SerpAPI Key 未設定');
+    if (!key) throw new Error('SerpAPI Key 未設定，請在左側設定 SerpAPI Key');
 
-    const targetUrl = `${SERP_API_BASE}?q=${encodeURIComponent(query)}&tbm=isch&num=${count}&api_key=${key}&engine=google&gl=tw&hl=zh-tw`;
-    const proxyUrl  = `${SERP_PROXY}?url=${encodeURIComponent(targetUrl)}`;
+    // Worker URL format: double-slash // + q + api_key directly (NOT a generic proxy)
+    // Matches the working pattern in Picture_search.html
+    const workerUrl = `https://serpapi.kirishimatoka00.workers.dev//?q=${encodeURIComponent(query)}&api_key=${key}`;
 
-    const resp = await fetch(proxyUrl, { signal: AbortSignal.timeout(15000) });
-    if (!resp.ok) throw new Error(`SerpAPI HTTP ${resp.status}`);
+    addLog(`🔍 SerpAPI 呼叫：${workerUrl.split('api_key=')[0]}api_key=***`, 'info');
+
+    const resp = await fetch(workerUrl, { signal: AbortSignal.timeout(20000) });
     const data = await resp.json();
 
+    if (!resp.ok || data.error) {
+        throw new Error(data.error || `HTTP ${resp.status}`);
+    }
+
     const results = data.images_results || [];
+    if (!results.length) throw new Error('搜尋結果為空，請更換關鍵字');
+
     return results.slice(0, count).map(img => ({
-        original:  img.original   || img.link || '',
-        thumbnail: img.thumbnail  || img.original || '',
-        title:     img.title      || '',
-        source:    img.source     || ''
-    })).filter(img => img.original);
+        original:  img.original  || '',
+        thumbnail: img.thumbnail || img.original || '',
+        title:     img.title     || '',
+        source:    img.source    || ''
+    })).filter(img => img.thumbnail || img.original);
 }
 
 // Convert an external image URL → base64 data URI (via proxy to bypass CORS)
