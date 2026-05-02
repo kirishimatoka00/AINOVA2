@@ -137,13 +137,11 @@
                 <span class="text-[11px] text-slate-400 flex-1">SerpAPI: <span id="api-serp-status" class="font-semibold">...</span></span>
                 <button onclick="promptApiKey('serpapi')" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors">設定</button>
             </div>
-            <!-- GAS Web App URL Setup -->
-            <div class="flex items-center gap-2 pt-2 border-t border-slate-800">
-                <i class="ph-fill ph-cloud-arrow-up text-indigo-400 shrink-0 text-base"></i>
-                <span class="text-[11px] text-slate-400 flex-1 truncate max-w-[180px]">GAS API: <span id="api-gas-status" class="font-semibold">...</span></span>
+            <div class="flex items-center gap-2">
+                <i class="ph-fill ph-google-drive text-yellow-400 shrink-0 text-base"></i>
+                <span class="text-[11px] text-slate-400 flex-1 truncate">Apps Script: <span id="api-gas-status" class="font-semibold">...</span></span>
                 <button onclick="promptApiKey('gas')" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors shrink-0">設定</button>
             </div>
-            <p class="text-[10px] text-slate-500 leading-tight">貼上部署好的 Google Apps Script 網頁應用程式 URL，可將 SerpAPI 圖片直接上傳至 Google 硬碟。</p>
         </div>
 
         <!-- Attached Sources -->
@@ -383,6 +381,7 @@
                 <button onclick="imgPickerUseAI()" class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/40 text-violet-300 rounded-xl transition-colors">
                     <i class="ph-bold ph-sparkle"></i>改用 AI 生成
                 </button>
+                <div id="gas-mode-badge" class="text-[10px] px-2 py-1 rounded-lg font-semibold"></div>
                 <button onclick="imgPickerConfirm()" id="img-picker-confirm-btn" class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors disabled:opacity-40" disabled>
                     <i class="ph-bold ph-check"></i>確認使用此圖
                 </button>
@@ -435,8 +434,7 @@
 // APP STATE
 // ═══════════════════════════════════════════════════════════════════
 const AppState = {
-    googleApiKey: '', xaiApiKey: '', serpApiKey: '',
-    gasUrl: '',               // 儲存 GAS Web App URL
+    googleApiKey: '', xaiApiKey: '', serpApiKey: '', gasUrl: '',
     attachedSources: [],      // [{id,type,icon,name,content,status}]
     logoBase64: null,
     generatedSlides: [],      // [{slideNumber,title,html}]
@@ -493,7 +491,7 @@ function init() {
     document.getElementById('api-gemini-status').textContent = keyStatus(AppState.googleApiKey);
     document.getElementById('api-grok-status').textContent   = keyStatus(AppState.xaiApiKey);
     document.getElementById('api-serp-status').textContent   = keyStatus(AppState.serpApiKey);
-    document.getElementById('api-gas-status').textContent    = AppState.gasUrl ? '✓ 連線已配置' : '❌ 未設定 URL';
+    document.getElementById('api-gas-status').textContent    = AppState.gasUrl ? '✓ 已設定' : '未設定（可選）';
 
     updateHeaderBadge();
     updateImageModeHint();
@@ -560,22 +558,19 @@ function addLog(msg, type = 'info') {
 }
 
 function promptApiKey(type = 'gemini') {
-    const labels = { 
-        gemini: 'Gemini API Key', 
-        grok: 'Grok (xAI) API Key', 
-        serpapi: 'SerpAPI Key', 
-        gas: 'Google Apps Script Web App URL (用於上傳 Google 硬碟)' 
-    };
+    const labels      = { gemini: 'Gemini API Key', grok: 'Grok (xAI) API Key', serpapi: 'SerpAPI Key', gas: 'Google Apps Script Web App URL' };
     const storageKeys = { gemini: 'nova_key_gemini', grok: 'nova_key_grok', serpapi: 'nova_key_serpapi', gas: 'nova_key_gas' };
     const statusIds   = { gemini: 'api-gemini-status', grok: 'api-grok-status', serpapi: 'api-serp-status', gas: 'api-gas-status' };
     const stateKeys   = { gemini: 'googleApiKey', grok: 'xaiApiKey', serpapi: 'serpApiKey', gas: 'gasUrl' };
 
-    const key = prompt(`請輸入 ${labels[type]}:`, AppState[stateKeys[type]] || '');
-    if (key !== null) {
+    const hint = type === 'gas' ? '\n（請貼入 Apps Script 部署後的 Web App URL）' : '';
+    const key = prompt(`請輸入 ${labels[type]}:${hint}`);
+    if (key && key.trim()) {
         const trimmed = key.trim();
         localStorage.setItem(storageKeys[type], trimmed);
         AppState[stateKeys[type]] = trimmed;
-        document.getElementById(statusIds[type]).textContent = trimmed ? '✓ 已設定' : '❌ 未設定';
+        const label = type === 'gas' ? '✓ 已設定' : '✓ 已設定';
+        document.getElementById(statusIds[type]).textContent = label;
         showToast(`✅ ${labels[type]} 已更新`);
     }
 }
@@ -586,9 +581,9 @@ function updateImageModeHint() {
         auto:        'AI 自動決定哪些頁面需要插圖，其餘頁面純 HTML/CSS',
         all:         '所有投影片強制使用配圖模型生成圖片',
         none:        '不插入任何圖片，全部用 SVG/CSS 視覺設計',
-        serp_only:   '🔍 每頁需圖時呼叫 SerpAPI 搜尋，選定後可透過 GAS 自動上傳至您的 Google 硬碟',
+        serp_only:   '🔍 每頁需圖時呼叫 SerpAPI 搜尋 20 張供您選擇（需設定 SerpAPI Key）',
         serp_primary:'🔍 優先使用 SerpAPI 搜尋圖片，搜尋失敗時自動改用 AI 生成',
-        serp_mixed:  '🔀 奇數頁用 SerpAPI 搜尋 (支援 GAS 上傳)，偶數頁用 AI 生成'
+        serp_mixed:  '🔀 奇數頁用 SerpAPI 搜尋，偶數頁用 AI 生成，形成視覺多樣性'
     };
     const el = document.getElementById('image-mode-hint');
     if (el) el.textContent = hints[mode] || '';
@@ -805,37 +800,6 @@ async function buildContextFromSources() {
     if (!ready.length) return '';
     return ready.map(s => `\n\n━━━ 來源: ${s.name} ━━━\n${s.content}`).join('');
 }
-
-
-// ═══════════════════════════════════════════════════════════════════
-// GOOGLE APPS SCRIPT WEB APP API (UPLOAD)
-// ═══════════════════════════════════════════════════════════════════
-async function uploadToGasWebApp(base64Data, filename) {
-    const gasUrl = AppState.gasUrl;
-    if (!gasUrl) throw new Error("尚未設定 GAS Web App URL");
-
-    addLog(`☁️ 正在透過 Google Apps Script 將圖片存入 Google 硬碟...`, 'info');
-    
-    // 使用 text/plain 可以繞過某些嚴格的 CORS 限制，後端會再次做 JSON.parse
-    const response = await fetch(gasUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'text/plain;charset=utf-8'
-        },
-        body: JSON.stringify({
-            filename: filename,
-            base64: base64Data,
-            mimeType: 'image/jpeg'
-        })
-    });
-
-    const result = await response.json();
-    if (!result.success) {
-        throw new Error(result.error || '未知的後端錯誤');
-    }
-    return result.url;
-}
-
 
 // ═══════════════════════════════════════════════════════════════════
 // API HELPERS
@@ -1101,7 +1065,7 @@ async function generateSlideHTML(slideData, theme, imageB64) {
     const uniqueModels = [...new Set(FALLBACK_MODELS)];
 
     const hasImage = !!imageB64;
-    // Detect if imageB64 is actually a URL (serp_url fallback or gdrive_url) vs real base64
+    // Detect if imageB64 is actually a URL (serp_url fallback) vs real base64
     const isDirectUrl = hasImage && imageB64.startsWith('http');
     const imgInstruction = hasImage
         ? (isDirectUrl
@@ -1196,7 +1160,7 @@ ${JSON.stringify(slideData, null, 2)}
     - 圖片佔 50% 畫面（左或右），用 SVG <image> 或 foreignObject <img> 放置
     - 圖片區要有 clip-path 或遮罩裝飾（斜切、波浪等）
     - 文字側含 1~2 個 foreignObject 卡片
-    - (若指令為 REPLACE_IMAGE_SRC 請使用該字串)
+    - 圖片 src 用 "REPLACE_IMAGE_SRC"
 
   ★ diagram_slide（圖解）：
     - 根據 diagram_description 在 SVG 內用純 SVG 繪製精美的流程圖/架構圖/時間軸
@@ -1265,9 +1229,7 @@ ${JSON.stringify(slideData, null, 2)}
             }
 
             // Inject actual image src
-            if (hasImage) {
-                // To be safe, always replace REPLACE_IMAGE_SRC even if we passed direct URL in prompt 
-                // (LLM might hallucinate the REPLACE_IMAGE_SRC tag)
+            if (hasImage && !isDirectUrl) {
                 html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
             }
 
@@ -1618,7 +1580,7 @@ input[type=color]::-webkit-color-swatch{border:1px solid rgba(0,0,0,.15);border-
 [contenteditable]:focus{outline:2px solid rgba(var(--c1-rgb),.4);border-radius:3px;}
 </style></head>
 <body>
-<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
 <defs>
   <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
     <stop offset="0%" stop-color="#0a0a1a"/>
@@ -1701,7 +1663,7 @@ input[type=color]::-webkit-color-swatch{border:1px solid rgba(255,255,255,.2);bo
 [contenteditable]:focus{outline:2px solid rgba(${accentRgb},.5);border-radius:4px;}
 </style></head>
 <body>
-<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
+<svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
 <defs>
   <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
     <stop offset="0%" stop-color="#060a18"/>
@@ -2261,6 +2223,36 @@ async function searchSerpImages(query, count = 20) {
 }
 
 // Convert an external image URL → base64 data URI (via proxy to bypass CORS)
+// ═══════════════════════════════════════════════════════════════════
+// GOOGLE APPS SCRIPT IMAGE UPLOAD → GOOGLE DRIVE PUBLIC URL
+// ═══════════════════════════════════════════════════════════════════
+async function uploadToGoogleDriveViaGAS(base64DataUri, filename) {
+    const gasUrl = AppState.gasUrl;
+    if (!gasUrl) throw new Error('Apps Script URL 未設定');
+
+    // Apps Script accepts base64 with or without data-URI prefix
+    // Send as text/plain to avoid CORS preflight (no OPTIONS request)
+    const payload = JSON.stringify({
+        filename: filename || ('slide_img_' + Date.now() + '.jpg'),
+        mimeType: base64DataUri.startsWith('data:image/png') ? 'image/png' : 'image/jpeg',
+        base64: base64DataUri
+    });
+
+    const resp = await fetch(gasUrl, {
+        method: 'POST',
+        // text/plain avoids preflight — Apps Script backend handles parsing
+        headers: { 'Content-Type': 'text/plain' },
+        body: payload,
+        signal: AbortSignal.timeout(30000)
+    });
+
+    if (!resp.ok) throw new Error(`Apps Script HTTP ${resp.status}`);
+    const data = await resp.json();
+    if (!data.success) throw new Error(data.error || 'Apps Script 回傳失敗');
+
+    return data.url;  // "https://drive.google.com/uc?export=view&id=..."
+}
+
 // Convert image URL → base64 via canvas (no external proxy needed)
 // Tries multiple methods in order until one succeeds
 async function fetchImageAsBase64(url) {
@@ -2345,6 +2337,18 @@ function showImagePicker(slideNum, slideTitle, serpQuery) {
         document.getElementById('img-picker-confirm-btn').disabled = true;
         document.getElementById('img-picker-confirm-btn').setAttribute('data-b64', '');
 
+        // Show GAS mode indicator
+        const gasBadge = document.getElementById('gas-mode-badge');
+        if (gasBadge) {
+            if (AppState.gasUrl) {
+                gasBadge.textContent = '☁ Google Drive 模式';
+                gasBadge.className = 'text-[10px] px-2 py-1 rounded-lg font-semibold bg-yellow-500/15 text-yellow-400';
+            } else {
+                gasBadge.textContent = '💾 本地 Base64 模式';
+                gasBadge.className = 'text-[10px] px-2 py-1 rounded-lg font-semibold bg-slate-700 text-slate-400';
+            }
+        }
+
         // Show modal in loading state
         const modal = document.getElementById('img-picker-modal');
         const grid  = document.getElementById('img-picker-grid');
@@ -2393,53 +2397,47 @@ function showImagePicker(slideNum, slideTitle, serpQuery) {
     });
 }
 
-// ★ 核心修改點：加入 GAS 硬碟上傳邏輯 ★
 async function imgPickerConfirm() {
     const btn = document.getElementById('img-picker-confirm-btn');
-    const originalUrl  = btn.getAttribute('data-url')   || '';
-    const thumbnailUrl = btn.getAttribute('data-thumb')  || originalUrl;
+    const originalUrl  = btn.getAttribute('data-url')  || '';
+    const thumbnailUrl = btn.getAttribute('data-thumb') || originalUrl;
     if (!originalUrl) return;
 
     btn.disabled = true;
+    btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 處理圖片中...';
 
-    // ── 流程 A：若有設定 GAS Web App URL，優先嘗試上傳至 Google 硬碟 ──
+    // ── Strategy 1: Google Apps Script backend ──────────────────────
     if (AppState.gasUrl) {
-        btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 透過 GAS 儲存至硬碟...';
         try {
-            // 先取得圖片的 Base64
-            addLog(`⬇ 正在擷取外部圖片...`, 'info');
-            let b64 = null;
-            try {
-                b64 = await fetchImageAsBase64(originalUrl);
-            } catch (e1) {
-                b64 = await fetchImageAsBase64(thumbnailUrl);
+            addLog(`⬇ 下載圖片並轉換為 base64...`, 'info');
+            // First get the image as base64 (any working method)
+            let base64 = null;
+            for (const url of [originalUrl, thumbnailUrl]) {
+                try { base64 = await fetchImageAsBase64(url); break; } catch(e) {}
             }
-            if (!b64) throw new Error('無法擷取該圖片 (CORS)');
+            if (!base64) throw new Error('無法取得圖片 base64');
 
-            // 拋送至您的 Google Apps Script 後端
-            const gdriveUrl = await uploadToGasWebApp(b64, `NovaSlide_Image_${Date.now()}.jpg`);
-            addLog(`✓ 圖片已成功透過 GAS 上傳至 Google 硬碟！`, 'success');
+            addLog(`☁ 上傳圖片至 Google Drive...`, 'info');
+            const driveUrl = await uploadToGoogleDriveViaGAS(base64, `slide_${Date.now()}.jpg`);
+            addLog(`✓ 已上傳至 Google Drive：${driveUrl}`, 'success');
 
             document.getElementById('img-picker-modal').classList.remove('open');
-            if (_pickerResolve) { _pickerResolve({ mode: 'gdrive_url', b64: gdriveUrl }); _pickerResolve = null; }
-            
+            // Return the clean Google Drive URL directly — LLM will embed it as <img src>
+            if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: driveUrl }); _pickerResolve = null; }
             btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
             btn.disabled = false;
             return;
         } catch(e) {
-            addLog(`⚠ GAS 上傳失敗: ${e.message}。自動改為直接 Base64 內嵌模式...`, 'warning');
+            addLog(`⚠ Google Drive 上傳失敗 (${e.message})，改用本地 base64`, 'warning');
         }
     }
 
-    // ── 流程 B：沒有設定 GAS URL 或上傳失敗，回退使用 Base64 內嵌 ──
-    btn.innerHTML = '<i class="ph-bold ph-circle-notch" style="animation:spin 1s linear infinite"></i> 轉換圖片中...';
-    
-    // Try original first, then thumbnail as fallback
+    // ── Strategy 2: Local base64 embedding (no GAS) ─────────────────
     for (const url of [originalUrl, thumbnailUrl]) {
         try {
             addLog(`⬇ 嘗試載入圖片: ${url.slice(0, 60)}...`, 'info');
             const b64 = await fetchImageAsBase64(url);
-            addLog(`✓ 圖片轉換完成`, 'success');
+            addLog(`✓ 圖片轉換完成（本地 base64）`, 'success');
             document.getElementById('img-picker-modal').classList.remove('open');
             if (_pickerResolve) { _pickerResolve({ mode: 'serp', b64 }); _pickerResolve = null; }
             btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
@@ -2450,8 +2448,8 @@ async function imgPickerConfirm() {
         }
     }
 
-    // ── 流程 C：全失敗，直接將外部 URL 放進 HTML（這可能會受 CORS 影響，但作為最後手段） ──
-    addLog(`⚠ 無法轉換為 base64，直接使用圖片 URL 嵌入投影片（預覽可能受 CORS 限制）`, 'warning');
+    // ── Strategy 3: Use thumbnail URL directly in HTML ───────────────
+    addLog(`⚠ 圖片無法轉換，直接嵌入縮圖 URL（建議設定 Apps Script URL）`, 'warning');
     document.getElementById('img-picker-modal').classList.remove('open');
     if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: thumbnailUrl }); _pickerResolve = null; }
     btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
@@ -2499,10 +2497,6 @@ async function getSlideImage(sData, imageMode, slideIndex) {
     if (useSerpAPI && mixedUsesSerp && AppState.serpApiKey) {
         // Show picker and await user choice
         const result = await showImagePicker(sData.slide_number, sData.title, serpQuery);
-        
-        // ★ 支援 GAS Web App 上傳回傳的 Google Drive URL 
-        if (result.mode === 'gdrive_url' && result.b64) return result.b64;
-        
         if (result.mode === 'serp' && result.b64) return result.b64;
         if (result.mode === 'serp_url' && result.b64) return result.b64; // direct URL fallback
         if (result.mode === 'skip') return null;
