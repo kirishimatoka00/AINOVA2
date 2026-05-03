@@ -1085,110 +1085,126 @@ const SLIDE_INTERACTION_SCRIPT = `
   /* control functions */
   window.updateThemeColor=function(id,hex){document.documentElement.style.setProperty('--c'+id,hex);var rgb=hexToRgb(hex);if(rgb)document.documentElement.style.setProperty('--c'+id+'-rgb',rgb.r+','+rgb.g+','+rgb.b);};
   window.adjustFontSize=function(btn,delta){var box=btn.closest('.rb');if(!box)return;var cur=parseFloat(box.style.fontSize)||16;cur=Math.max(8,Math.min(96,cur+delta*2));box.style.fontSize=cur+'px';};
-  /* ── Text color: selection-aware ──────────────────────────────────
-     If text is selected INSIDE the rb box  → colour only selection.
-     Otherwise                              → colour all text in box.
-  ── */
+  /* ── Wrap selected text in <span style="color:C"> using Range API ── */
+  function applyColorToRange(color, savedRange){
+    var sel=window.getSelection(); if(!sel) return;
+    try{ sel.removeAllRanges(); sel.addRange(savedRange); }catch(e){ return; }
+    if(sel.isCollapsed) return;
+    var range=sel.getRangeAt(0);
+    var frag=range.extractContents();
+    var span=document.createElement('span');
+    span.style.color=color;
+    span.appendChild(frag);
+    range.insertNode(span);
+    /* Move cursor after span */
+    var r2=document.createRange(); r2.setStartAfter(span); r2.collapse(true);
+    sel.removeAllRanges(); sel.addRange(r2);
+  }
+
+  /* ── changeTextColor: selection-aware via Range API ── */
   window.changeTextColor=function(inp){
     var color=inp.value;
     var box=inp.closest('.rb'); if(!box) return;
     var sel=window.getSelection();
-    /* Check if there is a real selection inside the box */
-    if(sel && !sel.isCollapsed && sel.rangeCount>0){
-      var range=sel.getRangeAt(0);
-      /* Verify ancestor is inside our box */
-      var commonAnc=range.commonAncestorContainer;
-      var node=commonAnc.nodeType===3?commonAnc.parentNode:commonAnc;
-      if(box.contains(node)){
-        /* Restore focus so execCommand works */
-        var focusEl=node.closest('[contenteditable]');
-        if(focusEl) focusEl.focus();
-        /* Apply colour to selection only */
-        document.execCommand('styleWithCSS',false,true);
-        document.execCommand('foreColor',false,color);
-        inp.dataset.colorLocked='1';
-        return; /* done — other elements untouched */
-      }
+    if(sel&&!sel.isCollapsed&&sel.rangeCount>0){
+      var range=sel.getRangeAt(0).cloneRange();
+      var anc=range.commonAncestorContainer;
+      var node=anc.nodeType===3?anc.parentNode:anc;
+      if(box.contains(node)){ applyColorToRange(color,range); inp.dataset.colorLocked='1'; return; }
     }
-    /* No selection: apply to all contenteditable in box */
     inp.dataset.colorLocked='1';
     box.querySelectorAll('[contenteditable]').forEach(function(el){el.style.color=color;});
   };
 
-  /* ── Floating mini-toolbar on text selection ──────────────────── */
+  /* ── Floating mini-toolbar: appears above any text selection in .rb ── */
   (function(){
-    var toolbar=null;
-    function removeMini(){if(toolbar){toolbar.remove();toolbar=null;}}
-    document.addEventListener('mouseup',function(e){
-      /* small delay so selection is finalised */
+    var toolbar=null, savedRange=null;
+    function removeMini(){if(toolbar){toolbar.remove();toolbar=null;} savedRange=null;}
+
+    function mkLabel(txt){
+      var s=document.createElement('span');
+      s.textContent=txt;
+      s.style.cssText='color:#94a3b8;font-size:10px;font-weight:600;white-space:nowrap;margin:0 2px;';
+      return s;
+    }
+    function mkSep(){
+      var s=document.createElement('div');
+      s.style.cssText='width:1px;height:14px;background:rgba(255,255,255,.2);margin:0 3px;';
+      return s;
+    }
+    function mkColorPicker(title,initColor,onPick){
+      var cp=document.createElement('input'); cp.type='color'; cp.value=initColor; cp.title=title;
+      cp.style.cssText='width:22px;height:22px;border:none;border-radius:4px;cursor:pointer;padding:0;flex-shrink:0;';
+      cp.addEventListener('input',function(){ if(savedRange) onPick(cp.value,savedRange); });
+      return cp;
+    }
+    function mkBtn(label,action){
+      var b=document.createElement('button'); b.textContent=label;
+      b.style.cssText='font-size:11px;font-weight:700;padding:2px 6px;border:none;min-width:26px;'+
+        'background:rgba(255,255,255,.12);border-radius:4px;cursor:pointer;color:#e2e8f0;flex-shrink:0;';
+      b.addEventListener('mousedown',function(ev){ ev.preventDefault(); action(); });
+      return b;
+    }
+
+    document.addEventListener('mouseup',function(){
       setTimeout(function(){
         var sel=window.getSelection();
-        if(!sel||sel.isCollapsed||sel.rangeCount===0){removeMini();return;}
+        if(!sel||sel.isCollapsed||!sel.rangeCount){ removeMini(); return; }
         var range=sel.getRangeAt(0);
         var anc=range.commonAncestorContainer;
         var node=anc.nodeType===3?anc.parentNode:anc;
-        var rb=node.closest('.rb'); if(!rb){removeMini();return;}
+        var rb=node.closest('.rb'); if(!rb){ removeMini(); return; }
+        savedRange=range.cloneRange();
+
         removeMini();
-        /* Build mini toolbar */
-        var t=document.createElement('div');
-        t.id='_mini_toolbar';
-        t.style.cssText='position:fixed;z-index:9999;display:flex;align-items:center;gap:5px;'+
-          'background:rgba(10,18,36,.97);border:1px solid rgba(99,102,241,.6);'+
-          'border-radius:8px;padding:5px 8px;box-shadow:0 4px 20px rgba(0,0,0,.5);pointer-events:auto;';
-        /* Position above selection */
+        var t=document.createElement('div'); toolbar=t;
+        t.style.cssText='position:fixed;z-index:99999;display:flex;align-items:center;flex-wrap:wrap;gap:4px;'+
+          'background:rgba(8,14,30,.97);border:1.5px solid rgba(99,102,241,.7);'+
+          'border-radius:10px;padding:6px 10px;box-shadow:0 6px 24px rgba(0,0,0,.7);pointer-events:auto;max-width:340px;';
+
         var rect=range.getBoundingClientRect();
-        t.style.left=(rect.left+rect.width/2-80)+'px';
-        t.style.top=(rect.top-44)+'px';
-        /* Font color picker */
-        var lbl=document.createElement('span');
-        lbl.textContent='文字色';
-        lbl.style.cssText='color:#94a3b8;font-size:10px;font-weight:600;white-space:nowrap;';
-        var cp=document.createElement('input');
-        cp.type='color'; cp.value='#ffffff';
-        cp.style.cssText='width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;';
-        cp.title='選取文字顏色';
-        cp.addEventListener('input',function(){
-          /* Re-apply the stored selection before colouring */
-          var restoreOk=false;
-          try{sel.removeAllRanges();sel.addRange(range);restoreOk=true;}catch(e){}
-          if(restoreOk){
-            document.execCommand('styleWithCSS',false,true);
-            document.execCommand('foreColor',false,cp.value);
-          }
-        });
-        /* Bold / Italic */
-        function mkBtn(label,cmd){
-          var b=document.createElement('button');
-          b.textContent=label;
-          b.style.cssText='font-size:12px;font-weight:700;padding:2px 6px;border:none;'+
-            'background:rgba(255,255,255,.12);border-radius:4px;cursor:pointer;color:#e2e8f0;';
-          b.addEventListener('mousedown',function(ev){
-            ev.preventDefault(); /* keep selection */
-            try{sel.removeAllRanges();sel.addRange(range);}catch(e){}
-            document.execCommand(cmd);
-          });
-          return b;
-        }
-        t.appendChild(lbl); t.appendChild(cp);
-        t.appendChild(mkBtn('B','bold'));
-        t.appendChild(mkBtn('I','italic'));
-        t.appendChild(mkBtn('U','underline'));
-        /* close btn */
-        var x=document.createElement('button');
-        x.textContent='×';
-        x.style.cssText='font-size:14px;font-weight:700;padding:0 4px;border:none;background:transparent;color:#64748b;cursor:pointer;';
-        x.addEventListener('click',removeMini);
+        var tx=Math.max(4,Math.min(window.innerWidth-340,rect.left+rect.width/2-140));
+        var ty=Math.max(4,rect.top-52);
+        t.style.left=tx+'px'; t.style.top=ty+'px';
+
+        /* Text color */
+        t.appendChild(mkLabel('文字色'));
+        t.appendChild(mkColorPicker('文字顏色','#ffffff',function(c,r){ applyColorToRange(c,r); }));
+        t.appendChild(mkSep());
+        /* Font size */
+        t.appendChild(mkLabel('大小'));
+        t.appendChild(mkBtn('A−',function(){
+          if(!savedRange) return;
+          var anc2=savedRange.commonAncestorContainer;
+          var n2=anc2.nodeType===3?anc2.parentNode:anc2;
+          var rb2=n2.closest('.rb'); if(!rb2) return;
+          var cur=parseFloat(rb2.style.fontSize)||16;
+          rb2.style.fontSize=Math.max(8,cur-2)+'px';
+        }));
+        t.appendChild(mkBtn('A+',function(){
+          if(!savedRange) return;
+          var anc2=savedRange.commonAncestorContainer;
+          var n2=anc2.nodeType===3?anc2.parentNode:anc2;
+          var rb2=n2.closest('.rb'); if(!rb2) return;
+          var cur=parseFloat(rb2.style.fontSize)||16;
+          rb2.style.fontSize=Math.min(96,cur+2)+'px';
+        }));
+        t.appendChild(mkSep());
+        /* Format */
+        t.appendChild(mkBtn('B',function(){document.execCommand('bold');}));
+        t.appendChild(mkBtn('I',function(){document.execCommand('italic');}));
+        t.appendChild(mkBtn('U',function(){document.execCommand('underline');}));
+        /* Close */
+        var x=mkBtn('×',removeMini);
+        x.style.background='transparent'; x.style.color='#64748b';
         t.appendChild(x);
+
         document.body.appendChild(t);
-        toolbar=t;
-        /* Auto-remove when selection collapses */
-        var ob=new MutationObserver(function(){if(!window.getSelection()||window.getSelection().isCollapsed)removeMini();});
-        ob.observe(document,{characterData:true,childList:true,subtree:true});
-      },80);
+      }, 80);
     });
-    /* Remove toolbar when clicking outside */
-    document.addEventListener('mousedown',function(e){if(toolbar&&!toolbar.contains(e.target))removeMini();});
+    document.addEventListener('mousedown',function(e){ if(toolbar&&!toolbar.contains(e.target)) removeMini(); });
   })();
+
   window.changeBgColor=function(inp){var box=inp.closest('.rb');if(!box)return;var bg=inp.value;box.style.background=bg;box.style.backgroundColor=bg;var safe=contrastColor(bg);box.querySelectorAll('[contenteditable]').forEach(function(el){if(!el.dataset.colorLocked)el.style.color=safe;});};
 
   /* get approximate bg color from slide */
@@ -2147,8 +2163,147 @@ document.addEventListener('keydown', e=>{
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// EDITABLE PPTX  (text + shapes, not screenshot)
+// EDITABLE PPTX  ── parse live HTML DOM to extract real text boxes ──
 // ═══════════════════════════════════════════════════════════════════
+
+// Load a slide HTML string into a hidden iframe and return its document
+function loadSlideInHiddenIframe(html) {
+    return new Promise((resolve) => {
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;visibility:hidden;border:none;';
+        iframe.sandbox = 'allow-scripts allow-same-origin';
+        document.body.appendChild(iframe);
+        iframe.onload = () => resolve({ iframe, doc: iframe.contentDocument });
+        iframe.srcdoc = html;
+        setTimeout(() => resolve({ iframe, doc: iframe.contentDocument }), 3000);
+    });
+}
+
+// Parse color string → 6-char hex for PptxGenJS
+function colorToHex6(cssColor) {
+    if (!cssColor || cssColor === 'inherit' || cssColor === 'transparent') return null;
+    const m = (cssColor || '').match(/#([0-9a-fA-F]{3,6})/);
+    if (m) {
+        let h = m[1]; if (h.length === 3) h = h[0]+h[0]+h[1]+h[1]+h[2]+h[2];
+        return h.toUpperCase();
+    }
+    const rgbM = (cssColor || '').match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (rgbM) {
+        return [rgbM[1], rgbM[2], rgbM[3]]
+            .map(n => parseInt(n).toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+    return null;
+}
+
+// Extract text runs (with inline color spans) from a contenteditable element
+function extractTextRuns(el, defaultColor) {
+    const runs = [];
+    function walk(node, curColor) {
+        if (node.nodeType === 3) { // text node
+            const txt = node.textContent;
+            if (txt) runs.push({ text: txt, color: curColor });
+            return;
+        }
+        if (node.nodeType !== 1) return;
+        let color = curColor;
+        const inlineColor = colorToHex6(node.style?.color || '');
+        if (inlineColor) color = inlineColor;
+        const isBold   = node.tagName === 'B' || node.tagName === 'STRONG' || node.style?.fontWeight === 'bold';
+        const isItalic = node.tagName === 'I' || node.tagName === 'EM';
+        // Add line break for block elements
+        const isBlock = ['P','DIV','LI','H1','H2','H3','H4','H5','H6','BR'].includes(node.tagName);
+        if (isBlock && runs.length > 0 && runs[runs.length-1].text !== '\n') {
+            runs.push({ text: '\n', color });
+        }
+        Array.from(node.childNodes).forEach(child => walk(child, color));
+    }
+    walk(el, defaultColor);
+    // Clean up trailing newlines
+    while (runs.length > 0 && runs[runs.length-1].text === '\n') runs.pop();
+    return runs.filter(r => r.text.trim() !== '' || r.text === '\n');
+}
+
+// Build PptxGenJS text array from runs
+function runsToPptxText(runs, fontSize, baseBold, baseItalic) {
+    return runs.map(r => ({
+        text: r.text,
+        options: {
+            color: r.color || 'FFFFFF',
+            fontSize: fontSize || 16,
+            bold: baseBold || false,
+            italic: baseItalic || false,
+            fontFace: 'Arial',
+            breakLine: r.text === '\n'
+        }
+    })).filter(r => r.text !== '\n' || r.options.breakLine);
+}
+
+// Extract all text boxes from a slide's HTML by rendering it in a hidden iframe
+async function extractSlideTextBoxes(slideHtml) {
+    const { iframe, doc } = await loadSlideInHiddenIframe(slideHtml);
+    const boxes = [];
+
+    if (!doc) { iframe.remove(); return boxes; }
+
+    const svgEl = doc.getElementById('slide-svg');
+    if (!svgEl) { iframe.remove(); return boxes; }
+
+    // Find all .dg groups containing foreignObjects
+    svgEl.querySelectorAll('g.dg').forEach(g => {
+        // Get transform (position)
+        let tx = 0, ty = 0;
+        const tl = g.transform?.baseVal;
+        if (tl && tl.length > 0) {
+            tx = tl.getItem(0).matrix.e;
+            ty = tl.getItem(0).matrix.f;
+        }
+
+        const fo = g.querySelector('foreignObject');
+        if (!fo) return; // skip image-only groups
+
+        const rb = fo.querySelector('.rb, div');
+        if (!rb) return;
+
+        // Get size
+        const foW = parseFloat(fo.getAttribute('width') || 300);
+        const foH = parseFloat(fo.getAttribute('height') || 200);
+
+        // Convert 1920×1080 coordinates to PPTX inches (10"×5.625")
+        const pptX = (tx / 1920) * 10;
+        const pptY = (ty / 1080) * 5.625;
+        const pptW = Math.max(0.5, (foW / 1920) * 10);
+        const pptH = Math.max(0.3, (foH / 1080) * 5.625);
+
+        // Get font size
+        const fs = parseFloat(rb.style.fontSize || '16');
+        const pptFs = Math.max(8, Math.min(72, Math.round(fs * 0.75))); // px → pt approx
+
+        // Get background
+        const bgCss = rb.style.backgroundColor || rb.style.background || '';
+        const bgHex = colorToHex6(bgCss);
+
+        // Gather all contenteditable elements (skip .dh handle and .ctrl)
+        const editables = rb.querySelectorAll('[contenteditable]');
+        if (!editables.length) return;
+
+        // Collect all text with colors
+        let allRuns = [];
+        editables.forEach((el, idx) => {
+            if (idx > 0) allRuns.push({ text: '\n', color: null });
+            const elColor = colorToHex6(el.style.color || '') || 'FFFFFF';
+            const runs = extractTextRuns(el, elColor);
+            allRuns = allRuns.concat(runs);
+        });
+
+        if (!allRuns.some(r => r.text.trim())) return; // skip empty
+
+        boxes.push({ pptX, pptY, pptW, pptH, pptFs, bgHex, runs: allRuns });
+    });
+
+    iframe.remove();
+    return boxes;
+}
+
 async function downloadEditablePptx() {
     if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
 
@@ -2163,12 +2318,8 @@ async function downloadEditablePptx() {
 
         const templateKey = document.getElementById('sel-template').value;
         const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-
         const accentHex = (theme.accent.match(/#([0-9a-fA-F]{6})/)?.[1] || '818cf8');
-        const bgHex     = AppState.bgTemplateBase64 ? 'ffffff' : (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[1] || '0f172a');
-        const titleHex  = (theme.titleColor.match(/#([0-9a-fA-F]{6})/)?.[1] || 'ffffff');
-        const textHex   = (theme.text.match(/#([0-9a-fA-F]{6})/)?.[1] || 'cbd5e1');
-
+        const bgHex     = AppState.bgTemplateBase64 ? 'FFFFFF' : (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[1] || '0f172a').toUpperCase();
         const logoPos    = document.getElementById('sel-logo-pos').value;
         const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
         const [lx, ly]   = logoPosMap[logoPos] || [8.5, 0.2];
@@ -2176,136 +2327,78 @@ async function downloadEditablePptx() {
         for (const s of AppState.generatedSlides) {
             const sd    = s.slideData || {};
             const slide = pres.addSlide();
+            addLog(`📝 解析第 ${s.slideNumber} 頁文字方塊...`, 'info');
 
-            // ── Background ────────────────────────────────────────────
+            // ── Background ───────────────────────────────────────────
             if (AppState.bgTemplateBase64) {
-                // Use uploaded background as full-slide image object (editable picture)
                 slide.addImage({ data: AppState.bgTemplateBase64, x:0, y:0, w:10, h:5.625 });
             } else {
                 slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
-                slide.addShape('rect', { x:0, y:0, w:10, h:0.06, fill:{ color: accentHex } });
-                slide.addShape('rect', { x:0, y:0, w:0.08, h:5.625, fill:{ color: accentHex, transparency: 60 } });
             }
 
-            // ── Content ───────────────────────────────────────────────
-            if (sd.layout === 'title_only') {
-                if (!AppState.bgTemplateBase64) {
-                    slide.addShape('rect', {
-                        x:5.5, y:0, w:4.5, h:5.625,
-                        fill:{ color: accentHex, transparency: 92 },
-                        line:{ color: accentHex, transparency: 80, width: 0 }
-                    });
-                }
-                // Title: editable text box
-                slide.addText(sd.title || '', {
-                    x:0.5, y:1.5, w:8.5, h:2.0,
-                    fontSize: 52, bold: true, color: titleHex,
-                    fontFace: 'Arial', lineSpacingMultiple: 1.15
-                });
-                if (sd.subtitle) {
-                    slide.addText(sd.subtitle, {
-                        x:0.5, y:3.7, w:6, h:0.8,
-                        fontSize: 24, color: accentHex, fontFace: 'Arial'
-                    });
-                }
-                slide.addShape('rect', { x:0.5, y:4.6, w:1.5, h:0.06, fill:{ color: accentHex } });
+            // ── Extract text boxes from HTML DOM ─────────────────────
+            const textBoxes = await extractSlideTextBoxes(s.html);
+            addLog(`  → 找到 ${textBoxes.length} 個可編輯文字方塊`, 'success');
 
-            } else if (sd.layout === 'text_and_image') {
-                // Title
-                slide.addText(sd.title || '', {
-                    x:0.3, y:0.2, w:9.4, h:0.75,
-                    fontSize: 28, bold: true, color: titleHex, fontFace: 'Arial'
-                });
-                slide.addShape('rect', { x:0.3, y:1.0, w:1.0, h:0.05, fill:{ color: accentHex } });
-
-                // Text column (left half)
-                const bullets = (sd.bullet_points || []).map(b => ({
-                    text: b,
-                    options: { bullet:{ type:'number' }, color:textHex, fontSize:17, paraSpaceAfter:12, fontFace:'Arial' }
+            for (const box of textBoxes) {
+                const pptxRuns = box.runs.map(r => ({
+                    text: r.text || ' ',
+                    options: {
+                        color: r.color || accentHex,
+                        fontSize: box.pptFs,
+                        fontFace: 'Arial',
+                        breakLine: r.text === '\n'
+                    }
                 }));
-                if (bullets.length > 0) {
+
+                // Background shape for the text box
+                if (box.bgHex) {
                     slide.addShape('rect', {
-                        x:0.3, y:1.1, w:4.6, h:4.3,
-                        fill:{ color: accentHex, transparency: 94 },
-                        line:{ color: accentHex, transparency: 75, width: 1 },
-                        rectRadius: 0.08
+                        x: box.pptX, y: box.pptY, w: box.pptW, h: box.pptH,
+                        fill: { color: box.bgHex },
+                        line: { color: accentHex, transparency: 70, width: 0.5 },
+                        rectRadius: 0.05
                     });
-                    slide.addText(bullets, { x:0.4, y:1.2, w:4.4, h:4.1, valign:'top', fontFace:'Arial' });
                 }
 
-                // ── Image column (right half): real editable picture object ──
-                if (s.imageB64 && s.imageB64.startsWith('data:')) {
-                    // base64 image → addImage as a movable/resizable picture object in PPTX
-                    slide.addImage({ data: s.imageB64, x:5.1, y:0.8, w:4.7, h:4.6,
-                        sizing:{ type:'cover', w:4.7, h:4.6 } });
-                } else if (s.imageB64 && s.imageB64.startsWith('http')) {
-                    // URL image (from Google Drive / SerpAPI)
-                    try {
-                        slide.addImage({ path: s.imageB64, x:5.1, y:0.8, w:4.7, h:4.6 });
-                    } catch(imgErr) {
-                        // If URL can't load, leave a placeholder shape
-                        slide.addShape('rect', { x:5.1, y:0.8, w:4.7, h:4.6,
-                            fill:{ color: accentHex, transparency: 88 },
-                            line:{ color: accentHex, transparency: 60, width: 1 } });
-                        slide.addText('[ 圖片 ]', { x:5.1, y:2.8, w:4.7, h:0.8,
-                            fontSize:16, color:accentHex, align:'center', fontFace:'Arial' });
-                    }
-                } else {
-                    // No image: decorative placeholder shape
-                    slide.addShape('rect', { x:5.1, y:0.8, w:4.7, h:4.6,
-                        fill:{ color: accentHex, transparency: 92 },
-                        line:{ color: accentHex, transparency: 70, width: 1 } });
-                }
-
-            } else {
-                // text_only / diagram_slide
-                slide.addText(sd.title || '', {
-                    x:0.3, y:0.25, w:9.4, h:0.75,
-                    fontSize: 30, bold: true, color: titleHex, fontFace: 'Arial'
+                // Editable text box
+                slide.addText(pptxRuns.filter(r => !r.options.breakLine || r.text.trim()), {
+                    x: box.pptX, y: box.pptY, w: box.pptW, h: box.pptH,
+                    valign: 'top', wrap: true,
+                    inset: 0.1,
+                    fontFace: 'Arial'
                 });
-                slide.addShape('rect', { x:0.3, y:1.05, w:1.2, h:0.05, fill:{ color: accentHex } });
+            }
 
-                if (sd.layout === 'diagram_slide') {
-                    // ── Diagram: screenshot the HTML slide and add as picture object ──
-                    // This is the most faithful conversion since SVG diagrams can't
-                    // be represented as editable PPT shapes without SVG-to-shapes library
-                    addLog(`📸 截圖流程圖頁 ${s.slideNumber}（圖解轉圖片物件）...`, 'info');
-                    const diagramImgB64 = await slideHTMLToBase64(s.html, s.slideNumber);
-                    if (diagramImgB64) {
-                        // Add the diagram screenshot as a movable/resizable picture object
-                        slide.addImage({ data: diagramImgB64, x:0.3, y:1.2, w:9.4, h:4.1,
-                            sizing:{ type:'contain', w:9.4, h:4.1 } });
-                    } else {
-                        // Fallback: text description
-                        slide.addText(`📊 ${sd.diagram_description || sd.title}`, {
-                            x:0.5, y:1.5, w:9.0, h:3.5,
-                            fontSize:20, color:textHex, fontFace:'Arial', valign:'middle', align:'center'
-                        });
+            // ── Images (picture objects, not screenshots) ─────────────
+            if (s.imageB64) {
+                const imgSrc = s.imageB64;
+                try {
+                    if (imgSrc.startsWith('data:')) {
+                        slide.addImage({ data: imgSrc, x:5.1, y:0.8, w:4.7, h:4.6 });
+                    } else if (imgSrc.startsWith('http')) {
+                        slide.addImage({ path: imgSrc, x:5.1, y:0.8, w:4.7, h:4.6 });
                     }
-                } else {
-                    const bullets = (sd.bullet_points || []).map(b => ({
-                        text: b,
-                        options: { bullet:{ type:'number' }, color:textHex, fontSize:18, paraSpaceAfter:14, fontFace:'Arial' }
-                    }));
-                    if (bullets.length > 0) {
-                        slide.addShape('rect', {
-                            x:0.3, y:1.2, w:9.4, h:4.1,
-                            fill:{ color: accentHex, transparency: 94 },
-                            line:{ color: accentHex, transparency: 75, width: 1.5 },
-                            rectRadius: 0.1
-                        });
-                        slide.addText(bullets, { x:0.5, y:1.35, w:9.0, h:3.9, valign:'top', fontFace:'Arial' });
-                    }
+                } catch(e) { addLog(`⚠ 圖片物件插入失敗: ${e.message}`, 'warning'); }
+            }
+
+            // ── Diagram slides: add screenshot as picture object ──────
+            if (sd.layout === 'diagram_slide') {
+                addLog(`📸 截圖流程圖頁 ${s.slideNumber}...`, 'info');
+                const diagImg = await slideHTMLToBase64(s.html, s.slideNumber);
+                if (diagImg) {
+                    // Place diagram screenshot as a selectable picture (behind text boxes)
+                    slide.addImage({ data: diagImg, x:0, y:0, w:10, h:5.625 });
                 }
             }
 
-            // Page number
+            // ── Page number ──────────────────────────────────────────
             slide.addText(`${s.slideNumber}`, {
                 x:9.2, y:5.3, w:0.6, h:0.25,
                 fontSize:10, color:accentHex, align:'right', fontFace:'Arial'
             });
 
-            // Logo
+            // ── Logo ─────────────────────────────────────────────────
             if (AppState.logoBase64) {
                 slide.addImage({ data: AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
                     sizing:{ type:'contain', w:1.0, h:0.5 } });
@@ -3175,4 +3268,4 @@ async function startGeneration() {
 }
 </script>
 </body>
-                </html>
+</html>
