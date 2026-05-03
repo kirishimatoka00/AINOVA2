@@ -387,29 +387,30 @@
     </div>
 </main>
 
-<!-- ── SLIDE EDIT MODAL (live editing, changes preserved) ─────────── -->
-<div id="slide-edit-modal" class="hidden fixed inset-0 z-[120] bg-black/85 backdrop-blur-sm flex items-center justify-center p-3">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-7xl flex flex-col shadow-2xl" style="max-height:95vh;">
-        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-800 shrink-0">
-            <div class="flex items-center gap-2.5">
-                <i class="ph-fill ph-pencil-simple-line text-amber-400"></i>
-                <span class="text-sm font-bold text-white" id="edit-modal-title">編輯投影片</span>
-                <span class="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded">雙擊流程圖文字可編輯 · 拖曳移動物件 · 右下角拖曳縮放</span>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="saveSlideEdits()" class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors">
-                    <i class="ph-bold ph-floppy-disk"></i>儲存變更
-                </button>
-                <button onclick="closeEditModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
-                    <i class="ph-bold ph-x text-base"></i>
-                </button>
-            </div>
+<!-- ── SLIDE EDIT MODAL ───────────────────────────────────────────── -->
+<div id="slide-edit-modal" class="hidden fixed inset-0 z-[120] bg-black/90 backdrop-blur-sm flex flex-col">
+    <div class="flex items-center justify-between px-5 py-3 bg-slate-900 border-b border-slate-800 shrink-0">
+        <div class="flex items-center gap-2.5 min-w-0">
+            <i class="ph-fill ph-pencil-simple-line text-amber-400 shrink-0"></i>
+            <span class="text-sm font-bold text-white truncate" id="edit-modal-title">編輯投影片</span>
+            <span class="hidden sm:block text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded shrink-0">選取文字改色 · 雙擊SVG文字編輯 · 拖曳移動 · 右下縮放</span>
         </div>
-        <!-- Live slide container — NOT an iframe, renders directly -->
-        <div class="flex-1 overflow-hidden flex items-center justify-center bg-slate-950 p-4">
-            <div id="edit-slide-host" style="position:relative;aspect-ratio:16/9;width:100%;max-height:100%;">
-                <!-- slide content injected here -->
-            </div>
+        <div class="flex items-center gap-2 shrink-0 ml-3">
+            <button onclick="saveSlideEdits()" class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-colors">
+                <i class="ph-bold ph-floppy-disk"></i>儲存變更
+            </button>
+            <button onclick="closeEditModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+                <i class="ph-bold ph-x text-base"></i>
+            </button>
+        </div>
+    </div>
+    <!-- iframe-based viewport: fully isolated, no layout pollution -->
+    <div id="edit-slide-viewport" class="flex-1 flex items-center justify-center bg-slate-950 overflow-hidden p-4">
+        <div id="edit-slide-scaler" style="position:relative;overflow:hidden;flex-shrink:0;">
+            <iframe id="edit-slide-iframe"
+                style="position:absolute;top:0;left:0;width:1920px;height:1080px;border:none;transform-origin:top left;"
+                sandbox="allow-scripts allow-same-origin">
+            </iframe>
         </div>
     </div>
 </div>
@@ -1084,46 +1085,111 @@ const SLIDE_INTERACTION_SCRIPT = `
   /* control functions */
   window.updateThemeColor=function(id,hex){document.documentElement.style.setProperty('--c'+id,hex);var rgb=hexToRgb(hex);if(rgb)document.documentElement.style.setProperty('--c'+id+'-rgb',rgb.r+','+rgb.g+','+rgb.b);};
   window.adjustFontSize=function(btn,delta){var box=btn.closest('.rb');if(!box)return;var cur=parseFloat(box.style.fontSize)||16;cur=Math.max(8,Math.min(96,cur+delta*2));box.style.fontSize=cur+'px';};
-  /* changeTextColor: if a contenteditable is focused inside this box, only change that element.
-     Otherwise change all (batch mode). Color picker syncs to focused element on focus. */
+  /* ── Text color: selection-aware ──────────────────────────────────
+     If text is selected INSIDE the rb box  → colour only selection.
+     Otherwise                              → colour all text in box.
+  ── */
   window.changeTextColor=function(inp){
-    var box=inp.closest('.rb');if(!box)return;
-    inp.dataset.colorLocked='1';
-    var act=document.activeElement;
-    if(act&&act.isContentEditable&&box.contains(act)){
-      /* targeted: only the focused element */
-      act.style.color=inp.value;
-      act.dataset.colorLocked='1';
-    }else{
-      /* batch: apply to all */
-      box.querySelectorAll('[contenteditable]').forEach(function(el){
-        el.style.color=inp.value;
-        el.dataset.colorLocked='1';
-      });
+    var color=inp.value;
+    var box=inp.closest('.rb'); if(!box) return;
+    var sel=window.getSelection();
+    /* Check if there is a real selection inside the box */
+    if(sel && !sel.isCollapsed && sel.rangeCount>0){
+      var range=sel.getRangeAt(0);
+      /* Verify ancestor is inside our box */
+      var commonAnc=range.commonAncestorContainer;
+      var node=commonAnc.nodeType===3?commonAnc.parentNode:commonAnc;
+      if(box.contains(node)){
+        /* Restore focus so execCommand works */
+        var focusEl=node.closest('[contenteditable]');
+        if(focusEl) focusEl.focus();
+        /* Apply colour to selection only */
+        document.execCommand('styleWithCSS',false,true);
+        document.execCommand('foreColor',false,color);
+        inp.dataset.colorLocked='1';
+        return; /* done — other elements untouched */
+      }
     }
+    /* No selection: apply to all contenteditable in box */
+    inp.dataset.colorLocked='1';
+    box.querySelectorAll('[contenteditable]').forEach(function(el){el.style.color=color;});
   };
-  window.changeBgColor=function(inp){var box=inp.closest('.rb');if(!box)return;var bg=inp.value;box.style.background=bg;box.style.backgroundColor=bg;var safe=contrastColor(bg);box.querySelectorAll('[contenteditable]').forEach(function(el){if(!el.dataset.colorLocked)el.style.color=safe;});};
 
-  /* sync text color picker when user clicks into a contenteditable element */
-  function syncTextColorPicker(rb){
-    rb.querySelectorAll('[contenteditable]').forEach(function(el){
-      el.addEventListener('focus',function(){
-        var ci=rb.querySelector('.ctrl input[title="文字色"]');
-        if(!ci)return;
-        var clr=(el.style.color||'').trim();
-        if(!clr)return;
-        /* hex: #rrggbb */
-        if(/^#[0-9a-fA-F]{6}$/.test(clr)){ci.value=clr;return;}
-        /* rgb(r,g,b) → #hex */
-        var m=clr.match(/rgba?\(\s*(\d+),\s*(\d+),\s*(\d+)/);
-        if(m){
-          ci.value='#'+[m[1],m[2],m[3]].map(function(v){
-            return ('0'+parseInt(v).toString(16)).slice(-2);
-          }).join('');
+  /* ── Floating mini-toolbar on text selection ──────────────────── */
+  (function(){
+    var toolbar=null;
+    function removeMini(){if(toolbar){toolbar.remove();toolbar=null;}}
+    document.addEventListener('mouseup',function(e){
+      /* small delay so selection is finalised */
+      setTimeout(function(){
+        var sel=window.getSelection();
+        if(!sel||sel.isCollapsed||sel.rangeCount===0){removeMini();return;}
+        var range=sel.getRangeAt(0);
+        var anc=range.commonAncestorContainer;
+        var node=anc.nodeType===3?anc.parentNode:anc;
+        var rb=node.closest('.rb'); if(!rb){removeMini();return;}
+        removeMini();
+        /* Build mini toolbar */
+        var t=document.createElement('div');
+        t.id='_mini_toolbar';
+        t.style.cssText='position:fixed;z-index:9999;display:flex;align-items:center;gap:5px;'+
+          'background:rgba(10,18,36,.97);border:1px solid rgba(99,102,241,.6);'+
+          'border-radius:8px;padding:5px 8px;box-shadow:0 4px 20px rgba(0,0,0,.5);pointer-events:auto;';
+        /* Position above selection */
+        var rect=range.getBoundingClientRect();
+        t.style.left=(rect.left+rect.width/2-80)+'px';
+        t.style.top=(rect.top-44)+'px';
+        /* Font color picker */
+        var lbl=document.createElement('span');
+        lbl.textContent='文字色';
+        lbl.style.cssText='color:#94a3b8;font-size:10px;font-weight:600;white-space:nowrap;';
+        var cp=document.createElement('input');
+        cp.type='color'; cp.value='#ffffff';
+        cp.style.cssText='width:22px;height:22px;border:none;border-radius:3px;cursor:pointer;padding:0;background:transparent;';
+        cp.title='選取文字顏色';
+        cp.addEventListener('input',function(){
+          /* Re-apply the stored selection before colouring */
+          var restoreOk=false;
+          try{sel.removeAllRanges();sel.addRange(range);restoreOk=true;}catch(e){}
+          if(restoreOk){
+            document.execCommand('styleWithCSS',false,true);
+            document.execCommand('foreColor',false,cp.value);
+          }
+        });
+        /* Bold / Italic */
+        function mkBtn(label,cmd){
+          var b=document.createElement('button');
+          b.textContent=label;
+          b.style.cssText='font-size:12px;font-weight:700;padding:2px 6px;border:none;'+
+            'background:rgba(255,255,255,.12);border-radius:4px;cursor:pointer;color:#e2e8f0;';
+          b.addEventListener('mousedown',function(ev){
+            ev.preventDefault(); /* keep selection */
+            try{sel.removeAllRanges();sel.addRange(range);}catch(e){}
+            document.execCommand(cmd);
+          });
+          return b;
         }
-      });
+        t.appendChild(lbl); t.appendChild(cp);
+        t.appendChild(mkBtn('B','bold'));
+        t.appendChild(mkBtn('I','italic'));
+        t.appendChild(mkBtn('U','underline'));
+        /* close btn */
+        var x=document.createElement('button');
+        x.textContent='×';
+        x.style.cssText='font-size:14px;font-weight:700;padding:0 4px;border:none;background:transparent;color:#64748b;cursor:pointer;';
+        x.addEventListener('click',removeMini);
+        t.appendChild(x);
+        document.body.appendChild(t);
+        toolbar=t;
+        /* Auto-remove when selection collapses */
+        var ob=new MutationObserver(function(){if(!window.getSelection()||window.getSelection().isCollapsed)removeMini();});
+        ob.observe(document,{characterData:true,childList:true,subtree:true});
+      },80);
     });
-  }
+    /* Remove toolbar when clicking outside */
+    document.addEventListener('mousedown',function(e){if(toolbar&&!toolbar.contains(e.target))removeMini();});
+  })();
+  window.changeBgColor=function(inp){var box=inp.closest('.rb');if(!box)return;var bg=inp.value;box.style.background=bg;box.style.backgroundColor=bg;var safe=contrastColor(bg);box.querySelectorAll('[contenteditable]').forEach(function(el){if(!el.dataset.colorLocked)el.style.color=safe;});};
 
   /* get approximate bg color from slide */
   function getSlideBg(){var rects=svg.querySelectorAll('rect');for(var i=0;i<rects.length;i++){var f=rects[i].getAttribute('fill')||'';var m=f.match(/#[0-9a-fA-F]{6}/);if(m)return m[0];}return '#0f172a';}
@@ -1189,7 +1255,8 @@ const SLIDE_INTERACTION_SCRIPT = `
         /* Feature 7: text reflow */
         inner.style.overflowX='hidden';inner.style.wordWrap='break-word';inner.style.whiteSpace='normal';
         if(!inner.style.resize)inner.style.resize='both';
-        if(!inner.style.overflow||inner.style.overflow==='auto')inner.style.overflow='hidden';
+        inner.style.overflow='auto'; /* auto allows resize handle to work and content to scroll */
+        inner.style.cursor='default';
         if(!inner.style.minWidth)inner.style.minWidth='180px';
         if(!inner.style.minHeight)inner.style.minHeight='60px';
         /* Feature 3: auto-contrast text vs card bg */
@@ -1216,8 +1283,6 @@ const SLIDE_INTERACTION_SCRIPT = `
           '<button onclick="adjustFontSize(this,+1)">A+</button>'+
           '</div>');
       }
-      /* after ctrl bar exists, bind focus → sync color picker */
-      if(inner) syncTextColorPicker(inner);
     });
 
     /* Feature 4: wrap SVG <image> in .dg for dragging */
@@ -2750,9 +2815,26 @@ async function getSlideImage(sData, imageMode, slideIndex) {
 // ═══════════════════════════════════════════════════════════════════
 // MAIN GENERATION LOOP
 // ═══════════════════════════════════════════════════════════════════
-// SLIDE EDIT MODAL  (Feature 5: changes preserved to output)
+// SLIDE EDIT MODAL  (iframe-based, fully isolated)
 // ═══════════════════════════════════════════════════════════════════
 let _editingSlideIndex = -1;
+
+function _scaleEditIframe() {
+    const vp     = document.getElementById('edit-slide-viewport');
+    const scaler = document.getElementById('edit-slide-scaler');
+    const iframe = document.getElementById('edit-slide-iframe');
+    if (!vp || !scaler || !iframe) return;
+    const padW = 32, padH = 32;
+    const availW = vp.clientWidth  - padW;
+    const availH = vp.clientHeight - padH;
+    if (availW <= 0 || availH <= 0) return;
+    const scale   = Math.min(availW / 1920, availH / 1080);
+    const scaledW = Math.floor(1920 * scale);
+    const scaledH = Math.floor(1080 * scale);
+    scaler.style.width  = scaledW + 'px';
+    scaler.style.height = scaledH + 'px';
+    iframe.style.transform = `scale(${scale})`;
+}
 
 function openEditModal(index) {
     const s = AppState.generatedSlides[index];
@@ -2762,81 +2844,184 @@ function openEditModal(index) {
     document.getElementById('edit-modal-title').textContent =
         `編輯第 ${s.slideNumber} 頁：${s.title || ''}`;
 
-    // Inject slide HTML directly into host div (not sandboxed iframe)
-    const host = document.getElementById('edit-slide-host');
-    host.innerHTML = s.html;
+    // Inject slide HTML into the iframe via srcdoc
+    // Prepend an extra interaction layer that enables:
+    //  - per-selection text coloring via Range API
+    //  - floating mini-toolbar
+    //  - robust drag for ALL .dg groups including dark cards
+    const extraScript = `
+<script>
+(function(){
+  /* ── Floating color toolbar on selection ── */
+  var miniBar=null;
+  function removeMini(){if(miniBar){miniBar.remove();miniBar=null;}}
 
-    // Scale the slide to fit the host container
-    function scaleHost() {
-        const hostW = host.parentElement.clientWidth - 32;
-        const hostH = host.parentElement.clientHeight - 32;
-        const scale = Math.min(hostW / 1920, hostH / 1080);
-        host.style.width = '1920px';
-        host.style.height = '1080px';
-        host.style.transform = `scale(${scale})`;
-        host.style.transformOrigin = 'top left';
-        host.style.marginLeft = ((hostW - 1920 * scale) / 2) + 'px';
+  /* Wrap selected text in <span style="color:C"> using Range API */
+  function applyColorToSelection(color){
+    var sel=window.getSelection();
+    if(!sel||sel.isCollapsed||sel.rangeCount===0) return false;
+    var range=sel.getRangeAt(0);
+    /* Check selection is inside a contenteditable */
+    var anc=range.commonAncestorContainer;
+    var node=anc.nodeType===3?anc.parentNode:anc;
+    if(!node.closest('[contenteditable]')) return false;
+    /* Extract, wrap in span, reinsert */
+    var frag=range.extractContents();
+    var span=document.createElement('span');
+    span.style.color=color;
+    span.appendChild(frag);
+    range.insertNode(span);
+    /* Collapse selection after span */
+    sel.removeAllRanges();
+    var newRange=document.createRange();
+    newRange.setStartAfter(span);
+    newRange.collapse(true);
+    sel.addRange(newRange);
+    return true;
+  }
+
+  /* Adjust font size of selected contenteditable's parent .rb */
+  function applyFontSizeAdj(delta){
+    var sel=window.getSelection();
+    if(!sel||sel.rangeCount===0) return;
+    var node=sel.getRangeAt(0).commonAncestorContainer;
+    node=node.nodeType===3?node.parentNode:node;
+    var rb=node.closest('.rb'); if(!rb) return;
+    var cur=parseFloat(rb.style.fontSize)||16;
+    rb.style.fontSize=Math.max(8,Math.min(96,cur+delta*2))+'px';
+  }
+
+  function buildMiniBar(rect){
+    removeMini();
+    var t=document.createElement('div');
+    t.style.cssText='position:fixed;z-index:9999;display:flex;align-items:center;gap:5px;'+
+      'background:rgba(8,14,28,.97);border:1.5px solid rgba(99,102,241,.7);'+
+      'border-radius:9px;padding:5px 9px;box-shadow:0 6px 24px rgba(0,0,0,.6);';
+    t.style.left=Math.max(0,rect.left+rect.width/2-100)+'px';
+    t.style.top=(rect.top-50)+'px';
+
+    function lbl(txt){var s=document.createElement('span');s.textContent=txt;s.style.cssText='color:#94a3b8;font-size:10px;font-weight:600;white-space:nowrap;';return s;}
+    function clrPicker(title,initColor,onChange){
+      var cp=document.createElement('input');cp.type='color';cp.value=initColor;cp.title=title;
+      cp.style.cssText='width:22px;height:22px;border:none;border-radius:4px;cursor:pointer;padding:0;';
+      cp.addEventListener('input',function(){
+        var saved=null;
+        try{var sel=window.getSelection();if(sel&&sel.rangeCount)saved=sel.getRangeAt(0).cloneRange();}catch(e){}
+        onChange(cp.value,saved);
+      });
+      return cp;
     }
-    scaleHost();
-    window._editScaleHandler = scaleHost;
-    window.addEventListener('resize', scaleHost);
+    function fmtBtn(label,action){
+      var b=document.createElement('button');b.textContent=label;
+      b.style.cssText='font-size:12px;font-weight:700;padding:2px 6px;border:none;'+
+        'background:rgba(255,255,255,.12);border-radius:4px;cursor:pointer;color:#e2e8f0;';
+      b.addEventListener('mousedown',function(ev){ev.preventDefault();action();});
+      return b;
+    }
 
-    // Execute scripts in the injected HTML
-    host.querySelectorAll('script').forEach(s => {
-        const ns = document.createElement('script');
-        ns.textContent = s.textContent;
-        document.head.appendChild(ns);
-        ns.remove();
-    });
+    t.appendChild(lbl('文字色'));
+    t.appendChild(clrPicker('文字顏色','#ffffff',function(c,saved){
+      if(saved){try{var sel=window.getSelection();sel.removeAllRanges();sel.addRange(saved);}catch(e){}}
+      applyColorToSelection(c);
+    }));
+    t.appendChild(lbl('大小'));
+    t.appendChild(fmtBtn('A−',function(){applyFontSizeAdj(-1);}));
+    t.appendChild(fmtBtn('A+',function(){applyFontSizeAdj(+1);}));
+    var sep=document.createElement('span');sep.style.cssText='width:1px;height:14px;background:rgba(255,255,255,.18);margin:0 2px;';
+    t.appendChild(sep);
+    t.appendChild(fmtBtn('B',function(){document.execCommand('bold');}));
+    t.appendChild(fmtBtn('I',function(){document.execCommand('italic');}));
+    var x=document.createElement('button');x.textContent='×';
+    x.style.cssText='font-size:14px;padding:0 4px;border:none;background:transparent;color:#64748b;cursor:pointer;';
+    x.addEventListener('click',removeMini);
+    t.appendChild(x);
+    document.body.appendChild(t);
+    miniBar=t;
+  }
 
+  document.addEventListener('mouseup',function(){
+    setTimeout(function(){
+      var sel=window.getSelection();
+      if(!sel||sel.isCollapsed||!sel.rangeCount){removeMini();return;}
+      var range=sel.getRangeAt(0);
+      var anc=range.commonAncestorContainer;
+      var node=anc.nodeType===3?anc.parentNode:anc;
+      if(!node.closest('[contenteditable]')){removeMini();return;}
+      buildMiniBar(range.getBoundingClientRect());
+    },60);
+  });
+  document.addEventListener('mousedown',function(e){if(miniBar&&!miniBar.contains(e.target))removeMini();});
+})();
+<\/script>`;
+
+    const slideHtml = s.html.replace('</body>', extraScript + '\n</body>');
+    const iframe = document.getElementById('edit-slide-iframe');
+
+    // Show modal BEFORE writing iframe so viewport size is available
     document.getElementById('slide-edit-modal').classList.remove('hidden');
+
+    // Write content to iframe
+    iframe.srcdoc = slideHtml;
+
+    // Scale after iframe has rendered
+    iframe.onload = () => {
+        requestAnimationFrame(() => { requestAnimationFrame(_scaleEditIframe); });
+    };
+    window._editScaleHandler = _scaleEditIframe;
+    window.addEventListener('resize', _scaleEditIframe);
 }
 
 function saveSlideEdits() {
     const s = AppState.generatedSlides[_editingSlideIndex];
     if (!s) return closeEditModal();
 
-    const host = document.getElementById('edit-slide-host');
-    // Serialize the current live DOM state back to HTML string
-    const svgEl = host.querySelector('#slide-svg');
-    if (svgEl) {
-        // Capture all transforms (drag positions)
-        svgEl.querySelectorAll('.dg').forEach(g => {
+    const iframe = document.getElementById('edit-slide-iframe');
+    const idoc   = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!idoc) { showToast('❌ 無法存取 iframe 內容'); return closeEditModal(); }
+
+    const svg = idoc.getElementById('slide-svg');
+    if (svg) {
+        // Freeze all drag transforms so they survive serialization
+        svg.querySelectorAll('.dg').forEach(g => {
             const tl = g.transform?.baseVal;
             if (tl && tl.length > 0) {
                 const m = tl.getItem(0).matrix;
-                g.setAttribute('transform', `translate(${m.e},${m.f})`);
+                g.setAttribute('transform', `translate(${Math.round(m.e)},${Math.round(m.f)})`);
             }
         });
-        // Capture all rb sizes
-        svgEl.querySelectorAll('.rb').forEach(rb => {
+        // Freeze all .rb sizes
+        svg.querySelectorAll('.rb').forEach(rb => {
             const fo = rb.closest('foreignObject');
             if (fo) {
-                fo.setAttribute('width', rb.offsetWidth);
+                fo.setAttribute('width',  rb.offsetWidth);
                 fo.setAttribute('height', rb.offsetHeight);
-                rb.style.width = rb.offsetWidth + 'px';
+                rb.style.width  = rb.offsetWidth  + 'px';
                 rb.style.height = rb.offsetHeight + 'px';
             }
         });
     }
 
-    // Build updated HTML from the live DOM
-    const updatedHTML = '<!DOCTYPE html>\n' + host.innerHTML
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')  // remove injected scripts
-        + SLIDE_INTERACTION_SCRIPT + '\n';
+    // Serialize the live iframe DOM (removes scripts, then reattaches interaction)
+    let updatedHTML = '<!DOCTYPE html>\n<html>' +
+        (idoc.head?.outerHTML || '') +
+        (idoc.body?.outerHTML || '') +
+        '</html>';
+    // Remove runtime script tags (they'll be re-injected next time)
+    updatedHTML = updatedHTML.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+    // Re-attach the standard interaction script
+    updatedHTML = updatedHTML.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
 
-    // Update stored slide
     s.html = updatedHTML;
     AppState.generatedSlides[_editingSlideIndex] = s;
 
-    // Re-render the preview card thumbnail
-    const grid = document.getElementById('slides-preview-grid');
+    // Refresh thumbnail iframe
+    const grid  = document.getElementById('slides-preview-grid');
     const cards = grid.querySelectorAll('.slide-preview-card');
     if (cards[_editingSlideIndex]) {
-        const iframe = cards[_editingSlideIndex].querySelector('iframe');
-        if (iframe) {
-            const escaped = updatedHTML.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
-            iframe.setAttribute('srcdoc', escaped);
+        const thumb = cards[_editingSlideIndex].querySelector('iframe');
+        if (thumb) {
+            const esc = updatedHTML.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+            thumb.setAttribute('srcdoc', esc);
         }
     }
 
@@ -2845,8 +3030,9 @@ function saveSlideEdits() {
 }
 
 function closeEditModal() {
+    const iframe = document.getElementById('edit-slide-iframe');
+    if (iframe) iframe.srcdoc = '';
     document.getElementById('slide-edit-modal').classList.add('hidden');
-    document.getElementById('edit-slide-host').innerHTML = '';
     if (window._editScaleHandler) {
         window.removeEventListener('resize', window._editScaleHandler);
         window._editScaleHandler = null;
