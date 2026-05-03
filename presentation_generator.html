@@ -139,7 +139,7 @@
             </div>
             <div class="flex items-center gap-2 pt-2 border-t border-slate-800">
                 <i class="ph-fill ph-cloud-arrow-up text-indigo-400 shrink-0 text-base"></i>
-                <span class="text-[11px] text-slate-400 flex-1 truncate max-w-[180px]">GAS API: <span id="api-gas-status" class="font-semibold">...</span></span>
+                <span class="text-[11px] text-slate-400 flex-1">GAS API: <span id="api-gas-status" class="font-semibold">...</span></span>
                 <button onclick="promptApiKey('gas')" class="text-[10px] text-slate-500 hover:text-slate-300 transition-colors">設定</button>
             </div>
         </div>
@@ -924,14 +924,22 @@ async function generateSlideHTML(slideData, theme, imageB64) {
         ? `【圖片可拖曳指示】本投影片有一張圖片。必須將圖片放置在可拖曳的 foreignObject 容器內，格式如下：\n<g class="dg" transform="translate(X,Y)"><foreignObject x="0" y="0" width="W" height="H"><div class="rb" style="width:100%;height:100%;"><div class="dh">· · ·</div><img src="${isDirectUrl ? imageB64 : 'REPLACE_IMAGE_SRC'}" draggable="false" style="width:100%;height:100%;object-fit:cover;"></div></foreignObject></g>`
         : `本頁無插圖，請利用版面與幾何圖形設計。`;
 
+    const themeConfig = AppState.bgBase64 
+        ? "已有自訂背景圖，【簡報視覺風格不套用】。請使用 transparent 透明背景，不可繪製任何帶有顏色的背景方塊 <rect>。文字顏色請確保與自訂底圖有極高對比度！"
+        : `背景基調：${theme.bg}, 標題：${theme.titleColor}, 強調色：${theme.accent}, 內文：${theme.text}`;
+
+    const bgLayerRule = AppState.bgBase64
+        ? `2. 背景層：因為已有自訂背景，SVG 背景必須保持透明（transparent），嚴禁繪製填滿畫布的 <rect> 背景。`
+        : `2. 背景層：必須用 <rect> 搭配 <linearGradient>。`;
+
     const prompt = `你是頂級 HTML/SVG 互動式投影片設計師。生成一份完整的 HTML 單頁投影片。
 【資料】${JSON.stringify(slideData, null, 2)}
-【配色】背景基調：${theme.bg}, 標題：${theme.titleColor}, 強調色：${theme.accent}, 內文：${theme.text}
+【配色與背景指示】${themeConfig}
 ${imgInstruction}
 
 【★★★ 嚴格架構規範（非常重要）★★★】
 1. 主畫布必須為 <svg id="slide-svg" viewBox="0 0 1920 1080">，填滿 body。
-2. 背景層：必須用 <rect> 搭配 <linearGradient>。
+${bgLayerRule}
 3. ★ 所有的文字（包含大標題、副標題、頁碼、內文、**以及流程圖與架構圖上的每一個說明節點**），都必須放置在可拖曳的 foreignObject 容器內，**嚴禁使用原生 SVG 的 <text> 標籤！**
 4. 【重要：極高對比度】生成的文字與其卡片底色、投影片底色必須有極高的對比度！如果底色是深色，文字必須是白色或極亮色；若底色為白/淺色，文字必須是深灰或黑色。
 5. 每個文字方塊或圖片方塊的結構必須為：
@@ -1018,6 +1026,10 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
     const bgInject = AppState.bgBase64 
         ? `<image href="${AppState.bgBase64}" x="0" y="0" width="1920" height="1080" preserveAspectRatio="none" class="custom-bg-image"/>` 
         : '';
+        
+    const bgRect = AppState.bgBase64 
+        ? '' 
+        : `<rect width="1920" height="1080" fill="url(#bg)"/>`;
 
     // 強制對比色
     const titleColor = isWhite ? '#0f172a' : 'white';
@@ -1149,7 +1161,7 @@ body{width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI","PingFang
 <body>
 <svg id="slide-svg" viewBox="0 0 1920 1080" style="width:100%;height:100%;position:absolute;inset:0;" xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)">
 <defs>${bgDefs}</defs>
-<rect width="1920" height="1080" fill="url(#bg)"/>
+${bgRect}
 ${bgInject}
 ${contentHTML}
 ${slideNumHTML}
@@ -1596,9 +1608,9 @@ async function downloadEditablePptx() {
 
             // 1. 設定背景 (優先使用自訂底板)
             if (AppState.bgBase64) {
-                slide.addImage({ data: AppState.bgBase64, x:0, y:0, w:10, h:5.625 });
+                slide.background = { data: AppState.bgBase64 };
             } else {
-                slide.background = { fill: defaultBgHex };
+                slide.background = { color: defaultBgHex };
             }
 
             const iframe = iframes[i];
