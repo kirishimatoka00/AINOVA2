@@ -921,7 +921,7 @@ async function generateSlideHTML(slideData, theme, imageB64) {
 
     const isDirectUrl = imageB64 && imageB64.startsWith('http');
     const imgInstruction = imageB64
-        ? `【圖片可拖曳指示】本投影片有一張圖片。必須將圖片放置在可拖曳的 foreignObject 容器內，格式如下：\n<g class="dg" transform="translate(X,Y)"><foreignObject x="0" y="0" width="W" height="H"><div class="rb" style="width:100%;height:100%;"><div class="dh">· · ·</div><img src="${isDirectUrl ? imageB64 : 'REPLACE_IMAGE_SRC'}" style="width:100%;height:100%;object-fit:cover;"></div></foreignObject></g>`
+        ? `【圖片可拖曳指示】本投影片有一張圖片。必須將圖片放置在可拖曳的 foreignObject 容器內，格式如下：\n<g class="dg" transform="translate(X,Y)"><foreignObject x="0" y="0" width="W" height="H"><div class="rb" style="width:100%;height:100%;"><div class="dh">· · ·</div><img src="${isDirectUrl ? imageB64 : 'REPLACE_IMAGE_SRC'}" draggable="false" style="width:100%;height:100%;object-fit:cover;"></div></foreignObject></g>`
         : `本頁無插圖，請利用版面與幾何圖形設計。`;
 
     const prompt = `你是頂級 HTML/SVG 互動式投影片設計師。生成一份完整的 HTML 單頁投影片。
@@ -937,18 +937,20 @@ ${imgInstruction}
 5. 每個文字方塊或圖片方塊的結構必須為：
    <g class="dg" transform="translate(X, Y)">
      <foreignObject x="0" y="0" width="W" height="H">
-       <div class="rb" style="width:Wpx;height:Hpx; font-size:24px; background:rgba(...); ...">
+       <div class="rb" style="width:100%;height:100%; font-size:24px; background:rgba(...); ...">
          <div class="dh">· · ·</div>
          <div class="ctrl">
            <input type="color" oninput="updateThemeColor(this,this.value)">
            <button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button>
          </div>
-         <div contenteditable="true" style="color:...; font-weight:...">您的文字...</div>
+         <div contenteditable="true" style="color:...; font-weight:...; width:100%; white-space:pre-wrap; word-break:break-word;">您的文字...</div>
        </div>
      </foreignObject>
    </g>
-6. 所有 <div class="rb"> 必須加上 resize:both; overflow:auto; 以便拖曳與改變形狀。
-7. 請根據版型自由發揮創意排版，但所有文字與圖片務必遵守上述包裹規範！`;
+6. ★ 所有 <div class="rb"> 必須加上 resize:both; overflow:hidden; display:flex; flex-direction:column;。
+7. ★ 絕對禁止對 .rb 內部的文字節點或圖片設定固定的 width 或 height，必須使用 flex:1; width:100%; 讓它們自動適應父容器 (.rb) 的大小，確保拉寬文字框時文字能跟著攤開！
+8. ★ 所有的 <img> 標籤必須加上 \`draggable="false"\` 屬性，以避免與拖曳腳本衝突。
+9. 請根據版型自由發揮創意排版，但所有文字與圖片務必遵守上述包裹規範！`;
 
     for (const modelId of uniqueModels) {
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
@@ -970,17 +972,21 @@ ${imgInstruction}
             html = html.replace(/^```html\s*/im, '').replace(/^```\s*/im, '').replace(/\s*```$/im, '').trim();
             if (!html.toLowerCase().startsWith('<!doctype')) html = '<!DOCTYPE html>\n' + (html.match(/<html[\s\S]*<\/html>/i)?.[0] || html);
 
+            // 注入互動腳本
             if (!html.includes('adjustFontSize')) html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
 
+            // 注入自訂背景圖 (如果有)
             if (AppState.bgBase64) {
                 const bgImgTag = `<image href="${AppState.bgBase64}" x="0" y="0" width="1920" height="1080" preserveAspectRatio="none" opacity="1" class="custom-bg-image"/>`;
                 if (html.includes('</defs>')) html = html.replace(/<\/defs>/i, match => match + '\n' + bgImgTag);
                 else html = html.replace(/<svg[^>]*>/i, match => match + '\n' + bgImgTag);
             }
 
+            // 處理生成的圖片
             if (imageB64 && !isDirectUrl) html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
             if (imageB64) html = html.replace(/<img([^>]*)src=["']([^"']+)["']([^>]*)>/g, '<img$1src="$2" crossorigin="anonymous"$3>');
 
+            // 處理 Logo
             if (AppState.logoBase64) {
                 const pos = document.getElementById('sel-logo-pos').value || 'TR';
                 const posMap = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
@@ -995,7 +1001,7 @@ ${imgInstruction}
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// FALLBACK HTML ── (強制全面使用 foreignObject 可拖曳卡片，保證高對比)
+// FALLBACK HTML ── (強制全面使用 foreignObject 可拖曳卡片，保證高對比與可換行)
 // ═══════════════════════════════════════════════════════════════════
 function buildFallbackSlideHTML(slideData, theme, imageB64) {
     const title   = (slideData.title || '').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -1004,6 +1010,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
     const accent  = theme.accent;
     const isWhite = document.getElementById('sel-template').value === 'pure_white';
     
+    // 預設背景，若有上傳底圖則會被自訂底圖覆蓋
     const bgDefs = isWhite 
         ? `<linearGradient id="bg"><stop offset="0%" stop-color="#ffffff"/><stop offset="100%" stop-color="#f8fafc"/></linearGradient>`
         : `<linearGradient id="bg"><stop offset="0%" stop-color="#060a18"/><stop offset="100%" stop-color="#0e1628"/></linearGradient>`;
@@ -1014,7 +1021,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
 
     // 強制對比色
     const titleColor = isWhite ? '#0f172a' : 'white';
-    const textColor  = isWhite ? '#334155' : 'white'; // 加深對比度
+    const textColor  = isWhite ? '#334155' : 'white'; 
     const contentBg  = isWhite ? 'rgba(255,255,255,0.85)' : 'rgba(15,23,42,0.85)';
     const nodeBg     = isWhite ? 'rgba(255,255,255,0.9)' : 'rgba(15,23,42,0.9)';
 
@@ -1024,7 +1031,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
         contentHTML = `
         <g class="dg" transform="translate(110, 420)">
             <foreignObject x="0" y="0" width="1700" height="280">
-                <div class="rb" style="width:1700px;height:280px;background:transparent;border:none;box-shadow:none;font-size:34px;">
+                <div class="rb" style="font-size:34px;background:transparent;border:none;box-shadow:none;">
                     <div class="dh" style="color:rgba(150,150,150,0.5);">· · · · ·</div>
                     <div class="ctrl"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     <div contenteditable="true" style="font-size:108px;font-weight:900;color:${titleColor};line-height:1.1;">${title}</div>
@@ -1036,7 +1043,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
         contentHTML = `
         <g class="dg" transform="translate(110, 80)">
             <foreignObject x="0" y="0" width="1600" height="120">
-                <div class="rb" style="width:1600px;height:120px;background:transparent;border:none;box-shadow:none;font-size:62px;">
+                <div class="rb" style="background:transparent;border:none;box-shadow:none;font-size:62px;">
                     <div class="dh" style="color:rgba(150,150,150,0.5);">· · · · ·</div>
                     <div class="ctrl"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     <div contenteditable="true" style="font-weight:800;color:${titleColor};">${title}</div>
@@ -1045,19 +1052,19 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
         </g>
         <g class="dg" transform="translate(110, 220)">
             <foreignObject x="0" y="0" width="800" height="750">
-                <div class="rb" style="width:800px;height:750px;font-size:24px;background:${contentBg};border-radius:16px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+                <div class="rb" style="font-size:24px;background:${contentBg};border-radius:16px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.2);">
                     <div class="dh">· · · · ·</div>
                     <div class="ctrl"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     ${bullets.map(b => `<div style="display:flex;gap:12px;margin-bottom:20px;"><div style="color:${accent};">●</div><div contenteditable="true" style="color:${textColor};flex:1;">${b.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('')}
                 </div>
             </foreignObject>
         </g>
-        <!-- 圖片也被 foreignObject 包裹，實現可拖曳編輯 -->
+        <!-- 圖片也被 foreignObject 包裹，實現可拖曳與縮放 -->
         <g class="dg" transform="translate(950, 220)">
             <foreignObject x="0" y="0" width="850" height="750">
-                <div class="rb" style="width:850px;height:750px;padding:10px;background:rgba(255,255,255,0.05);border-radius:16px;">
+                <div class="rb" style="padding:10px;background:rgba(255,255,255,0.05);border-radius:16px;">
                     <div class="dh">· · · · ·</div>
-                    <img src="${imageB64}" style="width:100%;height:calc(100% - 20px);object-fit:contain;border-radius:8px;" crossorigin="anonymous">
+                    <img src="${imageB64}" draggable="false" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" crossorigin="anonymous">
                 </div>
             </foreignObject>
         </g>`;
@@ -1066,7 +1073,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
         contentHTML = `
         <g class="dg" transform="translate(110, 80)">
             <foreignObject x="0" y="0" width="1600" height="120">
-                <div class="rb" style="width:1600px;height:120px;background:transparent;border:none;box-shadow:none;font-size:62px;">
+                <div class="rb" style="background:transparent;border:none;box-shadow:none;font-size:62px;">
                     <div class="dh" style="color:rgba(150,150,150,0.5);">· · · · ·</div>
                     <div class="ctrl"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     <div contenteditable="true" style="font-weight:800;color:${titleColor};">${title}</div>
@@ -1075,7 +1082,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
         </g>
         <g class="dg" transform="translate(110, 200)">
             <foreignObject x="0" y="0" width="1600" height="80">
-                <div class="rb" style="width:1600px;height:80px;background:transparent;border:none;box-shadow:none;font-size:28px;">
+                <div class="rb" style="background:transparent;border:none;box-shadow:none;font-size:28px;">
                     <div class="dh">· · · · ·</div>
                     <div class="ctrl"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     <div contenteditable="true" style="font-weight:bold;color:${accent};">📊 ${diagDesc}</div>
@@ -1085,7 +1092,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
         ${bullets.slice(0,3).map((b,i) => `
         <g class="dg" transform="translate(${200 + i*500}, 400)">
             <foreignObject x="0" y="0" width="400" height="250">
-                <div class="rb" style="width:400px;height:250px;font-size:24px;background:${nodeBg};border:2px solid ${accent};border-radius:16px;padding:30px;text-align:center;">
+                <div class="rb" style="font-size:24px;background:${nodeBg};border:2px solid ${accent};border-radius:16px;padding:30px;text-align:center;">
                     <div class="dh">· · · · ·</div>
                     <div class="ctrl"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     <div contenteditable="true" style="font-weight:bold;color:${accent};margin-bottom:10px;">Node ${i+1}</div>
@@ -1098,7 +1105,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
         contentHTML = `
         <g class="dg" transform="translate(110, 80)">
             <foreignObject x="0" y="0" width="1600" height="120">
-                <div class="rb" style="width:1600px;height:120px;background:transparent;border:none;box-shadow:none;font-size:62px;">
+                <div class="rb" style="background:transparent;border:none;box-shadow:none;font-size:62px;">
                     <div class="dh" style="color:rgba(150,150,150,0.5);">· · · · ·</div>
                     <div class="ctrl"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     <div contenteditable="true" style="font-weight:800;color:${titleColor};">${title}</div>
@@ -1107,7 +1114,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
         </g>
         <g class="dg" transform="translate(110, 220)">
             <foreignObject x="0" y="0" width="1680" height="800">
-                <div class="rb" style="width:1680px;height:800px;font-size:24px;background:${contentBg};border-radius:16px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.2);">
+                <div class="rb" style="font-size:24px;background:${contentBg};border-radius:16px;padding:30px;box-shadow:0 10px 30px rgba(0,0,0,0.2);">
                     <div class="dh">· · · · ·</div>
                     <div class="ctrl"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     ${bullets.map(b => `<div style="display:flex;gap:12px;margin-bottom:20px;"><div style="color:${accent};">●</div><div contenteditable="true" style="color:${textColor};flex:1;">${b.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div></div>`).join('')}
@@ -1119,7 +1126,7 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
     const slideNumHTML = `
         <g class="dg" transform="translate(1780, 1020)">
             <foreignObject x="0" y="0" width="120" height="40">
-                <div class="rb" style="width:120px;height:40px;background:transparent;border:none;box-shadow:none;font-size:16px;">
+                <div class="rb" style="background:transparent;border:none;box-shadow:none;font-size:16px;">
                     <div class="dh" style="color:transparent;padding:0;">·</div>
                     <div class="ctrl" style="top:-25px;"><input type="color" oninput="updateThemeColor(this,this.value)"><button onclick="adjustFontSize(this,-1)">A-</button><button onclick="adjustFontSize(this,+1)">A+</button></div>
                     <div contenteditable="true" style="color:${accent};text-align:right;">${slideData.slide_number} / —</div>
@@ -1132,10 +1139,11 @@ function buildFallbackSlideHTML(slideData, theme, imageB64) {
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{width:1920px;height:1080px;overflow:hidden;font-family:"Segoe UI","PingFang SC",sans-serif;}
-.rb{resize:both;overflow:auto;min-width:100px;min-height:40px;}
+.rb{resize:both;overflow:hidden;min-width:100px;min-height:40px;display:flex;flex-direction:column;width:100%;height:100%;}
+.rb [contenteditable]{flex:1;width:100%;word-break:break-word;white-space:pre-wrap;outline:none;}
 .ctrl{opacity:0;transition:opacity .2s;position:absolute;top:8px;right:8px;display:flex;gap:4px;background:rgba(200,200,200,.9);padding:2px;border-radius:4px;z-index:20;}
 .dg:hover .ctrl{opacity:1;}
-.dh{text-align:center;font-size:10px;cursor:grab;user-select:none;}
+.dh{text-align:center;font-size:10px;cursor:grab;user-select:none;flex-shrink:0;}
 .ctrl button, .ctrl input{font-size:10px;cursor:pointer;}
 </style></head>
 <body>
@@ -1385,7 +1393,7 @@ function renderSlidePreviewCard(slideData, html, index) {
     const escaped = html.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
     card.innerHTML = `
         <div class="slide-iframe-wrap" style="--ps:0.25">
-            <iframe srcdoc="${escaped}" sandbox="allow-scripts" loading="lazy"></iframe>
+            <iframe srcdoc="${escaped}" sandbox="allow-scripts allow-same-origin" loading="lazy"></iframe>
         </div>
         <div class="px-3 py-2.5 flex items-start justify-between gap-2">
             <div class="flex-1 min-w-0">
@@ -1427,7 +1435,7 @@ function previewAllSlides() {
 .slide-wrap iframe{width:1920px;height:1080px;border:none;transform:scale(0.5);transform-origin:top left;}
 .slide-label{color:#64748b;font-size:11px;margin-bottom:4px;align-self:flex-start;width:960px;}
 </style></head><body>
-${AppState.generatedSlides.map((s,i) => `<div class="slide-label">Page ${s.slideNumber}: ${s.title || ''}</div><div class="slide-wrap"><iframe srcdoc="${s.html.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" sandbox="allow-scripts"></iframe></div>`).join('')}
+${AppState.generatedSlides.map((s,i) => `<div class="slide-label">Page ${s.slideNumber}: ${s.title || ''}</div><div class="slide-wrap"><iframe srcdoc="${s.html.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}" sandbox="allow-scripts allow-same-origin"></iframe></div>`).join('')}
 </body></html>`;
     const win = window.open('', '_blank');
     if (win) { win.document.write(viewer); win.document.close(); }
@@ -1458,7 +1466,7 @@ footer{background:#0f172a;border-top:1px solid #1e293b;padding:8px 20px;display:
 .thumb.active{border-color:#818cf8;}
 </style></head><body>
 <header><div>${title.replace(/</g,'&lt;')}</div><div class="nav-controls"><button onclick="go(-1)">◀</button><span id="counter">1 / ${totalSlides}</span><button onclick="go(1)">▶</button><button onclick="toggleFs()">⛶</button></div></header>
-<div class="slide-viewport" id="viewport"><div class="slide-frame-wrap" id="frame-wrap"><iframe id="main-frame" sandbox="allow-scripts"></iframe></div></div>
+<div class="slide-viewport" id="viewport"><div class="slide-frame-wrap" id="frame-wrap"><iframe id="main-frame" sandbox="allow-scripts allow-same-origin"></iframe></div></div>
 <footer id="thumb-bar"></footer>
 <script>
 const slides=[${slideContents}]; let cur=0;
@@ -1479,7 +1487,7 @@ function toggleFs(){ if(!document.fullscreenElement) document.documentElement.re
 const bar=document.getElementById('thumb-bar');
 slides.forEach((s,i)=>{
   const d=document.createElement('div'); d.className='thumb'+(i===0?' active':''); d.onclick=()=>show(i);
-  const f=document.createElement('iframe'); f.sandbox='allow-scripts'; f.srcdoc=s.src;
+  const f=document.createElement('iframe'); f.sandbox='allow-scripts allow-same-origin'; f.srcdoc=s.src;
   d.appendChild(f); bar.appendChild(d);
 });
 show(0); window.addEventListener('resize',scaleFrame); scaleFrame();
@@ -1590,7 +1598,7 @@ async function downloadEditablePptx() {
             if (AppState.bgBase64) {
                 slide.addImage({ data: AppState.bgBase64, x:0, y:0, w:10, h:5.625 });
             } else {
-                slide.background = { color: defaultBgHex };
+                slide.background = { fill: defaultBgHex };
             }
 
             const iframe = iframes[i];
@@ -1673,14 +1681,16 @@ async function downloadEditablePptx() {
                             
                             // 解析色碼 (依據 computed style，這樣 inline style 也會被讀到)
                             let hexColor = templateKey==='pure_white' ? '000000' : 'FFFFFF';
-                            const colorMatch = style.color.match(/\d+/g);
-                            if (colorMatch && colorMatch.length >= 3) {
-                                hexColor = ((1 << 24) + (+colorMatch[0] << 16) + (+colorMatch[1] << 8) + +colorMatch[2]).toString(16).slice(1).toUpperCase();
+                            if (style.color) {
+                                const colorMatch = style.color.match(/\d+/g);
+                                if (colorMatch && colorMatch.length >= 3) {
+                                    hexColor = ((1 << 24) + (+colorMatch[0] << 16) + (+colorMatch[1] << 8) + +colorMatch[2]).toString(16).slice(1).toUpperCase();
+                                }
                             }
                             
                             // 解析大小與粗體
                             const isBold = parseInt(style.fontWeight) > 500 || ['H1','H2','H3','B','STRONG'].includes(node.tagName);
-                            const fontSizePt = parseFloat(style.fontSize) * 0.75; // px to pt
+                            const fontSizePt = (parseFloat(style.fontSize) || 24) * 0.75;
 
                             // 添加為 PPT 文字段落
                             textObjects.push({
@@ -1712,7 +1722,7 @@ async function downloadEditablePptx() {
                 });
             } else {
                 // 如果找不到 iframe 則直接塞入標題作為最後備案
-                slide.addText(AppState.generatedSlides[i].title, { x:0.5, y:2.5, w:9.0, h:1.5, fontSize:40, color:'FFFFFF', align:'center' });
+                slide.addText(AppState.generatedSlides[i].title, { x:0.5, y:2.5, w:9.0, h:1.5, fontSize:40, color:(templateKey==='pure_white'?'000000':'FFFFFF'), align:'center' });
             }
 
             // 4. 置入 Logo
