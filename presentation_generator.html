@@ -1860,43 +1860,58 @@ ${AppState.generatedSlides.map((s,i) => `
 // ═══════════════════════════════════════════════════════════════════
 async function slideHTMLToBase64(html, slideNum) {
     return new Promise((resolve) => {
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;width:1920px;height:1080px;top:-99999px;left:-99999px;border:none;visibility:hidden;z-index:-999;';
-        document.body.appendChild(iframe);
+        try {
+            const parser = new DOMParser();
+            const doc    = parser.parseFromString(html, 'text/html');
+            const svg    = doc.getElementById('slide-svg') || doc.querySelector('svg');
 
-        const cleanup = () => {
-            if (document.body.contains(iframe)) document.body.removeChild(iframe);
-        };
-        const timeout = setTimeout(() => {
-            cleanup();
-            addLog(`⚠ 第 ${slideNum} 頁截圖超時，將使用文字備用`, 'warning');
-            resolve(null);
-        }, 20000);
-
-        iframe.addEventListener('load', async () => {
-            try {
-                // Wait for fonts & SVG rendering
-                await new Promise(r => setTimeout(r, 700));
-                const canvas = await html2canvas(iframe.contentDocument.body, {
-                    width: 1920, height: 1080,
-                    scale: 1,
-                    backgroundColor: null,
-                    logging: false,
-                    useCORS: true,
-                    allowTaint: true
-                });
-                clearTimeout(timeout);
-                resolve(canvas.toDataURL('image/jpeg', 0.93));
-            } catch(e) {
-                clearTimeout(timeout);
-                addLog(`⚠ 第 ${slideNum} 頁截圖失敗: ${e.message}`, 'warning');
-                resolve(null);
-            } finally {
-                cleanup();
+            if (!svg) {
+                addLog(`⚠ 第 ${slideNum} 頁找不到 SVG 元素`, 'warning');
+                resolve(null); return;
             }
-        });
 
-        iframe.srcdoc = html;
+            // Inline styles
+            let css = '';
+            doc.querySelectorAll('style').forEach(s => { css += s.textContent + '\n'; });
+            if (css) {
+                const sEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+                sEl.textContent = css;
+                svg.insertBefore(sEl, svg.firstChild);
+            }
+            svg.setAttribute('width', '1920');
+            svg.setAttribute('height', '1080');
+            if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 1920 1080');
+
+            const svgStr  = new XMLSerializer().serializeToString(svg);
+            const blob    = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+            const url     = URL.createObjectURL(blob);
+
+            const canvas  = document.createElement('canvas');
+            canvas.width  = 1920; canvas.height = 1080;
+            const ctx     = canvas.getContext('2d');
+
+            const bgCol = doc.body?.style?.background || doc.body?.style?.backgroundColor || '#0f172a';
+            ctx.fillStyle = bgCol;
+            ctx.fillRect(0, 0, 1920, 1080);
+
+            const img = new Image();
+            img.onload = () => {
+                URL.revokeObjectURL(url);
+                ctx.drawImage(img, 0, 0, 1920, 1080);
+                resolve(canvas.toDataURL('image/jpeg', 0.93));
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                addLog(`⚠ 第 ${slideNum} 頁 SVG 渲染失敗`, 'warning');
+                resolve(null);
+            };
+            img.src = url;
+
+            setTimeout(() => { URL.revokeObjectURL(url); resolve(null); }, 15000);
+        } catch(e) {
+            addLog(`⚠ 第 ${slideNum} 頁截圖解析失敗: ${e.message}`, 'warning');
+            resolve(null);
+        }
     });
 }
 
@@ -3202,37 +3217,82 @@ function closeEditModal() {
 // PHASE 5: VISUAL QUALITY REVIEW (Grok 4.1 Fast Reasoning)
 // ═══════════════════════════════════════════════════════════════════
 
-// Render a slide HTML to a canvas screenshot (base64 JPEG)
+// ─── Render a slide HTML → base64 JPEG via SVG serialization ────────────
+// Strategy: parse the slide's SVG from the HTML string, serialize it to a
+// Blob URL, draw onto an offscreen canvas, export JPEG. No iframe needed.
 async function captureSlideScreenshot(html) {
     return new Promise((resolve) => {
-        const iframe = document.createElement('iframe');
-        iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;visibility:hidden;border:none;';
-        iframe.sandbox = 'allow-scripts';
-        document.body.appendChild(iframe);
+        try {
+            // 1. Parse HTML string into a document
+            const parser = new DOMParser();
+            const doc    = parser.parseFromString(html, 'text/html');
+            const svgEl  = doc.getElementById('slide-svg');
 
-        const timeout = setTimeout(() => {
-            document.body.contains(iframe) && document.body.removeChild(iframe);
-            resolve(null);
-        }, 15000);
-
-        iframe.addEventListener('load', async () => {
-            try {
-                await new Promise(r => setTimeout(r, 600)); // wait for fonts/SVG
-                const canvas = await html2canvas(iframe.contentDocument.body, {
-                    width: 1920, height: 1080, scale: 0.5,
-                    backgroundColor: null, logging: false,
-                    useCORS: true, allowTaint: true
-                });
-                clearTimeout(timeout);
-                document.body.contains(iframe) && document.body.removeChild(iframe);
-                resolve(canvas.toDataURL('image/jpeg', 0.85));
-            } catch(e) {
-                clearTimeout(timeout);
-                document.body.contains(iframe) && document.body.removeChild(iframe);
-                resolve(null);
+            if (!svgEl) {
+                // Fallback: try to find any SVG
+                const anySvg = doc.querySelector('svg');
+                if (!anySvg) { resolve(null); return; }
             }
-        });
-        iframe.srcdoc = html;
+
+            const svg = svgEl || doc.querySelector('svg');
+
+            // 2. Inline all style sheets from the parsed doc into the SVG
+            //    so the serialized SVG is self-contained
+            let inlineCSS = '';
+            doc.querySelectorAll('style').forEach(s => { inlineCSS += s.textContent + '\n'; });
+            if (inlineCSS) {
+                const styleEl = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+                styleEl.textContent = inlineCSS;
+                svg.insertBefore(styleEl, svg.firstChild);
+            }
+
+            // 3. Ensure viewBox is set
+            if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 1920 1080');
+            svg.setAttribute('width',  '1920');
+            svg.setAttribute('height', '1080');
+
+            // 4. Serialize SVG → Blob URL
+            const serializer = new XMLSerializer();
+            const svgStr     = serializer.serializeToString(svg);
+            const svgBlob    = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+            const svgUrl     = URL.createObjectURL(svgBlob);
+
+            // 5. Draw onto offscreen canvas at half resolution (960×540) for speed
+            const W = 960, H = 540;
+            const canvas  = new OffscreenCanvas ? new OffscreenCanvas(W, H) : document.createElement('canvas');
+            canvas.width  = W; canvas.height = H;
+            const ctx     = canvas.getContext('2d');
+
+            const img = new Image();
+            img.onload = () => {
+                URL.revokeObjectURL(svgUrl);
+                // Fill background from body/html bg color
+                const bodyBg = doc.body?.style?.background || doc.body?.style?.backgroundColor || '#0f172a';
+                ctx.fillStyle = bodyBg || '#0f172a';
+                ctx.fillRect(0, 0, W, H);
+                ctx.drawImage(img, 0, 0, W, H);
+                // Export as JPEG data URL
+                if (canvas.convertToBlob) {
+                    // OffscreenCanvas
+                    canvas.convertToBlob({ type: 'image/jpeg', quality: 0.82 }).then(blob => {
+                        const reader = new FileReader();
+                        reader.onload = e => resolve(e.target.result);
+                        reader.readAsDataURL(blob);
+                    }).catch(() => resolve(null));
+                } else {
+                    resolve(canvas.toDataURL('image/jpeg', 0.82));
+                }
+            };
+            img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null); };
+            img.src = svgUrl;
+
+            // Safety timeout
+            setTimeout(() => { URL.revokeObjectURL(svgUrl); resolve(null); }, 12000);
+
+        } catch(e) {
+            addLog(`⚠ 截圖解析失敗: ${e.message}`, 'warning');
+            resolve(null);
+        }
     });
 }
 
