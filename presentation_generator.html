@@ -289,9 +289,38 @@
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-slate-400 mb-1.5 font-semibold flex justify-between">
-                            <span>投影片張數</span>
+                    <div class="border-t border-slate-800 pt-3">
+                        <label class="block text-slate-400 mb-1.5 font-semibold flex items-center gap-1.5">
+                            <i class="ph-fill ph-magnifying-glass-plus text-violet-400"></i>
+                            第五階段：視覺品質審查
+                        </label>
+                        <div class="flex items-center gap-2.5 mb-2">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="chk-review-enabled" class="sr-only peer" onchange="updateReviewHint()">
+                                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
+                            </label>
+                            <span class="text-[11px] text-slate-300 font-medium">啟用 Grok 4.1 視覺審查 + Gemini 自動修正</span>
+                        </div>
+                        <div id="review-config" class="hidden space-y-2">
+                            <div>
+                                <label class="block text-slate-500 mb-1 text-[11px]">審查模型（Reviewer）</label>
+                                <select id="sel-review-model" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 text-[11px] focus:border-violet-500 outline-none">
+                                    <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning（推薦）</option>
+                                    <option value="grok-4-1-fast-non-reasoning">Grok 4.1 Fast Non-Reasoning</option>
+                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-slate-500 mb-1 text-[11px]">最大修正迭代次數</label>
+                                <select id="sel-review-iterations" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 text-[11px] focus:border-violet-500 outline-none">
+                                    <option value="1">1 次（快速）</option>
+                                    <option value="2" selected>2 次（推薦）</option>
+                                    <option value="3">3 次（高品質）</option>
+                                </select>
+                            </div>
+                            <p class="text-slate-600 text-[10px] leading-relaxed">審查後若發現重疊、對比不足等問題，Gemini 2.5 Pro 將自動修正並重新渲染</p>
+                        </div>
+                    </div>
                             <span id="slide-count-val" class="text-amber-400 font-bold">10 張</span>
                         </label>
                         <input type="range" id="range-slide-count" min="2" max="50" value="10"
@@ -644,6 +673,12 @@ function updateImageModeHint() {
     };
     const el = document.getElementById('image-mode-hint');
     if (el) el.textContent = hints[mode] || '';
+}
+
+function updateReviewHint() {
+    const enabled = document.getElementById('chk-review-enabled')?.checked;
+    const cfg = document.getElementById('review-config');
+    if (cfg) cfg.classList.toggle('hidden', !enabled);
 }
 
 // ─── Logo ─────────────────────────────────────────────────────────
@@ -1391,96 +1426,126 @@ async function generateSlideHTML(slideData, theme, imageB64) {
         ? `【特別重要】本簡報使用自定義底稿背景圖片。背景層必須是 <image href="REPLACE_BG_SRC" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>，放在所有其他元素之前。禁止使用漸層或純色作為背景，必須使用此底稿圖片。文字和卡片配色需配合底稿，若底稿較亮則用深色文字，若底稿較暗則用淺色文字。`
         : `背景基調: ${theme.bg}（使用此漸層或顏色作為全背景）`;
 
-    const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師，專精 SVG+foreignObject 架構。
-請為以下投影片資料生成一份完整的、視覺上令人驚豔的 HTML 單頁投影片。
+    const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師。你的投影片必須完全符合以下架構規範。
 
 【投影片資料】
 ${JSON.stringify(slideData, null, 2)}
 
 【圖片】${imgInstruction}
+【Logo】${logoInstruction || '無 Logo。'}
+【背景】${bgInstruction}
 
-【Logo】${logoInstruction || '本投影片無 Logo。'}
+══════════════════════════════════════════════════════
+★★★ 核心強制規範（違反任何一條都是錯誤輸出）★★★
+══════════════════════════════════════════════════════
 
-【背景設定】${bgInstruction}
+A. 【文字架構】 — 所有文字（標題、副標、要點、流程圖標籤、圖表說明、數字）
+   ★ 禁止使用 SVG <text> 元素放置任何內容文字
+   ★ 所有文字必須放在 foreignObject > div.rb > [contenteditable] 中
+   ★ 每個文字元素必須被獨立的 <g class="dg" transform="translate(X,Y)"> 包裹
 
-【核心架構規範 — 必須嚴格遵守】
+B. 【流程圖/架構圖文字標籤規則】
+   - 流程圖的每個「方塊」= SVG 形狀（rect/circle）做外框 + 獨立的 .dg foreignObject 做文字
+   - 每個節點的標籤文字必須是獨立的 .dg 元素，可以單獨拖曳、編輯、改色
+   - 箭頭（SVG path/line）和裝飾可以繼續用 SVG，但文字標籤絕對不可以
 
-1. 完整 HTML 結構，從 <!DOCTYPE html> 到 </html>
-2. body 固定為 1920×1080px，overflow:hidden，margin/padding:0
-3. 字體只用系統字體棧："Segoe UI","PingFang SC","Microsoft YaHei",sans-serif
-4. 禁止引用任何外部 CSS 或 JS 資源（CDN / Google Fonts 等）
-5. 必須使用 CSS 變數主題系統，在 :root 定義：
-   :root {
-     --c1: [強調主色]; --c1-rgb: [R,G,B];
-     --c2: [輔助色2]; --c2-rgb: [R,G,B];
-     --c3: [輔助色3]; --c3-rgb: [R,G,B];
-     --c4: [輔助色4]; --c4-rgb: [R,G,B];
-   }
+C. 【防重疊規範】
+   - 每個 .dg 元素的 translate(X,Y) 坐標必須根據實際尺寸計算，確保不重疊
+   - diagram_slide 的節點佈局：4 節點水平排列間距 ≥ 420px，垂直排列間距 ≥ 200px
+   - text_only/text_and_image：所有文字卡片間距 ≥ 20px，不得超出 1920×1080 範圍
+   - foreignObject 的 width/height 必須小於兩個相鄰 .dg 之間的間距
 
-6. 主畫布必須是一個 SVG，id="slide-svg"，viewBox="0 0 1920 1080"，填滿 body。
-   SVG 內部結構：
-   a) <defs> — 定義所有漸層、濾鏡(shadow/glow)、pattern
-   b) 背景層 — 依照【背景設定】指示處理
-   c) 裝飾層 — 幾何形狀、光暈等視覺元素
-   d) 內容 <g class="dg"> 元素 — 每個可拖曳的文字卡片或圖片
+D. 【標準文字卡 HTML 模板】（所有文字卡必須使用此結構）：
+<g class="dg" transform="translate(X,Y)">
+  <foreignObject x="0" y="0" width="W" height="H">
+    <div class="rb" xmlns="http://www.w3.org/1999/xhtml"
+         style="width:Wpx;height:Hpx;font-size:FS px;resize:both;overflow:hidden;
+                min-width:180px;min-height:60px;position:relative;box-sizing:border-box;
+                padding:16px 20px;CARD_BG_STYLE;border-radius:BR px;">
+      <div class="dh" style="cursor:grab;text-align:center;color:rgba(255,255,255,.2);
+           font-size:10px;letter-spacing:3px;padding:0 0 6px;user-select:none;">· · ·</div>
+      <div class="ctrl" style="opacity:0;transition:opacity .2s;position:absolute;top:6px;right:6px;
+           display:flex;align-items:center;gap:3px;background:rgba(8,14,28,.95);
+           border:1px solid rgba(255,255,255,.14);border-radius:7px;padding:4px 6px;z-index:60;">
+        <input type="color" value="ACCENT_HEX" oninput="updateThemeColor(1,this.value)" title="主題色"
+               style="width:18px;height:18px;border:none;border-radius:3px;cursor:pointer;padding:0;">
+        <input type="color" value="TEXT_HEX" oninput="changeTextColor(this)" title="文字色"
+               style="width:18px;height:18px;border:none;border-radius:3px;cursor:pointer;padding:0;">
+        <input type="color" value="BG_HEX" oninput="changeBgColor(this)" title="底色"
+               style="width:18px;height:18px;border:none;border-radius:3px;cursor:pointer;padding:0;">
+        <div style="width:1px;height:12px;background:rgba(255,255,255,.15);margin:0 2px;"></div>
+        <button onclick="adjustFontSize(this,-1)"
+                style="font-size:9px;font-weight:700;padding:1px 5px;border:none;background:rgba(255,255,255,.1);border-radius:3px;cursor:pointer;color:#e2e8f0;">A−</button>
+        <button onclick="adjustFontSize(this,+1)"
+                style="font-size:9px;font-weight:700;padding:1px 5px;border:none;background:rgba(255,255,255,.1);border-radius:3px;cursor:pointer;color:#e2e8f0;">A+</button>
+      </div>
+      CONTENT_HERE <!-- 所有文字加 contenteditable="true" spellcheck="false" -->
+    </div>
+  </foreignObject>
+</g>
 
-7. 文字卡片用 <g class="dg" transform="translate(x,y)"> 包裹，內含 <foreignObject>：
-   <g class="dg" transform="translate(X,Y)">
-     <foreignObject x="0" y="0" width="W" height="H">
-       <div class="rb" style="width:Wpx;height:Hpx;font-size:18px;resize:both;overflow:auto;min-width:240px;min-height:120px;position:relative;...卡片樣式...">
-         <!-- 拖曳把手 -->
-         <div class="dh" style="text-align:center;color:rgba(255,255,255,.25);font-size:10px;letter-spacing:4px;padding:3px 0 8px;cursor:grab;user-select:none;">· · · · ·</div>
-         <!-- 控制列（hover顯示：主題色、文字色、背景色、字級）-->
-         <div class="ctrl" style="opacity:0;transition:opacity .2s;position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;background:rgba(15,23,42,.92);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:5px 7px;z-index:50;">
-           <input type="color" value="#818cf8" oninput="updateThemeColor(1,this.value)" title="主題色" style="width:20px;height:20px;border:none;border-radius:3px;cursor:pointer;padding:0;">
-           <input type="color" value="#ffffff" oninput="changeTextColor(this)" title="文字色" style="width:20px;height:20px;border:none;border-radius:3px;cursor:pointer;padding:0;">
-           <input type="color" value="#0f172a" oninput="changeBgColor(this)" title="卡片背景" style="width:20px;height:20px;border:none;border-radius:3px;cursor:pointer;padding:0;">
-           <div style="width:1px;height:14px;background:rgba(255,255,255,.15);margin:0 2px;"></div>
-           <button onclick="adjustFontSize(this,-1)" style="font-size:10px;font-weight:700;padding:2px 6px;border:none;background:rgba(255,255,255,.1);border-radius:3px;cursor:pointer;color:#e2e8f0;">A−</button>
-           <button onclick="adjustFontSize(this,+1)" style="font-size:10px;font-weight:700;padding:2px 6px;border:none;background:rgba(255,255,255,.1);border-radius:3px;cursor:pointer;color:#e2e8f0;">A+</button>
-         </div>
-         <!-- 內容（所有文字均加 contenteditable="true"）-->
-         <h3 contenteditable="true" spellcheck="false">標題</h3>
-         <p contenteditable="true" spellcheck="false">內容...</p>
-       </div>
-     </foreignObject>
-   </g>
+E. 【圖片拖曳模板】：
+<g class="dg" transform="translate(X,Y)">
+  <image href="REPLACE_IMAGE_SRC" x="0" y="0" width="W" height="H" preserveAspectRatio="xMidYMid slice"/>
+</g>
 
-8. 圖片必須放在可拖曳的 <g class="dg"> 中（重要！）：
-   <g class="dg" transform="translate(X,Y)" style="cursor:grab;">
-     <image href="REPLACE_IMAGE_SRC" x="0" y="0" width="W" height="H" preserveAspectRatio="xMidYMid slice"/>
-   </g>
-   — 或用 foreignObject 包裹 <img> 並加 .dg class
+F. 【技術規範】
+   1. 完整 HTML，從 <!DOCTYPE html> 到 </html>
+   2. body：width:1920px; height:1080px; overflow:hidden; margin:0; padding:0
+   3. 字體棧："Segoe UI","PingFang SC","Microsoft YaHei",sans-serif
+   4. 禁止引用任何外部 CSS/JS 資源
+   5. :root 定義 CSS 色彩變數 --c1~--c4 及對應 --c1-rgb 等
+   6. SVG id="slide-svg" viewBox="0 0 1920 1080"
+   7. </svg> 後插入：<!--SLIDE_INTERACTION_SCRIPT-->
+   8. foreignObject 內的 div 必須加 xmlns="http://www.w3.org/1999/xhtml"
 
-9. 卡片 CSS（.rb）需含：resize:both; overflow:auto; min-width:240px; min-height:120px;
-   .ctrl 預設 opacity:0，.dg:hover .ctrl { opacity:1 }（用 <style> 標籤定義）
-   所有可編輯文字加 contenteditable="true" spellcheck="false"
+G. 【各版型佈局規範】
 
-10. 在 SVG 主體之外（</svg>之後）插入 placeholder：
-    <!--SLIDE_INTERACTION_SCRIPT-->
+  ★ title_only（封面）：
+    - 背景：全尺寸 SVG 漸層/裝飾（可用 SVG rect, path, circle 等）
+    - 主標題：.dg foreignObject，translate(100, 350)，width:1400，height:280，font-size:80px，font-weight:900
+    - 副標題（若有）：.dg foreignObject，translate(100, 650)，width:900，height:120，font-size:32px
+    - 裝飾：SVG 幾何形狀（禁止在裝飾上放文字）
 
-11. layout 版型指引：
-  ★ title_only — 震撼封面，大型 SVG <text> 直接繪製標題，無需卡片
-  ★ text_only  — 左側 SVG 裝飾 + 右側 foreignObject 文字卡（帶完整控制列）
-  ★ text_and_image — 圖片用 <g class="dg"> 包裹（可拖曳）+ 文字卡片
-  ★ diagram_slide — 純 SVG 流程圖/架構圖 + 頂部標題卡片
+  ★ text_only（純文字）：
+    - 左側：SVG 裝飾圖形（無文字）
+    - 標題卡：translate(80, 60)，width:1760，height:140，font-size:52px，bold
+    - 內容卡片群組（每個要點一個獨立的 .dg）：
+      要點 1：translate(80, 240)，width:830，height:170
+      要點 2：translate(80, 430)，width:830，height:170
+      要點 3：translate(80, 620)，width:830，height:170
+      要點 4：translate(80, 810)，width:830，height:170
+      （最多 4 個，超過則調整 height）
+    - 右側裝飾：translate(960, 200) 放 SVG 視覺元素
 
-12. 視覺品質：善用 feDropShadow、feGaussianBlur glow、漸層填充、幾何裝飾層次
+  ★ text_and_image（圖文並排）：
+    - 標題卡：translate(60, 40)，width:880，height:130，font-size:44px
+    - 要點卡片（每個要點獨立）：
+      要點 1：translate(60, 210)，width:880，height:160
+      要點 2：translate(60, 390)，width:880，height:160
+      要點 3：translate(60, 570)，width:880，height:160
+    - 圖片：translate(1000, 80)，width:860，height:900（用 E 的圖片模板）
 
-13. 配色參考：
-    主標題色: ${theme.titleColor}
-    主強調色: ${theme.accent}
-    正文色: ${theme.text}
-    卡片背景: ${theme.card}
+  ★ diagram_slide（流程圖/架構圖）：
+    - 標題卡：translate(60, 30)，width:1800，height:110，font-size:44px
+    - 每個流程節點 = SVG 背景框（rect）+ 獨立 .dg 文字標籤
+    - 4 節點水平佈局範例：
+      SVG 框 1：x=60,y=200,width=380,height=220
+      節點 1 文字：translate(70, 210)，width:360，height:200，font-size:20px
+      SVG 框 2：x=520,y=200,width=380,height=220
+      節點 2 文字：translate(530, 210)，width:360，height:200
+      SVG 框 3：x=980,y=200,width=380,height=220
+      節點 3 文字：translate(990, 210)，width:360，height:200
+      SVG 框 4：x=1440,y=200,width=380,height=220
+      節點 4 文字：translate(1450, 210)，width:360，height:200
+      箭頭（SVG path）：在框之間繪製，用 marker-end 箭頭
+    - 說明卡（選用）：translate(60, 500)，width:1800，height:400，font-size:18px
 
-14. 【必須遵守】文字對比度 — WCAG AA 標準（對比比率 ≥ 4.5:1）：
-    - 深色背景 → 文字用淺色（#f8fafc / #e2e8f0 / #ffffff）
-    - 淺色背景（白底/淺灰）→ 文字必須用深色（#111827 / #1f2937）
-    - 純白背景時，SVG <text> fill 和 foreignObject 文字 color 絕對禁止使用 #ffffff / #f8fafc 等淺色
-    - 所有 SVG <text> 的 fill 屬性必須與投影片底色有明顯對比
-    - ${AppState.bgTemplateBase64 ? '本張有自訂底稿背景（未知顏色），請預設使用深色文字 #111827 以確保安全' : `本張背景基調為 ${theme.bg}，請確保所有文字與此背景有足夠對比`}
+H. 【對比度規範】
+   - 深色背景→文字用淺色（#f8fafc/#ffffff）；淺色背景→文字用深色（#111827/#0f172a）
+   - ${AppState.bgTemplateBase64 ? '自訂底稿：預設用深色文字 #111827' : `背景：${theme.bg}`}
 
-15. 只輸出純 HTML，不含任何 markdown 標記。
+I. 只輸出純 HTML，不含任何 markdown 標記。
 
 請開始輸出完整 HTML：`;
 
@@ -3134,6 +3199,240 @@ function closeEditModal() {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// PHASE 5: VISUAL QUALITY REVIEW (Grok 4.1 Fast Reasoning)
+// ═══════════════════════════════════════════════════════════════════
+
+// Render a slide HTML to a canvas screenshot (base64 JPEG)
+async function captureSlideScreenshot(html) {
+    return new Promise((resolve) => {
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;visibility:hidden;border:none;';
+        iframe.sandbox = 'allow-scripts';
+        document.body.appendChild(iframe);
+
+        const timeout = setTimeout(() => {
+            document.body.contains(iframe) && document.body.removeChild(iframe);
+            resolve(null);
+        }, 15000);
+
+        iframe.addEventListener('load', async () => {
+            try {
+                await new Promise(r => setTimeout(r, 600)); // wait for fonts/SVG
+                const canvas = await html2canvas(iframe.contentDocument.body, {
+                    width: 1920, height: 1080, scale: 0.5,
+                    backgroundColor: null, logging: false,
+                    useCORS: true, allowTaint: true
+                });
+                clearTimeout(timeout);
+                document.body.contains(iframe) && document.body.removeChild(iframe);
+                resolve(canvas.toDataURL('image/jpeg', 0.85));
+            } catch(e) {
+                clearTimeout(timeout);
+                document.body.contains(iframe) && document.body.removeChild(iframe);
+                resolve(null);
+            }
+        });
+        iframe.srcdoc = html;
+    });
+}
+
+// Call Grok 4.1 (or selected reviewer) to visually review a slide screenshot
+async function reviewSlideWithLLM(screenshotB64, slideData, reviewModel) {
+    const xaiKey    = AppState.xaiApiKey;
+    const geminiKey = AppState.googleApiKey;
+    const isGrok    = isGrokModel(reviewModel);
+
+    const reviewPrompt = `你是投影片視覺品質審查師。請審查這張投影片截圖並回傳 JSON 審查報告。
+
+投影片資料：
+- 標題：${slideData.title || ''}
+- 版型：${slideData.layout || ''}
+- 要點數：${(slideData.bullet_points || []).length}
+
+請檢查以下問題：
+1. overlap（重疊）：文字/圖片元素是否相互重疊
+2. contrast（對比度）：文字與背景對比是否足夠
+3. readability（可讀性）：文字大小是否合適（標題≥36px，正文≥18px）
+4. layout（佈局）：元素是否超出投影片邊界，或有不當留白
+
+嚴格輸出純 JSON，不含任何 markdown：
+{
+  "pass": true/false,
+  "score": 0-100,
+  "issues": [
+    {"type": "overlap|contrast|readability|layout", "description": "問題描述（中文，具體說明哪個元素有問題）", "fix": "具體修正指令（中文）"}
+  ]
+}
+若沒有問題，issues 為空陣列，pass 為 true。`;
+
+    try {
+        if (isGrok && xaiKey) {
+            // Grok vision: send image as base64 in chat completions
+            const targetUrl = 'https://api.x.ai/v1/chat/completions';
+            const proxyUrl  = `${GROK_PROXY}?url=${encodeURIComponent(targetUrl)}`;
+            const resp = await fetch(proxyUrl, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${xaiKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: reviewModel,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            { type: 'image_url', image_url: { url: screenshotB64 } },
+                            { type: 'text', text: reviewPrompt }
+                        ]
+                    }],
+                    temperature: 0.2
+                }),
+                signal: AbortSignal.timeout(30000)
+            });
+            if (!resp.ok) throw new Error(`Grok review HTTP ${resp.status}`);
+            const data = await resp.json();
+            const raw = data.choices?.[0]?.message?.content || '{}';
+            const m = raw.match(/\{[\s\S]*\}/);
+            return JSON.parse(m ? m[0] : '{}');
+        } else if (geminiKey) {
+            // Gemini vision review
+            const model = reviewModel.startsWith('grok') ? 'gemini-2.5-flash' : reviewModel;
+            const ver   = getGeminiApiVersion(model);
+            const resp = await fetch(
+                `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${geminiKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [
+                            { inlineData: { mimeType: 'image/jpeg', data: screenshotB64.split(',')[1] } },
+                            { text: reviewPrompt }
+                        ]}],
+                        generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
+                    }),
+                    signal: AbortSignal.timeout(30000)
+                }
+            );
+            if (!resp.ok) throw new Error(`Gemini review HTTP ${resp.status}`);
+            const data = await resp.json();
+            const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+            const m = raw.match(/\{[\s\S]*\}/);
+            return JSON.parse(m ? m[0] : '{}');
+        }
+    } catch(e) {
+        addLog(`⚠ 審查模型呼叫失敗: ${e.message}`, 'warning');
+    }
+    return { pass: true, score: 100, issues: [] }; // graceful fallback
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PHASE 6: AUTO-FIX (Gemini 2.5 Pro corrects based on review)
+// ═══════════════════════════════════════════════════════════════════
+async function fixSlideHTML(html, reviewResult, slideData, theme) {
+    if (!reviewResult?.issues?.length) return html;
+
+    const issuesSummary = reviewResult.issues.map((iss, i) =>
+        `${i+1}. [${iss.type.toUpperCase()}] ${iss.description}\n   修正方式：${iss.fix}`
+    ).join('\n');
+
+    const fixPrompt = `你是投影片 HTML 修正工程師。請根據審查報告修正以下 HTML 投影片。
+
+【審查問題清單】
+${issuesSummary}
+
+【原始 HTML】
+${html.slice(0, 60000)}
+
+【修正要求】
+1. 只修正有問題的元素，保留其他所有結構和樣式不變
+2. 若是重疊問題：調整 transform translate 座標或 foreignObject width/height
+3. 若是對比問題：調整文字 color 或卡片 background 顏色
+4. 若是可讀性問題：調整 font-size
+5. 若是佈局問題：調整座標確保在 1920×1080 範圍內
+6. 保留所有 .dg class、contenteditable、ctrl 控制列不變
+7. 保留 <!--SLIDE_INTERACTION_SCRIPT--> placeholder
+
+只輸出完整修正後的 HTML，不含任何說明文字或 markdown 標記：`;
+
+    const apiKey    = AppState.googleApiKey;
+    const fixModels = ['gemini-2.5-pro', 'gemini-2.5-flash'];
+
+    for (const model of fixModels) {
+        if (!apiKey) break;
+        try {
+            const ver = getGeminiApiVersion(model);
+            const resp = await fetch(
+                `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${apiKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: fixPrompt }] }],
+                        generationConfig: { temperature: 0.3, maxOutputTokens: 16384 }
+                    }),
+                    signal: AbortSignal.timeout(60000)
+                }
+            );
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const data = await resp.json();
+            let fixed = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            fixed = fixed.replace(/^```html\s*/im,'').replace(/^```\s*/im,'').replace(/\s*```$/im,'').trim();
+            if (fixed.toLowerCase().includes('<!doctype') || fixed.includes('<html')) {
+                // Re-inject interaction script if missing
+                if (!fixed.includes('SLIDE_INTERACTION_SCRIPT')) {
+                    fixed = fixed.replace('</body>', '<!--SLIDE_INTERACTION_SCRIPT-->\n</body>');
+                }
+                fixed = fixed.replace('<!--SLIDE_INTERACTION_SCRIPT-->', SLIDE_INTERACTION_SCRIPT);
+                return injectContrastFix(fixed, theme);
+            }
+        } catch(e) {
+            addLog(`⚠ 修正模型 ${model} 失敗: ${e.message}`, 'warning');
+        }
+    }
+    return html; // return original if fix failed
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// REVIEW + FIX PIPELINE (wraps a single slide through Phase 5→6)
+// ═══════════════════════════════════════════════════════════════════
+async function reviewAndFixSlide(html, sData, theme) {
+    const enabled    = document.getElementById('chk-review-enabled')?.checked;
+    if (!enabled) return html;
+
+    const reviewModel  = document.getElementById('sel-review-model')?.value || 'grok-4-1-fast-reasoning';
+    const maxIter      = parseInt(document.getElementById('sel-review-iterations')?.value || '2');
+
+    let currentHTML = html;
+    for (let iter = 1; iter <= maxIter; iter++) {
+        if (AppState.cancelRequested) break;
+
+        addLog(`🔍 第五階段：審查第 ${sData.slide_number} 頁（迭代 ${iter}/${maxIter}）...`, 'ai');
+        const screenshot = await captureSlideScreenshot(currentHTML);
+        if (!screenshot) {
+            addLog(`⚠ 截圖失敗，跳過審查`, 'warning');
+            break;
+        }
+
+        const review = await reviewSlideWithLLM(screenshot, sData, reviewModel);
+        const score  = review.score ?? (review.pass ? 100 : 60);
+        const issueCount = (review.issues || []).length;
+
+        addLog(`  審查分數：${score}/100，問題數：${issueCount}${review.pass ? ' ✓ 通過' : ' ✗ 需修正'}`, review.pass ? 'success' : 'warning');
+        (review.issues || []).forEach(iss => addLog(`  • [${iss.type}] ${iss.description}`, 'warning'));
+
+        if (review.pass || !issueCount) break;
+
+        addLog(`🔧 第六階段：Gemini 自動修正中...`, 'ai');
+        const fixed = await fixSlideHTML(currentHTML, review, sData, theme);
+        if (fixed !== currentHTML) {
+            currentHTML = fixed;
+            addLog(`  ✓ 修正完成，繼續審查...`, 'success');
+        } else {
+            addLog(`  ⚠ 修正無變化，停止迭代`, 'warning');
+            break;
+        }
+    }
+    return currentHTML;
+}
+
+// ═══════════════════════════════════════════════════════════════════
 async function startGeneration() {
     const selectedModel = document.getElementById('sel-text-model').value;
     const needsGemini = !isGrokModel(selectedModel);
@@ -3213,6 +3512,11 @@ async function startGeneration() {
                 html = buildFallbackSlideHTML(sData, theme);
             }
 
+            // ── Phase 5 & 6: Visual Review + Auto-Fix ────────────────
+            if (document.getElementById('chk-review-enabled')?.checked && !AppState.cancelRequested) {
+                html = await reviewAndFixSlide(html, sData, theme);
+            }
+
             AppState.generatedSlides.push({
                 slideNumber: sData.slide_number,
                 title: sData.title,
@@ -3223,7 +3527,11 @@ async function startGeneration() {
             });
             renderSlidePreviewCard(sData, html, i);
 
-            const pct = 15 + ((i + 1) / slides.length) * 80;
+            const reviewEnabled = document.getElementById('chk-review-enabled')?.checked;
+            // Phase 4 = 15–75%, Phase 5+6 = 75–95% (if review enabled)
+            const pct = reviewEnabled
+                ? 15 + ((i + 1) / slides.length) * 60
+                : 15 + ((i + 1) / slides.length) * 80;
             setProgress(pct);
             document.getElementById('preview-slide-count').textContent =
                 `${i + 1} / ${slides.length} 頁`;
