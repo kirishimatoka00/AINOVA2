@@ -364,6 +364,20 @@
             <textarea id="inp-topic" rows="4"
                 placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告，需包含大量數據、具體案例與未來預測...&#10;&#10;也可附加左側資料來源，AI 會先摘要分析後製作簡報。"
                 class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors resize-none"></textarea>
+            <!-- Web Search Grounding toggle -->
+            <div class="mt-3 flex items-center gap-2.5 bg-slate-800/60 border border-slate-700 rounded-xl px-3.5 py-2.5">
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" id="chk-web-search" class="sr-only peer" checked>
+                    <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
+                </label>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <i class="ph-fill ph-globe text-sky-400 text-sm"></i>
+                        <span class="text-[11px] text-slate-200 font-semibold">Google 聯網搜尋（Grounding）</span>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-0.5">啟用後 AI 將先搜尋最新資料再生成簡報，確保內容不依賴舊訓練資料庫</p>
+                </div>
+            </div>
         </div>
 
         <!-- Progress -->
@@ -979,6 +993,52 @@ function stopGeneration() {
 // ═══════════════════════════════════════════════════════════════════
 // LLM: OUTLINE GENERATION  ── supports Gemini + Grok ──
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// Web Grounding: use Gemini Google Search to gather latest info on topic
+// Returns a string of researched context, or '' if disabled/failed.
+// ═══════════════════════════════════════════════════════════════════
+async function researchTopicWithGrounding(topic, signal) {
+    if (!document.getElementById('chk-web-search')?.checked) return '';
+    const apiKey = AppState.googleApiKey;
+    if (!apiKey) { addLog('⚠ 聯網搜尋需要 Gemini API Key，略過', 'warning'); return ''; }
+
+    addLog('🌐 Google 聯網搜尋中，抓取最新資料...', 'ai');
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const body = {
+        contents: [{
+            role: 'user',
+            parts: [{ text: `請用繁體中文針對以下主題進行深度研究，整理最新數據、趨勢、案例、統計資料、重要觀點。內容要具體、有數字支撐、有來源說明，供後續製作專業簡報使用。\n\n主題：${topic}` }]
+        }],
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 4096, temperature: 0.3 }
+    };
+
+    try {
+        const resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+            signal
+        });
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err?.error?.message || `HTTP ${resp.status}`);
+        }
+        const data = await resp.json();
+        const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+        const queries = data.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];
+        if (text) {
+            addLog(`✓ 聯網研究完成（搜尋了 ${queries.length} 個查詢），整合至大綱生成`, 'success');
+            return `\n\n【Google 聯網搜尋最新資料 — ${new Date().toLocaleDateString('zh-TW')}】\n${text}`;
+        }
+    } catch(e) {
+        if (e.name === 'AbortError') throw e;
+        addLog(`⚠ 聯網搜尋失敗（${e.message}），改用模型自身知識`, 'warning');
+    }
+    return '';
+}
+
 async function callGeminiForOutline(topic, context) {
     if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
@@ -1153,8 +1213,8 @@ const SLIDE_INTERACTION_SCRIPT = `
 
   /* ── Floating mini-toolbar: appears above any text selection in .rb ── */
   (function(){
-    var toolbar=null, savedRange=null;
-    function removeMini(){if(toolbar){toolbar.remove();toolbar=null;} savedRange=null;}
+    var toolbar=null, savedRange=null, pickerOpen=false;
+    function removeMini(){if(toolbar){toolbar.remove();toolbar=null;} savedRange=null; pickerOpen=false;}
 
     function mkLabel(txt){
       var s=document.createElement('span');
@@ -1168,10 +1228,55 @@ const SLIDE_INTERACTION_SCRIPT = `
       return s;
     }
     function mkColorPicker(title,initColor,onPick){
-      var cp=document.createElement('input'); cp.type='color'; cp.value=initColor; cp.title=title;
-      cp.style.cssText='width:22px;height:22px;border:none;border-radius:4px;cursor:pointer;padding:0;flex-shrink:0;';
-      cp.addEventListener('input',function(){ if(savedRange) onPick(cp.value,savedRange); });
-      return cp;
+      /* ── Two-element pattern ──────────────────────────────────────────
+         Hidden <input type="color"> is what the browser opens for picking.
+         Visible <button> (colour swatch) handles mousedown:
+           1. preventDefault() → keeps contenteditable focused / selection alive
+           2. saves range snapshot
+           3. setTimeout → programmatically fires .click() on the hidden input
+               (triggered outside a mousedown, so browser opens the picker)
+         ─────────────────────────────────────────────────────────────── */
+      var hidden=document.createElement('input');
+      hidden.type='color'; hidden.value=initColor;
+      hidden.style.cssText='position:absolute;width:0;height:0;opacity:0;pointer-events:none;';
+      hidden.addEventListener('input',function(){
+        /* Restore selection, then apply colour */
+        if(savedRange){
+          try{ var s=window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); }catch(e){}
+        }
+        onPick(hidden.value, savedRange);
+        /* Keep swatch colour in sync */
+        swatch.style.background=hidden.value;
+      });
+
+      var swatch=document.createElement('button');
+      swatch.title=title;
+      swatch.style.cssText='width:22px;height:22px;border:2px solid rgba(255,255,255,.35);'+
+        'border-radius:4px;cursor:pointer;padding:0;flex-shrink:0;background:'+initColor+';';
+      swatch.addEventListener('mousedown',function(ev){
+        ev.preventDefault();        /* ← keeps selection alive */
+        /* Re-snapshot range right now (user may have adjusted selection) */
+        try{
+          var s=window.getSelection();
+          if(s&&s.rangeCount&&!s.isCollapsed) savedRange=s.getRangeAt(0).cloneRange();
+        }catch(e){}
+        /* Signal that a picker is about to open — block mouseup from closing toolbar */
+        pickerOpen=true;
+        /* Open picker on next tick (outside the mousedown handler) */
+        setTimeout(function(){ hidden.click(); }, 0);
+      });
+
+      /* When picker closes (change fires after user picks or cancels) */
+      hidden.addEventListener('change', function(){ pickerOpen=false; });
+      /* Also clear on blur in case user hits Escape */
+      hidden.addEventListener('blur',   function(){ setTimeout(function(){ pickerOpen=false; }, 200); });
+
+      /* Wrap both in a tiny container */
+      var wrap=document.createElement('span');
+      wrap.style.cssText='position:relative;display:inline-flex;flex-shrink:0;';
+      wrap.appendChild(hidden);
+      wrap.appendChild(swatch);
+      return wrap;
     }
     function mkBtn(label,action){
       var b=document.createElement('button'); b.textContent=label;
@@ -1181,7 +1286,10 @@ const SLIDE_INTERACTION_SCRIPT = `
       return b;
     }
 
-    document.addEventListener('mouseup',function(){
+    document.addEventListener('mouseup',function(e){
+      /* If the click was on the toolbar itself, or picker is open → don't touch anything */
+      if(pickerOpen) return;
+      if(toolbar && e.target && toolbar.contains(e.target)) return;
       setTimeout(function(){
         var sel=window.getSelection();
         if(!sel||sel.isCollapsed||!sel.rangeCount){ removeMini(); return; }
@@ -1226,9 +1334,18 @@ const SLIDE_INTERACTION_SCRIPT = `
         }));
         t.appendChild(mkSep());
         /* Format */
-        t.appendChild(mkBtn('B',function(){document.execCommand('bold');}));
-        t.appendChild(mkBtn('I',function(){document.execCommand('italic');}));
-        t.appendChild(mkBtn('U',function(){document.execCommand('underline');}));
+        t.appendChild(mkBtn('B',function(){
+          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
+          document.execCommand('bold');
+        }));
+        t.appendChild(mkBtn('I',function(){
+          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
+          document.execCommand('italic');
+        }));
+        t.appendChild(mkBtn('U',function(){
+          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
+          document.execCommand('underline');
+        }));
         /* Close */
         var x=mkBtn('×',removeMini);
         x.style.background='transparent'; x.style.color='#64748b';
@@ -1237,7 +1354,13 @@ const SLIDE_INTERACTION_SCRIPT = `
         document.body.appendChild(t);
       }, 80);
     });
-    document.addEventListener('mousedown',function(e){ if(toolbar&&!toolbar.contains(e.target)) removeMini(); });
+    document.addEventListener('mousedown',function(e){
+      if(!toolbar) return;
+      /* e.target can be null when clicking inside a native color-picker dialog */
+      if(!e.target) return;
+      if(toolbar.contains(e.target)) return;
+      removeMini();
+    });
   })();
 
   window.changeBgColor=function(inp){var box=inp.closest('.rb');if(!box)return;var bg=inp.value;box.style.background=bg;box.style.backgroundColor=bg;var safe=contrastColor(bg);box.querySelectorAll('[contenteditable]').forEach(function(el){if(!el.dataset.colorLocked)el.style.color=safe;});};
@@ -1676,14 +1799,50 @@ function injectContrastFix(html, theme) {
         return getContrastRatio(bgHex, a) >= 3.0 ? a : (bgIsLight ? '#1d4ed8' : '#a5b4fc');
     })();
 
-    // Build override CSS block
+    // Build override CSS block — use !important to win over inline styles set by AI
     const overrideCss = `
 <style id="contrast-override">
-/* Auto contrast override */
-body { --safe-text:${safeText}; --safe-sub:${safeSubText}; --safe-accent:${safeAccent}; }
-svg text { fill: ${safeText}; }
-.rb, .rb p, .rb span, .rb li { color: ${safeText}; }
-</style>`;
+/* Auto contrast override — must beat inline style specificity */
+svg text                         { fill: ${safeText}  !important; }
+.rb                              { color: ${safeText}  !important; }
+.rb p, .rb div, .rb li          { color: ${safeText}  !important; }
+.rb [contenteditable]            { color: ${safeText}  !important; }
+.rb span:not([style*="color"])   { color: ${safeText}  !important; }
+/* Preserve explicitly user-coloured spans — do NOT override them */
+</style>
+<script>
+/* JS contrast fix: override SVG fill/stroke *attributes* (CSS can't reach those) */
+(function(){
+  function hexLum(h){
+    var m=h.replace('#','');if(m.length===3)m=m[0]+m[0]+m[1]+m[1]+m[2]+m[2];
+    var r=parseInt(m.slice(0,2),16),g=parseInt(m.slice(2,4),16),b=parseInt(m.slice(4,6),16);
+    function lc(v){v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);}
+    return .2126*lc(r)+.7152*lc(g)+.0722*lc(b);
+  }
+  function contRatio(h1,h2){var L1=hexLum(h1),L2=hexLum(h2);return(Math.max(L1,L2)+.05)/(Math.min(L1,L2)+.05);}
+  var safeFill='${safeText}';
+  var bgHex='${bgHex}';
+  document.addEventListener('DOMContentLoaded',function(){
+    /* Fix SVG text fill attributes */
+    document.querySelectorAll('svg text,[fill]').forEach(function(el){
+      var f=el.getAttribute('fill');
+      if(!f||f==='none'||f.startsWith('url'))return;
+      try{ if(contRatio(f,bgHex)<3.5) el.setAttribute('fill',safeFill); }catch(e){}
+    });
+    /* Fix foreignObject inline color styles */
+    document.querySelectorAll('[style*="color"]').forEach(function(el){
+      var c=(el.style.color||'').trim();
+      if(!c||c==='inherit')return;
+      try{
+        var hex=c.replace(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/,function(_,r,g,b){
+          return '#'+[r,g,b].map(function(x){return parseInt(x).toString(16).padStart(2,'0');}).join('');
+        });
+        if(hex.startsWith('#')&&hex.length===7&&contRatio(hex,bgHex)<3.5) el.style.color=safeFill;
+      }catch(e){}
+    });
+  });
+})();
+<\/script>`;
 
     // Inject after <head> or before first </head>
     if (html.includes('</head>')) {
@@ -3027,7 +3186,7 @@ function openEditModal(index) {
 (function(){
   /* ── Floating color toolbar on selection ── */
   var miniBar=null;
-  function removeMini(){if(miniBar){miniBar.remove();miniBar=null;}}
+  function removeMini(){if(miniBar){miniBar.remove();miniBar=null;} savedRange=null;}
 
   /* Wrap selected text in <span style="color:C"> using Range API */
   function applyColorToSelection(color){
@@ -3064,46 +3223,65 @@ function openEditModal(index) {
     rb.style.fontSize=Math.max(8,Math.min(96,cur+delta*2))+'px';
   }
 
+  var savedRange=null; // save selection range at minibar-build time
+
   function buildMiniBar(rect){
     removeMini();
+    // ── Capture the current selection range RIGHT NOW before any click moves it ──
+    try{
+      var sel=window.getSelection();
+      savedRange=(sel&&sel.rangeCount)?sel.getRangeAt(0).cloneRange():null;
+    }catch(e){savedRange=null;}
+
     var t=document.createElement('div');
     t.style.cssText='position:fixed;z-index:9999;display:flex;align-items:center;gap:5px;'+
       'background:rgba(8,14,28,.97);border:1.5px solid rgba(99,102,241,.7);'+
       'border-radius:9px;padding:5px 9px;box-shadow:0 6px 24px rgba(0,0,0,.6);';
     t.style.left=Math.max(0,rect.left+rect.width/2-100)+'px';
-    t.style.top=(rect.top-50)+'px';
+    t.style.top=Math.max(0,rect.top-54)+'px';
 
     function lbl(txt){var s=document.createElement('span');s.textContent=txt;s.style.cssText='color:#94a3b8;font-size:10px;font-weight:600;white-space:nowrap;';return s;}
-    function clrPicker(title,initColor,onChange){
+
+    function clrPicker(title,initColor){
       var cp=document.createElement('input');cp.type='color';cp.value=initColor;cp.title=title;
       cp.style.cssText='width:22px;height:22px;border:none;border-radius:4px;cursor:pointer;padding:0;';
+      // Prevent mousedown from collapsing the selection before dialog opens
+      cp.addEventListener('mousedown',function(ev){ev.preventDefault();});
+      // On every colour change restore range then apply
       cp.addEventListener('input',function(){
-        var saved=null;
-        try{var sel=window.getSelection();if(sel&&sel.rangeCount)saved=sel.getRangeAt(0).cloneRange();}catch(e){}
-        onChange(cp.value,saved);
+        if(savedRange){try{var s=window.getSelection();s.removeAllRanges();s.addRange(savedRange);}catch(e){}}
+        applyColorToSelection(cp.value);
       });
       return cp;
     }
+
     function fmtBtn(label,action){
       var b=document.createElement('button');b.textContent=label;
-      b.style.cssText='font-size:12px;font-weight:700;padding:2px 6px;border:none;'+
+      b.style.cssText='font-size:12px;font-weight:700;padding:2px 7px;border:none;'+
         'background:rgba(255,255,255,.12);border-radius:4px;cursor:pointer;color:#e2e8f0;';
       b.addEventListener('mousedown',function(ev){ev.preventDefault();action();});
       return b;
     }
 
     t.appendChild(lbl('文字色'));
-    t.appendChild(clrPicker('文字顏色','#ffffff',function(c,saved){
-      if(saved){try{var sel=window.getSelection();sel.removeAllRanges();sel.addRange(saved);}catch(e){}}
-      applyColorToSelection(c);
-    }));
+    t.appendChild(clrPicker('文字顏色','#ffffff'));
     t.appendChild(lbl('大小'));
     t.appendChild(fmtBtn('A−',function(){applyFontSizeAdj(-1);}));
     t.appendChild(fmtBtn('A+',function(){applyFontSizeAdj(+1);}));
     var sep=document.createElement('span');sep.style.cssText='width:1px;height:14px;background:rgba(255,255,255,.18);margin:0 2px;';
     t.appendChild(sep);
-    t.appendChild(fmtBtn('B',function(){document.execCommand('bold');}));
-    t.appendChild(fmtBtn('I',function(){document.execCommand('italic');}));
+    t.appendChild(fmtBtn('B',function(){
+      if(savedRange){try{var s=window.getSelection();s.removeAllRanges();s.addRange(savedRange);}catch(e){}}
+      document.execCommand('bold');
+    }));
+    t.appendChild(fmtBtn('I',function(){
+      if(savedRange){try{var s=window.getSelection();s.removeAllRanges();s.addRange(savedRange);}catch(e){}}
+      document.execCommand('italic');
+    }));
+    t.appendChild(fmtBtn('U',function(){
+      if(savedRange){try{var s=window.getSelection();s.removeAllRanges();s.addRange(savedRange);}catch(e){}}
+      document.execCommand('underline');
+    }));
     var x=document.createElement('button');x.textContent='×';
     x.style.cssText='font-size:14px;padding:0 4px;border:none;background:transparent;color:#64748b;cursor:pointer;';
     x.addEventListener('click',removeMini);
@@ -3221,23 +3399,46 @@ function closeEditModal() {
 // Strategy: parse the slide's SVG from the HTML string, serialize it to a
 // Blob URL, draw onto an offscreen canvas, export JPEG. No iframe needed.
 async function captureSlideScreenshot(html) {
-    return new Promise((resolve) => {
+    // ── Primary: render slide in hidden iframe → html2canvas ──────────
+    const iframeCapture = () => new Promise((resolve) => {
         try {
-            // 1. Parse HTML string into a document
+            const iframe = document.createElement('iframe');
+            iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1920px;height:1080px;border:none;visibility:hidden;';
+            iframe.sandbox = 'allow-scripts allow-same-origin';
+            document.body.appendChild(iframe);
+            const cleanup = () => { try { iframe.remove(); } catch(_){} };
+            const timer = setTimeout(() => { cleanup(); resolve(null); }, 14000);
+
+            iframe.onload = async () => {
+                try {
+                    const idoc = iframe.contentDocument || iframe.contentWindow?.document;
+                    if (!idoc || !idoc.body) { clearTimeout(timer); cleanup(); resolve(null); return; }
+                    if (typeof html2canvas !== 'undefined') {
+                        const canvas = await html2canvas(idoc.documentElement, {
+                            width: 1920, height: 1080, scale: 0.5,
+                            useCORS: true, allowTaint: true,
+                            backgroundColor: '#0f172a', logging: false,
+                            windowWidth: 1920, windowHeight: 1080
+                        });
+                        clearTimeout(timer); cleanup();
+                        resolve(canvas.toDataURL('image/jpeg', 0.82));
+                        return;
+                    }
+                    clearTimeout(timer); cleanup(); resolve(null);
+                } catch(e) { clearTimeout(timer); cleanup(); resolve(null); }
+            };
+            iframe.srcdoc = html;
+        } catch(e) { resolve(null); }
+    });
+
+    // ── Fallback: SVG serialization → <canvas> ────────────────────────
+    const svgCapture = () => new Promise((resolve) => {
+        try {
             const parser = new DOMParser();
             const doc    = parser.parseFromString(html, 'text/html');
-            const svgEl  = doc.getElementById('slide-svg');
+            const svg    = doc.getElementById('slide-svg') || doc.querySelector('svg');
+            if (!svg) { resolve(null); return; }
 
-            if (!svgEl) {
-                // Fallback: try to find any SVG
-                const anySvg = doc.querySelector('svg');
-                if (!anySvg) { resolve(null); return; }
-            }
-
-            const svg = svgEl || doc.querySelector('svg');
-
-            // 2. Inline all style sheets from the parsed doc into the SVG
-            //    so the serialized SVG is self-contained
             let inlineCSS = '';
             doc.querySelectorAll('style').forEach(s => { inlineCSS += s.textContent + '\n'; });
             if (inlineCSS) {
@@ -3245,55 +3446,39 @@ async function captureSlideScreenshot(html) {
                 styleEl.textContent = inlineCSS;
                 svg.insertBefore(styleEl, svg.firstChild);
             }
-
-            // 3. Ensure viewBox is set
             if (!svg.getAttribute('viewBox')) svg.setAttribute('viewBox', '0 0 1920 1080');
-            svg.setAttribute('width',  '1920');
-            svg.setAttribute('height', '1080');
+            svg.setAttribute('width', '1920'); svg.setAttribute('height', '1080');
 
-            // 4. Serialize SVG → Blob URL
-            const serializer = new XMLSerializer();
-            const svgStr     = serializer.serializeToString(svg);
-            const svgBlob    = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-            const svgUrl     = URL.createObjectURL(svgBlob);
+            const svgStr  = new XMLSerializer().serializeToString(svg);
+            const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+            const svgUrl  = URL.createObjectURL(svgBlob);
 
-            // 5. Draw onto offscreen canvas at half resolution (960×540) for speed
             const W = 960, H = 540;
-            const canvas  = new OffscreenCanvas ? new OffscreenCanvas(W, H) : document.createElement('canvas');
-            canvas.width  = W; canvas.height = H;
-            const ctx     = canvas.getContext('2d');
-
+            const canvas = document.createElement('canvas');
+            canvas.width = W; canvas.height = H;
+            const ctx = canvas.getContext('2d');
             const img = new Image();
             img.onload = () => {
                 URL.revokeObjectURL(svgUrl);
-                // Fill background from body/html bg color
                 const bodyBg = doc.body?.style?.background || doc.body?.style?.backgroundColor || '#0f172a';
                 ctx.fillStyle = bodyBg || '#0f172a';
                 ctx.fillRect(0, 0, W, H);
                 ctx.drawImage(img, 0, 0, W, H);
-                // Export as JPEG data URL
-                if (canvas.convertToBlob) {
-                    // OffscreenCanvas
-                    canvas.convertToBlob({ type: 'image/jpeg', quality: 0.82 }).then(blob => {
-                        const reader = new FileReader();
-                        reader.onload = e => resolve(e.target.result);
-                        reader.readAsDataURL(blob);
-                    }).catch(() => resolve(null));
-                } else {
-                    resolve(canvas.toDataURL('image/jpeg', 0.82));
-                }
+                resolve(canvas.toDataURL('image/jpeg', 0.82));
             };
             img.onerror = () => { URL.revokeObjectURL(svgUrl); resolve(null); };
             img.src = svgUrl;
-
-            // Safety timeout
             setTimeout(() => { URL.revokeObjectURL(svgUrl); resolve(null); }, 12000);
-
         } catch(e) {
             addLog(`⚠ 截圖解析失敗: ${e.message}`, 'warning');
             resolve(null);
         }
     });
+
+    const result = await iframeCapture();
+    if (result) return result;
+    addLog('⚠ iframe 截圖失敗，切換 SVG fallback...', 'warning');
+    return await svgCapture();
 }
 
 // Call Grok 4.1 (or selected reviewer) to visually review a slide screenshot
@@ -3427,7 +3612,7 @@ ${html.slice(0, 60000)}
                         contents: [{ role: 'user', parts: [{ text: fixPrompt }] }],
                         generationConfig: { temperature: 0.3, maxOutputTokens: 16384 }
                     }),
-                    signal: AbortSignal.timeout(60000)
+                    signal: AbortSignal.timeout(180000)
                 }
             );
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -3534,8 +3719,17 @@ async function startGeneration() {
         if (srcCount > 0) addLog(`✓ 已整合 ${srcCount} 個資料來源（${context.length.toLocaleString()} 字元）`, 'success');
         setProgress(8);
 
+        // ── Google Grounding research (if enabled) ────────────────────
+        let groundingContext = '';
+        try {
+            groundingContext = await researchTopicWithGrounding(topic, AppState.abortController.signal);
+        } catch(e) {
+            if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
+        }
+        setProgress(13);
+
         addLog('🧠 正在生成簡報大綱...', 'ai');
-        const outlineData = await callGeminiForOutline(topic, context);
+        const outlineData = await callGeminiForOutline(topic, context + groundingContext);
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
         AppState.presentationData = outlineData;
         addLog(`✓ 大綱生成完成：「${outlineData.presentation_title}」共 ${outlineData.slides?.length || 0} 張`, 'success');
