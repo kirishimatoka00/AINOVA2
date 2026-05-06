@@ -230,7 +230,53 @@
                             <option value="creative">活潑創意 (Creative Vivid)</option>
                             <option value="elegant">高雅精緻 (Elegant Light)</option>
                             <option value="white">純白底 (Pure White) ☁</option>
+                            <option value="ai_custom">🎨 AI 自訂底色設計…</option>
                         </select>
+                        <!-- AI Custom Background panel -->
+                        <div id="ai-bg-panel" class="hidden mt-2 space-y-2 bg-slate-950 border border-slate-700 rounded-xl p-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[11px] text-slate-300 font-semibold">底色設計模式</span>
+                            </div>
+                            <div class="flex gap-2">
+                                <label class="flex-1 flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="bg-design-mode" value="describe" checked class="accent-violet-400">
+                                    <span class="text-[10px] text-slate-300">描述讓 AI 生成</span>
+                                </label>
+                                <label class="flex-1 flex items-center gap-1.5 cursor-pointer">
+                                    <input type="radio" name="bg-design-mode" value="auto" class="accent-violet-400">
+                                    <span class="text-[10px] text-slate-300">AI 自行決定</span>
+                                </label>
+                            </div>
+                            <div id="bg-desc-area">
+                                <textarea id="inp-bg-desc" rows="2" placeholder="描述想要的底色風格，例如：深宇宙藍配金色光暈，科技感強烈..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-[11px] text-slate-200 resize-none outline-none focus:border-violet-500 transition-colors"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-400 mb-1">底色生成模型</label>
+                                <select id="sel-bg-model" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 text-[10px] focus:border-violet-500 outline-none">
+                                    <optgroup label="── Gemini 系列 ──">
+                                        <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro（精細設計）</option>
+                                        <option value="gemini-2.5-flash">Gemini 2.5 Flash（快速）</option>
+                                        <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
+                                    </optgroup>
+                                    <optgroup label="── Grok 系列 ──">
+                                        <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning</option>
+                                        <option value="grok-4-1-fast-non-reasoning">Grok 4.1 Fast Non-Reasoning</option>
+                                    </optgroup>
+                                </select>
+                            </div>
+                            <p class="text-[10px] text-slate-500">AI 將生成 SVG 背景層 CSS，套用至所有投影片底色</p>
+                        </div>
+                    </div>
+                    <script>
+                    document.getElementById('sel-template').addEventListener('change', function() {
+                        document.getElementById('ai-bg-panel').classList.toggle('hidden', this.value !== 'ai_custom');
+                    });
+                    document.querySelectorAll('input[name="bg-design-mode"]').forEach(r => {
+                        r.addEventListener('change', function() {
+                            document.getElementById('bg-desc-area').classList.toggle('hidden', this.value === 'auto');
+                        });
+                    });
+                    </script>
                     </div>
 
                     <div>
@@ -307,7 +353,8 @@
                                 <select id="sel-review-model" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 text-[11px] focus:border-violet-500 outline-none">
                                     <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning（推薦）</option>
                                     <option value="grok-4-1-fast-non-reasoning">Grok 4.1 Fast Non-Reasoning</option>
-                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                                    <option value="gemini-2.5-pro">Gemini 2.5 Pro（深度審查）</option>
+                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash（快速）</option>
                                 </select>
                             </div>
                             <div>
@@ -321,6 +368,51 @@
                             <p class="text-slate-600 text-[10px] leading-relaxed">審查後若發現重疊、對比不足等問題，Gemini 2.5 Pro 將自動修正並重新渲染</p>
                         </div>
                     </div>
+
+                    <!-- Content Density -->
+                    <div class="border-t border-slate-800 pt-3">
+                        <label class="block text-slate-400 mb-1.5 font-semibold flex items-center gap-1.5">
+                            <i class="ph-fill ph-sliders text-cyan-400"></i>
+                            內容密度模式
+                        </label>
+                        <select id="sel-density" onchange="updateDensityHint()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none mb-1.5">
+                            <option value="document">📄 閱讀型 — 詳細文字 + 圖表 + 少量圖片</option>
+                            <option value="balanced" selected>⚖️ 均衡型 — 重點 + 圖表 + 圖片</option>
+                            <option value="presentation">🎤 簡報型 — 精簡重點 + 視覺主導</option>
+                        </select>
+                        <p id="density-hint" class="text-slate-600 text-[10px] leading-relaxed">每頁 3–5 點，要點控制在 25 字內，搭配流程圖與配圖，適合現場簡報</p>
+                    </div>
+
+                    <!-- Dynamic Mode (Feature 5) -->
+                    <div class="border-t border-slate-800 pt-3">
+                        <label class="block text-slate-400 mb-1.5 font-semibold flex items-center gap-1.5">
+                            <i class="ph-fill ph-pencil-simple text-green-400"></i>
+                            HTML 互動編輯模式
+                        </label>
+                        <div class="flex items-center gap-2.5">
+                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                <input type="checkbox" id="chk-dynamic-mode" class="sr-only peer" checked onchange="updateDynamicHint()">
+                                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
+                            </label>
+                            <div>
+                                <p class="text-[11px] text-slate-200 font-medium" id="dynamic-mode-label">✏ 開啟：文字可拖曳/改色/改大小</p>
+                                <p class="text-[10px] text-slate-500" id="dynamic-mode-desc">關閉後由 AI 全權決定排版，審查者負責修正重疊與對比問題</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quality -->
+                    <div class="border-t border-slate-800 pt-3">
+                        <label class="block text-slate-400 mb-1.5 font-semibold flex items-center gap-1.5">
+                            <i class="ph-fill ph-star text-amber-400"></i>
+                            投影片品質等級
+                        </label>
+                        <select id="sel-quality" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
+                            <option value="premium">✨ Premium — 精緻設計（慢，多 token）</option>
+                            <option value="standard" selected>⚡ Standard — 均衡品質與速度</option>
+                        </select>
+                    </div>
+
                             <span id="slide-count-val" class="text-amber-400 font-bold">10 張</span>
                         </label>
                         <input type="range" id="range-slide-count" min="2" max="50" value="10"
@@ -364,18 +456,37 @@
             <textarea id="inp-topic" rows="4"
                 placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告，需包含大量數據、具體案例與未來預測...&#10;&#10;也可附加左側資料來源，AI 會先摘要分析後製作簡報。"
                 class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors resize-none"></textarea>
-            <!-- Web Search Grounding toggle -->
-            <div class="mt-3 flex items-center gap-2.5 bg-slate-800/60 border border-slate-700 rounded-xl px-3.5 py-2.5">
-                <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                    <input type="checkbox" id="chk-web-search" class="sr-only peer" checked>
-                    <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
-                </label>
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-1.5">
-                        <i class="ph-fill ph-globe text-sky-400 text-sm"></i>
-                        <span class="text-[11px] text-slate-200 font-semibold">Google 聯網搜尋（Grounding）</span>
+            <!-- Web Search Mode (Feature 6) -->
+            <div class="mt-3 bg-slate-800/60 border border-slate-700 rounded-xl p-3.5">
+                <div class="flex items-center gap-2.5 mb-2">
+                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                        <input type="checkbox" id="chk-web-search" class="sr-only peer" checked onchange="updateWebSearchUI()">
+                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
+                    </label>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1.5">
+                            <i class="ph-fill ph-globe text-sky-400 text-sm"></i>
+                            <span class="text-[11px] text-slate-200 font-semibold">Google 聯網搜尋（Grounding）</span>
+                        </div>
+                        <p class="text-[10px] text-slate-500 mt-0.5">啟用後 AI 先搜尋最新資料再生成，確保內容不依賴舊訓練資料</p>
                     </div>
-                    <p class="text-[10px] text-slate-500 mt-0.5">啟用後 AI 將先搜尋最新資料再生成簡報，確保內容不依賴舊訓練資料庫</p>
+                </div>
+                <div id="web-search-mode-panel" class="space-y-2">
+                    <div class="text-[10px] text-slate-400 font-semibold mb-1">搜尋結果處理方式</div>
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="radio" name="web-search-mode" value="auto" checked class="mt-0.5 accent-sky-400 shrink-0">
+                        <div>
+                            <p class="text-[11px] text-slate-200 font-medium">🤖 AI 自動篩選</p>
+                            <p class="text-[10px] text-slate-500">AI 自行決定哪些搜尋結果納入分析，直接生成簡報</p>
+                        </div>
+                    </label>
+                    <label class="flex items-start gap-2 cursor-pointer">
+                        <input type="radio" name="web-search-mode" value="manual" class="mt-0.5 accent-sky-400 shrink-0">
+                        <div>
+                            <p class="text-[11px] text-slate-200 font-medium">☑ 手動選擇搜尋結果</p>
+                            <p class="text-[10px] text-slate-500">顯示前 20 個搜尋結果供你勾選，再交給 AI 分析</p>
+                        </div>
+                    </label>
                 </div>
             </div>
         </div>
@@ -494,6 +605,33 @@
             <p class="text-slate-500 text-xs">請確認 SerpAPI Key 是否正確，或改用 AI 生成圖片</p>
             <button onclick="imgPickerUseAI()" class="mt-2 text-xs font-bold px-4 py-2 bg-violet-600 hover:bg-violet-500 text-white rounded-xl transition-colors">改用 AI 生成</button>
         </div>
+    </div>
+</div>
+
+<!-- ── WEB SEARCH RESULTS PICKER MODAL (Feature 6) ──────────────── -->
+<div id="web-search-picker-modal" class="hidden fixed inset-0 z-[130] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl">
+        <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
+            <div class="flex items-center gap-2.5">
+                <i class="ph-fill ph-globe text-sky-400 text-xl"></i>
+                <div>
+                    <h2 class="text-sm font-bold text-white">選擇要納入的搜尋結果</h2>
+                    <p class="text-[10px] text-slate-500" id="wsp-subtitle">勾選後 AI 將分析選定結果，再生成簡報</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="wspSelectAll(true)"  class="text-[10px] text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10 transition-colors">全選</button>
+                <button onclick="wspSelectAll(false)" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded hover:bg-slate-700 transition-colors">全不選</button>
+                <button onclick="wspConfirm()" class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl transition-colors">
+                    <i class="ph-bold ph-check"></i>確認並生成
+                </button>
+            </div>
+        </div>
+        <div id="wsp-loading" class="flex flex-col items-center justify-center py-12 gap-3">
+            <div class="w-7 h-7 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-slate-400 text-sm">搜尋最新資料中...</p>
+        </div>
+        <div id="wsp-list" class="hidden flex-1 overflow-y-auto p-4 space-y-2"></div>
     </div>
 </div>
 
@@ -689,8 +827,18 @@ function updateImageModeHint() {
     if (el) el.textContent = hints[mode] || '';
 }
 
+function updateDensityHint() {
+    const mode = document.getElementById('sel-density')?.value || 'balanced';
+    const hints = {
+        document:     '每頁 5–8 點，每點 30–80 字，配詳細圖表，適合作為報告文件閱讀',
+        balanced:     '每頁 3–5 點，每點 15–35 字，配圖表與插圖，適合現場簡報兼閱讀',
+        presentation: '每頁 2–3 點，每點 8–20 字，大標題視覺主導，適合現場演講'
+    };
+    const el = document.getElementById('density-hint');
+    if (el) el.textContent = hints[mode] || '';
+}
+
 function updateReviewHint() {
-    const enabled = document.getElementById('chk-review-enabled')?.checked;
     const cfg = document.getElementById('review-config');
     if (cfg) cfg.classList.toggle('hidden', !enabled);
 }
@@ -1043,10 +1191,12 @@ async function callGeminiForOutline(topic, context) {
     if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
     const userModel  = document.getElementById('sel-text-model').value;
-    const slideCount = document.getElementById('range-slide-count').value;
+    const slideCount  = document.getElementById('range-slide-count').value;
     const templateKey = document.getElementById('sel-template').value;
     const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
     const imageMode = document.getElementById('sel-image-mode').value;
+    const density   = document.getElementById('sel-density')?.value   || 'balanced';
+    const quality   = document.getElementById('sel-quality')?.value   || 'standard';
 
     const GEMINI_FALLBACKS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3-flash-preview'];
     const MODEL_QUEUE = isGrokModel(userModel)
@@ -1063,20 +1213,48 @@ async function callGeminiForOutline(topic, context) {
         serp_mixed:   'SerpAPI + AI 混合模式，有需要配圖時使用 text_and_image'
     }[imageMode] || '';
 
-    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。
+    const densityRules = {
+        document: `【閱讀型密度規則】
+- 每張 bullet_points：5–8 點，每點 30–80 字（詳細解釋，包含數據、案例、背景）
+- 允許 diagram_slide 佔 30% 以上（圖表、數據表格、比較圖）
+- text_and_image 圖片僅輔助說明，非視覺主角
+- 文字資訊密度：高；視覺娛樂性：低`,
+        balanced: `【均衡型密度規則】
+- 每張 bullet_points：3–5 點，每點 15–35 字
+- diagram_slide 佔 20–30%（流程圖、架構圖）
+- text_and_image 約佔 20–30%
+- 文字資訊密度：中；視覺吸引力：中`,
+        presentation: `【簡報型密度規則】
+- 每張 bullet_points：2–3 點，每點 8–20 字（精簡有力，口語化）
+- diagram_slide 佔 20%（簡單流程圖、架構圖）
+- text_and_image 佔 40–50%（視覺為主角）
+- title_only 封面要視覺震撼
+- 文字資訊密度：低；視覺衝擊力：高`
+    }[density] || '';
+
+    const qualityRules = quality === 'premium' ? `
+【Premium 品質要求 — NotebookLM 水準】
+- 每張投影片必須有獨特的視覺亮點（資料視覺化、圖標、關鍵數字強調）
+- diagram_slide 必須是真正有洞察力的圖表（不是簡單清單）
+- 標題要有行動力和驚喜感（問句、數字開頭、對比結構）
+- 資料點：每張至少有 1 個具體數字或統計
+- 版型多樣性：相鄰頁不允許相同 layout` : '';
+
+    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份 HTML 簡報大綱 JSON。
 
 視覺風格主題：${theme.label || 'Modern Dark'}
 投影片張數：${slideCount} 張
 圖片使用策略：${imageModeHint}
 
-【內容品質要求】
-1. 拒絕空泛：必須含具體案例、數據預估、深度邏輯推演
-2. 每張的 bullet_points 必須 3~5 點，每點 15~40 字
-3. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
-4. diagram_slide 表示需要流程圖、圖表、架構圖的頁面
-5. image_prompt 為具體英文 AI 繪圖提示詞 (text_and_image 時必填)
-6. diagram_description 描述圖解內容 (diagram_slide 時必填)
-7. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
+${densityRules}
+${qualityRules}
+
+【基本品質要求】
+1. 拒絕空泛：必須含具體案例、數據、深度邏輯
+2. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
+3. diagram_slide 時 diagram_description 必填（具體描述圖解內容）
+4. text_and_image 時 image_prompt 必填（英文具體繪圖提示詞）
+5. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
 
 JSON Schema:
 {
@@ -1216,6 +1394,34 @@ const SLIDE_INTERACTION_SCRIPT = `
     var toolbar=null, savedRange=null, pickerOpen=false;
     function removeMini(){if(toolbar){toolbar.remove();toolbar=null;} savedRange=null; pickerOpen=false;}
 
+    /* ── Apply font size to selected range (not the whole container) ──
+       Uses range.surroundContents() to wrap selected text in a span.
+       Falls back to changing the container if selection crosses element boundaries. */
+    function applyFontSizeToRange(range, delta){
+      /* Restore the selection first */
+      try{ var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }catch(e){ return; }
+
+      var anc=range.commonAncestorContainer;
+      var node=anc.nodeType===3?anc.parentNode:anc;
+      var curPx=parseFloat(window.getComputedStyle(node).fontSize)||18;
+      var newPx=Math.max(8, Math.min(120, curPx+delta));
+
+      try{
+        /* Clone the range to avoid mutation issues */
+        var r=range.cloneRange();
+        var span=document.createElement('span');
+        span.style.fontSize=newPx+'px';
+        r.surroundContents(span);
+        /* Move selection inside the new span and update savedRange */
+        var s2=window.getSelection(); s2.removeAllRanges(); s2.selectAllChildren(span);
+        savedRange=s2.getRangeAt(0).cloneRange();
+      }catch(e){
+        /* surroundContents throws if selection crosses element boundaries —
+           fall back to adjusting the container element */
+        node.style.fontSize=newPx+'px';
+      }
+    }
+
     function mkLabel(txt){
       var s=document.createElement('span');
       s.textContent=txt;
@@ -1228,55 +1434,48 @@ const SLIDE_INTERACTION_SCRIPT = `
       return s;
     }
     function mkColorPicker(title,initColor,onPick){
-      /* ── Two-element pattern ──────────────────────────────────────────
-         Hidden <input type="color"> is what the browser opens for picking.
-         Visible <button> (colour swatch) handles mousedown:
-           1. preventDefault() → keeps contenteditable focused / selection alive
-           2. saves range snapshot
-           3. setTimeout → programmatically fires .click() on the hidden input
-               (triggered outside a mousedown, so browser opens the picker)
+      /* ── Direct-input pattern ─────────────────────────────────────────
+         Use a real <input type="color"> styled as a swatch.
+         mousedown on it:
+           1. ev.preventDefault() → keeps contenteditable focus + selection
+           2. snapshots savedRange
+         Then the browser receives a genuine click (mousedown→mouseup on the
+         same element = click) and opens the OS colour picker normally.
+         This avoids the setTimeout→hidden.click() trick which browsers now
+         block as a non-gesture-triggered picker open.
          ─────────────────────────────────────────────────────────────── */
-      var hidden=document.createElement('input');
-      hidden.type='color'; hidden.value=initColor;
-      hidden.style.cssText='position:absolute;width:0;height:0;opacity:0;pointer-events:none;';
-      hidden.addEventListener('input',function(){
-        /* Restore selection, then apply colour */
-        if(savedRange){
-          try{ var s=window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); }catch(e){}
-        }
-        onPick(hidden.value, savedRange);
-        /* Keep swatch colour in sync */
-        swatch.style.background=hidden.value;
-      });
+      var inp=document.createElement('input');
+      inp.type='color'; inp.value=initColor; inp.title=title;
+      inp.style.cssText=
+        'width:22px;height:22px;border:2px solid rgba(255,255,255,.35);'+
+        'border-radius:4px;cursor:pointer;padding:0;flex-shrink:0;'+
+        'background:'+initColor+';appearance:none;-webkit-appearance:none;overflow:hidden;';
+      /* Make the colour swatch visible: hide the default browser chrome */
+      inp.style.setProperty('--webkit-color-swatch-wrapper-padding','0px');
 
-      var swatch=document.createElement('button');
-      swatch.title=title;
-      swatch.style.cssText='width:22px;height:22px;border:2px solid rgba(255,255,255,.35);'+
-        'border-radius:4px;cursor:pointer;padding:0;flex-shrink:0;background:'+initColor+';';
-      swatch.addEventListener('mousedown',function(ev){
-        ev.preventDefault();        /* ← keeps selection alive */
-        /* Re-snapshot range right now (user may have adjusted selection) */
+      /* mousedown: save selection & signal picker is opening */
+      inp.addEventListener('mousedown',function(ev){
+        /* DO NOT preventDefault here — we need the browser to process the
+           click on the <input type="color"> as a real user gesture so that
+           the OS colour-picker dialog opens. Instead we just snapshot range. */
         try{
           var s=window.getSelection();
           if(s&&s.rangeCount&&!s.isCollapsed) savedRange=s.getRangeAt(0).cloneRange();
         }catch(e){}
-        /* Signal that a picker is about to open — block mouseup from closing toolbar */
         pickerOpen=true;
-        /* Open picker on next tick (outside the mousedown handler) */
-        setTimeout(function(){ hidden.click(); }, 0);
       });
 
-      /* When picker closes (change fires after user picks or cancels) */
-      hidden.addEventListener('change', function(){ pickerOpen=false; });
-      /* Also clear on blur in case user hits Escape */
-      hidden.addEventListener('blur',   function(){ setTimeout(function(){ pickerOpen=false; }, 200); });
+      inp.addEventListener('input',function(){
+        if(savedRange){
+          try{ var s=window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); }catch(e){}
+        }
+        onPick(inp.value, savedRange);
+        inp.style.background=inp.value;
+      });
+      inp.addEventListener('change', function(){ setTimeout(function(){ pickerOpen=false; },100); });
+      inp.addEventListener('blur',   function(){ setTimeout(function(){ pickerOpen=false; },200); });
 
-      /* Wrap both in a tiny container */
-      var wrap=document.createElement('span');
-      wrap.style.cssText='position:relative;display:inline-flex;flex-shrink:0;';
-      wrap.appendChild(hidden);
-      wrap.appendChild(swatch);
-      return wrap;
+      return inp;
     }
     function mkBtn(label,action){
       var b=document.createElement('button'); b.textContent=label;
@@ -1306,45 +1505,23 @@ const SLIDE_INTERACTION_SCRIPT = `
           'border-radius:10px;padding:6px 10px;box-shadow:0 6px 24px rgba(0,0,0,.7);pointer-events:auto;max-width:340px;';
 
         var rect=range.getBoundingClientRect();
-        var tx=Math.max(4,Math.min(window.innerWidth-340,rect.left+rect.width/2-140));
-        var ty=Math.max(4,rect.top-52);
+        var tx=Math.max(4,Math.min(window.innerWidth-280,rect.left+rect.width/2-110));
+        var ty=Math.max(4,rect.top-50);
         t.style.left=tx+'px'; t.style.top=ty+'px';
 
-        /* Text color */
+        /* ── Simplified toolbar: Text color | A− A+ | × ── */
+        /* (B/I/U removed per UX simplification) */
         t.appendChild(mkLabel('文字色'));
         t.appendChild(mkColorPicker('文字顏色','#ffffff',function(c,r){ applyColorToRange(c,r); }));
         t.appendChild(mkSep());
-        /* Font size */
         t.appendChild(mkLabel('大小'));
         t.appendChild(mkBtn('A−',function(){
           if(!savedRange) return;
-          var anc2=savedRange.commonAncestorContainer;
-          var n2=anc2.nodeType===3?anc2.parentNode:anc2;
-          var rb2=n2.closest('.rb'); if(!rb2) return;
-          var cur=parseFloat(rb2.style.fontSize)||16;
-          rb2.style.fontSize=Math.max(8,cur-2)+'px';
+          applyFontSizeToRange(savedRange, -2);
         }));
         t.appendChild(mkBtn('A+',function(){
           if(!savedRange) return;
-          var anc2=savedRange.commonAncestorContainer;
-          var n2=anc2.nodeType===3?anc2.parentNode:anc2;
-          var rb2=n2.closest('.rb'); if(!rb2) return;
-          var cur=parseFloat(rb2.style.fontSize)||16;
-          rb2.style.fontSize=Math.min(96,cur+2)+'px';
-        }));
-        t.appendChild(mkSep());
-        /* Format */
-        t.appendChild(mkBtn('B',function(){
-          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
-          document.execCommand('bold');
-        }));
-        t.appendChild(mkBtn('I',function(){
-          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
-          document.execCommand('italic');
-        }));
-        t.appendChild(mkBtn('U',function(){
-          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
-          document.execCommand('underline');
+          applyFontSizeToRange(savedRange, +2);
         }));
         /* Close */
         var x=mkBtn('×',removeMini);
@@ -1492,6 +1669,8 @@ const SLIDE_INTERACTION_SCRIPT = `
   function startDrag(evt){
     if(evt.target.closest('.ctrl')||evt.target.tagName.toLowerCase()==='input'||evt.target.isContentEditable)return;
     if(evt.target.tagName.toLowerCase()==='text')return;
+    /* Fix 4: block drag while selection mini-toolbar is showing */
+    if(document.getElementById('_mini_toolbar'))return;
     var dg=evt.target.closest('.dg');if(!dg)return;
     var box=evt.target.closest('.rb');
     if(box){var rc=box.getBoundingClientRect();if(evt.clientX>rc.right-22&&evt.clientY>rc.bottom-22)return;}
@@ -1519,7 +1698,7 @@ const SLIDE_INTERACTION_SCRIPT = `
 // ═══════════════════════════════════════════════════════════════════
 // LLM: HTML/CSS SLIDE GENERATION 
 // ═══════════════════════════════════════════════════════════════════
-async function generateSlideHTML(slideData, theme, imageB64) {
+async function generateSlideHTML(slideData, theme, imageB64, aiBgSvgContent = null) {
     if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
     const userModel = document.getElementById('sel-text-model').value;
@@ -1544,19 +1723,59 @@ async function generateSlideHTML(slideData, theme, imageB64) {
         ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 外層（body 內）用 <img id="slide-logo" src="REPLACE_LOGO_SRC" style="position:fixed;${logoPosMap[logoPos]}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;"> 放置 Logo。`
         : '';
 
-    // Background: use uploaded template or theme
-    const bgInstruction = AppState.bgTemplateBase64
-        ? `【特別重要】本簡報使用自定義底稿背景圖片。背景層必須是 <image href="REPLACE_BG_SRC" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>，放在所有其他元素之前。禁止使用漸層或純色作為背景，必須使用此底稿圖片。文字和卡片配色需配合底稿，若底稿較亮則用深色文字，若底稿較暗則用淺色文字。`
-        : `背景基調: ${theme.bg}（使用此漸層或顏色作為全背景）`;
+    // Background: ai_custom > uploaded template > theme
+    const bgInstruction = aiBgSvgContent
+        ? `【重要】本投影片已有 AI 預生成的底色背景（SVG 元素代碼如下）。請在 SVG 的 <defs> 之後、所有其他內容之前，直接插入以下 SVG 背景元素，禁止修改它們，禁止再另外生成背景層：
+\`\`\`
+${aiBgSvgContent}
+\`\`\`
+文字和卡片配色需配合底色，確保足夠對比度。`
+        : AppState.bgTemplateBase64
+            ? `【特別重要】本簡報使用自定義底稿背景圖片。背景層必須是 <image href="REPLACE_BG_SRC" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>，放在所有其他元素之前。禁止使用漸層或純色作為背景，必須使用此底稿圖片。文字和卡片配色需配合底稿，若底稿較亮則用深色文字，若底稿較暗則用淺色文字。`
+            : `背景基調: ${theme.bg}（使用此漸層或顏色作為全背景）`;
+
+    const density = document.getElementById('sel-density')?.value || 'balanced';
+    const quality = document.getElementById('sel-quality')?.value || 'standard';
+
+    const densityVisualRules = {
+        document: `【閱讀型視覺規範】
+- 文字卡片要寬，字體 font-size: 18–22px，bullet 項目條列清晰
+- 每個要點完整顯示（不截斷），允許卡片較高（height > 200px）
+- 圖表優先（diagram_slide 用詳細、資訊豐富的 SVG 圖表）
+- 視覺裝飾簡約，以資訊清晰為主`,
+        balanced: `【均衡型視覺規範】
+- 文字卡片與視覺元素 50/50 平衡
+- font-size 20–26px，留白適中
+- 圖表清晰易讀，圖片與文字良好搭配`,
+        presentation: `【簡報型視覺規範】
+- 標題極大（font-size ≥ 64px），要點極簡
+- 大量留白，視覺衝擊第一，文字第二
+- 用大色塊、漸層、幾何形狀製造視覺震撼
+- 每點文字控制在一行內（< 20 字）`
+    }[density] || '';
+
+    const premiumRules = quality === 'premium' ? `
+【★ Premium 設計規範 — 比肩 NotebookLM】
+1. 色彩深度：背景使用至少 3 層漸層（主色 + 輔助光暈 + 邊緣暗化），不用單一純色
+2. 版型多樣：善用非對稱佈局（30/70、黃金比例）而非均分
+3. 資料視覺化：diagram_slide 必須有真正的資料圖（bar chart SVG、折線圖、同心圓等），不只是方框加箭頭
+4. 關鍵數字：重要數字（百分比、金額、年份）用超大字體（≥ 80px）單獨展示，形成視覺錨點
+5. 微細節：圓角 border-radius 12–20px，卡片加 backdrop-filter:blur(12px)，投影用 drop-shadow
+6. 圖標：在要點前用內聯 SVG 圖標（⚡📊🎯🔑等 Unicode 也可）增加視覺層次
+7. 動態感：漸層角度 135deg，光暈偏角，製造運動感
+8. 一致性：整張投影片的強調色只用 1–2 種，避免色彩混亂` : '';
 
     const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師。你的投影片必須完全符合以下架構規範。
 
 【投影片資料】
-${JSON.stringify(slideData, null, 2)}
+${JSON.stringify(slideData)}
 
 【圖片】${imgInstruction}
 【Logo】${logoInstruction || '無 Logo。'}
 【背景】${bgInstruction}
+
+${densityVisualRules}
+${premiumRules}
 
 ══════════════════════════════════════════════════════
 ★★★ 核心強制規範（違反任何一條都是錯誤輸出）★★★
@@ -1622,47 +1841,42 @@ F. 【技術規範】
    7. </svg> 後插入：<!--SLIDE_INTERACTION_SCRIPT-->
    8. foreignObject 內的 div 必須加 xmlns="http://www.w3.org/1999/xhtml"
 
-G. 【各版型佈局規範】
+G. 【版型佈局規範（僅本頁適用：${slideData.layout}）】
 
-  ★ title_only（封面）：
-    - 背景：全尺寸 SVG 漸層/裝飾（可用 SVG rect, path, circle 等）
-    - 主標題：.dg foreignObject，translate(100, 350)，width:1400，height:280，font-size:80px，font-weight:900
-    - 副標題（若有）：.dg foreignObject，translate(100, 650)，width:900，height:120，font-size:32px
-    - 裝飾：SVG 幾何形狀（禁止在裝飾上放文字）
-
-  ★ text_only（純文字）：
-    - 左側：SVG 裝飾圖形（無文字）
-    - 標題卡：translate(80, 60)，width:1760，height:140，font-size:52px，bold
-    - 內容卡片群組（每個要點一個獨立的 .dg）：
-      要點 1：translate(80, 240)，width:830，height:170
-      要點 2：translate(80, 430)，width:830，height:170
-      要點 3：translate(80, 620)，width:830，height:170
-      要點 4：translate(80, 810)，width:830，height:170
-      （最多 4 個，超過則調整 height）
-    - 右側裝飾：translate(960, 200) 放 SVG 視覺元素
-
-  ★ text_and_image（圖文並排）：
-    - 標題卡：translate(60, 40)，width:880，height:130，font-size:44px
+${(()=>{
+  const L = slideData.layout;
+  if (L === 'title_only') return `  ★ title_only（封面）：
+    - 背景：全尺寸 SVG 漸層/裝飾（SVG rect, path, circle 等）
+    - 主標題：.dg foreignObject，translate(100,350)，width:1400，height:280，font-size:80px，font-weight:900
+    - 副標題（若有）：.dg foreignObject，translate(100,650)，width:900，height:120，font-size:32px
+    - 裝飾：SVG 幾何形狀（禁止在裝飾上放文字）`;
+  if (L === 'text_only') return `  ★ text_only（純文字）：
+    - 標題卡：translate(80,60)，width:1760，height:140，font-size:52px，bold
+    - 要點卡片（每個要點獨立 .dg）：
+      要點1：translate(80,240)，width:830，height:170
+      要點2：translate(80,430)，width:830，height:170
+      要點3：translate(80,620)，width:830，height:170
+      要點4：translate(80,810)，width:830，height:170（最多4個）
+    - 右側裝飾：translate(960,200) 放 SVG 視覺元素`;
+  if (L === 'text_and_image') return `  ★ text_and_image（圖文並排）：
+    - 標題卡：translate(60,40)，width:880，height:130，font-size:44px
     - 要點卡片（每個要點獨立）：
-      要點 1：translate(60, 210)，width:880，height:160
-      要點 2：translate(60, 390)，width:880，height:160
-      要點 3：translate(60, 570)，width:880，height:160
-    - 圖片：translate(1000, 80)，width:860，height:900（用 E 的圖片模板）
-
-  ★ diagram_slide（流程圖/架構圖）：
-    - 標題卡：translate(60, 30)，width:1800，height:110，font-size:44px
-    - 每個流程節點 = SVG 背景框（rect）+ 獨立 .dg 文字標籤
-    - 4 節點水平佈局範例：
-      SVG 框 1：x=60,y=200,width=380,height=220
-      節點 1 文字：translate(70, 210)，width:360，height:200，font-size:20px
-      SVG 框 2：x=520,y=200,width=380,height=220
-      節點 2 文字：translate(530, 210)，width:360，height:200
-      SVG 框 3：x=980,y=200,width=380,height=220
-      節點 3 文字：translate(990, 210)，width:360，height:200
-      SVG 框 4：x=1440,y=200,width=380,height=220
-      節點 4 文字：translate(1450, 210)，width:360，height:200
-      箭頭（SVG path）：在框之間繪製，用 marker-end 箭頭
-    - 說明卡（選用）：translate(60, 500)，width:1800，height:400，font-size:18px
+      要點1：translate(60,210)，width:880，height:160
+      要點2：translate(60,390)，width:880，height:160
+      要點3：translate(60,570)，width:880，height:160
+    - 圖片：translate(1000,80)，width:860，height:900（用 E 模板）`;
+  if (L === 'diagram_slide') return `  ★ diagram_slide（流程圖/架構圖）：
+    - 標題卡：translate(60,30)，width:1800，height:110，font-size:44px
+    - 每個流程節點 = SVG 框(rect) + 獨立 .dg 文字標籤
+    - 4節點水平佈局（間距≥420px）：
+      框1：x=60,y=200,w=380,h=220 → 文字：translate(70,210),width:360,height:200
+      框2：x=520,y=200,w=380,h=220 → 文字：translate(530,210),width:360,height:200
+      框3：x=980,y=200,w=380,h=220 → 文字：translate(990,210),width:360,height:200
+      框4：x=1440,y=200,w=380,h=220 → 文字：translate(1450,210),width:360,height:200
+      箭頭：SVG path + marker-end
+    - 說明卡（選用）：translate(60,500)，width:1800，height:400，font-size:18px`;
+  return `  ★ 使用 text_only 佈局作為預設（layout="${L}" 未定義，自動 fallback）`;
+})()}
 
 H. 【對比度規範】
    - 深色背景→文字用淺色（#f8fafc/#ffffff）；淺色背景→文字用深色（#111827/#0f172a）
@@ -1692,7 +1906,7 @@ I. 只輸出純 HTML，不含任何 markdown 標記。
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: 0.75, maxOutputTokens: 16384 }
+                        generationConfig: { temperature: 0.75, maxOutputTokens: 10240 }
                     }),
                     signal: AppState.abortController.signal
                 });
@@ -1707,9 +1921,16 @@ I. 只輸出純 HTML，不含任何 markdown 標記。
                 if (m) html = '<!DOCTYPE html>\n' + m[0];
             }
 
-            html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', SLIDE_INTERACTION_SCRIPT);
-            if (!html.includes(SLIDE_INTERACTION_SCRIPT.slice(0, 30))) {
-                html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
+            // Feature 5: dynamic mode — inject or strip interaction JS
+            const dynamicOn = document.getElementById('chk-dynamic-mode')?.checked !== false;
+            if (dynamicOn) {
+                html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', SLIDE_INTERACTION_SCRIPT);
+                if (!html.includes(SLIDE_INTERACTION_SCRIPT.slice(0, 30))) {
+                    html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
+                }
+            } else {
+                html = html.replace(/<!--SLIDE_INTERACTION_SCRIPT-->/g, '');
+                html = html.replace(/contenteditable="true"/gi, '');
             }
 
             // 【修改點】：無論是 Base64 還是 URL，統一將 REPLACE_IMAGE_SRC 替換為實際圖片。
@@ -1722,11 +1943,20 @@ I. 只輸出純 HTML，不含任何 markdown 標記。
             // Inject background template
             if (AppState.bgTemplateBase64) {
                 html = html.replace(/REPLACE_BG_SRC/g, AppState.bgTemplateBase64);
-                // If LLM didn't include placeholder, insert as first SVG child
                 if (!html.includes(AppState.bgTemplateBase64) && html.includes('id="slide-svg"')) {
                     html = html.replace(
                         /(id="slide-svg"[^>]*>)/,
                         `$1\n<image href="${AppState.bgTemplateBase64}" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>`
+                    );
+                }
+            }
+
+            // Inject AI-generated background SVG (if LLM didn't include it already)
+            if (aiBgSvgContent && html.includes('id="slide-svg"')) {
+                if (!html.includes('AI_BG_START')) {
+                    html = html.replace(
+                        /(id="slide-svg"[^>]*>)/,
+                        `$1\n<!-- AI_BG_START -->${aiBgSvgContent}<!-- AI_BG_END -->`
                     );
                 }
             }
@@ -2105,11 +2335,31 @@ async function downloadPptx(mode = 'image') {
         const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
         const [lx, ly] = logoPosMap[logoPos] || [8.5, 0.2];
 
-        for (let i = 0; i < AppState.generatedSlides.length; i++) {
-            const s = AppState.generatedSlides[i];
-            addLog(`📸 截圖第 ${s.slideNumber}/${AppState.generatedSlides.length} 頁...`, 'info');
+        // ── Step 1: resolve screenshots (use cache or capture in parallel) ──
+        const CONCURRENCY = 3;
+        const slides = AppState.generatedSlides;
+        const screenshots = new Array(slides.length).fill(null);
 
-            const imgB64 = await slideHTMLToBase64(s.html, s.slideNumber);
+        // Fill from cache first
+        slides.forEach((s, i) => { if (s.screenshotB64) screenshots[i] = s.screenshotB64; });
+
+        // Capture missing ones in batches of CONCURRENCY
+        const missing = slides.map((s, i) => i).filter(i => !screenshots[i]);
+        addLog(`📸 PPTX 截圖：${slides.length - missing.length} 頁使用快取，${missing.length} 頁需截圖`, 'info');
+
+        for (let b = 0; b < missing.length; b += CONCURRENCY) {
+            const batch = missing.slice(b, b + CONCURRENCY);
+            await Promise.all(batch.map(async (idx) => {
+                const s = slides[idx];
+                addLog(`📸 截圖第 ${s.slideNumber}/${slides.length} 頁...`, 'info');
+                screenshots[idx] = await slideHTMLToBase64(s.html, s.slideNumber);
+            }));
+        }
+
+        // ── Step 2: build PPTX slides in order ────────────────────────
+        for (let i = 0; i < slides.length; i++) {
+            const s = slides[i];
+            const imgB64 = screenshots[i];
             const slide  = pres.addSlide();
 
             if (imgB64) {
@@ -2672,13 +2922,24 @@ function saveToHistory() {
         const history = loadRawHistory();
         const id = 'h_' + Date.now();
 
-        const slidesForStorage = AppState.generatedSlides.map(s => ({
-            slideNumber: s.slideNumber,
-            title: s.title,
-            layout: s.layout,
-            slideData: s.slideData,
-            html: (s.html || '').slice(0, SLIDE_HTML_SIZE_LIMIT)
-        }));
+        const slidesForStorage = AppState.generatedSlides.map(s => {
+            // Strip inline base64 images from HTML, replace with placeholder
+            // so the HTML stays small enough for localStorage
+            let html = s.html || '';
+            const imgB64 = s.imageB64 || null;
+            if (imgB64) {
+                // Replace the embedded base64 in html with a recoverable placeholder
+                html = html.split(imgB64).join('__SLIDE_IMG_B64__');
+            }
+            return {
+                slideNumber: s.slideNumber,
+                title: s.title,
+                layout: s.layout,
+                slideData: s.slideData,
+                imageB64: imgB64,                              // stored separately
+                html: html.slice(0, 300000)                   // larger budget now images stripped
+            };
+        });
 
         const entry = {
             id,
@@ -2696,9 +2957,21 @@ function saveToHistory() {
             localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
             addLog(`📁 已儲存至歷史記錄（共 ${history.length} 筆）`, 'success');
         } catch(storageErr) {
-            const slim = history.slice(0, 5).map(e => ({ ...e, slides: e.slides.map(s => ({ ...s, html: '' })) }));
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
-            addLog(`⚠ 儲存空間不足，已儲存精簡版歷史`, 'warning');
+            // First try: strip imageB64 from older entries (keep newest 10 with images)
+            const slim = history.map((e, ei) => ({
+                ...e,
+                slides: e.slides.map(s => ({
+                    ...s,
+                    imageB64: ei < 3 ? s.imageB64 : null,   // keep images only in newest 3
+                    html: ei < 10 ? s.html : ''             // keep html only in newest 10
+                }))
+            }));
+            try {
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
+                addLog(`⚠ 儲存空間不足，部分歷史圖片已清除`, 'warning');
+            } catch(e2) {
+                addLog(`⚠ 歷史記錄儲存失敗`, 'warning');
+            }
         }
 
         renderHistoryPanels();
@@ -2710,6 +2983,15 @@ function saveToHistory() {
 function loadRawHistory() {
     try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); }
     catch { return []; }
+}
+
+/** Re-inject imageB64 into slide HTML that was stripped for storage */
+function hydrateSlideHTML(slide) {
+    let html = slide.html || '';
+    if (slide.imageB64 && html.includes('__SLIDE_IMG_B64__')) {
+        html = html.split('__SLIDE_IMG_B64__').join(slide.imageB64);
+    }
+    return html;
 }
 
 function renderHistoryPanels() {
@@ -2778,14 +3060,14 @@ function loadFromHistory(id) {
     const entry   = history.find(e => e.id === id);
     if (!entry) { showToast('❌ 找不到此記錄'); return; }
 
-    AppState.generatedSlides   = entry.slides || [];
+    AppState.generatedSlides   = entry.slides?.map(s => ({ ...s, html: hydrateSlideHTML(s) })) || [];
     AppState.presentationData  = { presentation_title: entry.title, slides: entry.slides?.map(s => s.slideData) };
 
     document.getElementById('section-empty').classList.add('hidden');
     document.getElementById('section-preview').classList.remove('hidden');
     const grid = document.getElementById('slides-preview-grid');
     grid.innerHTML = '';
-    entry.slides?.forEach((s, i) => renderSlidePreviewCard(s.slideData || { slide_number: s.slideNumber, title: s.title, layout: s.layout }, s.html, i));
+    entry.slides?.forEach((s, i) => renderSlidePreviewCard(s.slideData || { slide_number: s.slideNumber, title: s.title, layout: s.layout }, hydrateSlideHTML(s), i));
 
     document.getElementById('preview-slide-count').textContent = `${entry.slides?.length || 0} 張`;
     document.getElementById('btn-pptx-group').classList.remove('hidden');
@@ -2806,7 +3088,7 @@ function redownloadHTML(id) {
     if (!entry) return;
     const backup = AppState.generatedSlides;
     const backupData = AppState.presentationData;
-    AppState.generatedSlides  = entry.slides || [];
+    AppState.generatedSlides  = entry.slides?.map(s => ({ ...s, html: hydrateSlideHTML(s) })) || [];
     AppState.presentationData = { presentation_title: entry.title };
     saveAllSlidesAsHTML();
     AppState.generatedSlides  = backup;
@@ -3218,9 +3500,20 @@ function openEditModal(index) {
     if(!sel||sel.rangeCount===0) return;
     var node=sel.getRangeAt(0).commonAncestorContainer;
     node=node.nodeType===3?node.parentNode:node;
-    var rb=node.closest('.rb'); if(!rb) return;
-    var cur=parseFloat(rb.style.fontSize)||16;
-    rb.style.fontSize=Math.max(8,Math.min(96,cur+delta*2))+'px';
+    var curPx=parseFloat(window.getComputedStyle(node).fontSize)||18;
+    var newPx=Math.max(8,Math.min(120,curPx+delta*2));
+    if(savedRange){
+      try{
+        var s3=window.getSelection(); s3.removeAllRanges(); s3.addRange(savedRange);
+        var r2=savedRange.cloneRange();
+        var span2=document.createElement('span'); span2.style.fontSize=newPx+'px';
+        r2.surroundContents(span2);
+        s3.removeAllRanges(); s3.selectAllChildren(span2);
+        savedRange=s3.getRangeAt(0).cloneRange();
+        return;
+      }catch(e){ /* fall through to container resize */ }
+    }
+    node.style.fontSize=newPx+'px';
   }
 
   var savedRange=null; // save selection range at minibar-build time
@@ -3476,39 +3769,303 @@ async function captureSlideScreenshot(html) {
     });
 
     const result = await iframeCapture();
-    if (result) return result;
-    addLog('⚠ iframe 截圖失敗，切換 SVG fallback...', 'warning');
-    return await svgCapture();
+    const jpg = result || await (async () => { addLog('⚠ iframe 截圖失敗，切換 SVG fallback...', 'warning'); return await svgCapture(); })();
+    if (!jpg) return null;
+    // Return composite object so DOM pre-review can access raw html
+    return { _jpg: jpg, _html: html };
 }
 
-// Call Grok 4.1 (or selected reviewer) to visually review a slide screenshot
+// ═══════════════════════════════════════════════════════════════════
+// FEATURE 1: AI BACKGROUND GENERATOR
+// ═══════════════════════════════════════════════════════════════════
+async function generateAIBackground(slideData, slideIndex, totalSlides) {
+    const templateKey = document.getElementById('sel-template').value;
+    if (templateKey !== 'ai_custom') return null;  // not in AI custom mode
+
+    const bgModel   = document.getElementById('sel-bg-model')?.value || 'gemini-2.5-pro';
+    const bgMode    = document.querySelector('input[name="bg-design-mode"]:checked')?.value || 'auto';
+    const bgDesc    = document.getElementById('inp-bg-desc')?.value?.trim() || '';
+    const quality   = document.getElementById('sel-quality')?.value || 'standard';
+
+    const userIntent = bgMode === 'describe' && bgDesc
+        ? `根據以下描述設計底色：「${bgDesc}」`
+        : '請完全由 AI 自行決定最適合此投影片主題和版型的底色設計';
+
+    const prompt = `你是世界頂級的投影片視覺設計師，專精 SVG 背景層設計。
+請為以下投影片生成一個精美、豐富的 SVG 背景層（僅背景，不含文字）。
+
+【投影片資訊】
+- 標題：${slideData.title || ''}
+- 版型：${slideData.layout || ''}
+- 此為第 ${slideIndex + 1} 頁，共 ${totalSlides} 頁
+- 底色設計指令：${userIntent}
+
+【輸出規格】
+- 輸出尺寸：1920×1080（SVG viewBox="0 0 1920 1080"）
+- 只輸出 SVG 背景層的內部元素（defs + rect/path/circle 等），不需要外層 <svg> 標籤
+- 不含任何 <text> 或文字元素
+- 可使用：linearGradient、radialGradient、feGaussianBlur、feDropShadow、pattern、clip-path
+- 多層次設計：基礎色層 + 光暈層 + 幾何裝飾層 + 紋理層（共 3–5 個 SVG 元素）
+- 確保有足夠的文字對比空間（避免在文字區域用過亮的色彩）
+
+${quality === 'premium' ? `【Premium 底色設計規範】
+- 使用至少 3 個漸層（主背景 + 角落光暈 + 中心焦點）
+- 加入精細幾何裝飾（細線、多邊形、圓弧）
+- 使用 feGaussianBlur 製作柔和光暈效果
+- 色調：飽和度高（HSL: S≥60%），深度足夠（L≤40% for dark themes）` : ''}
+
+只輸出 SVG 背景元素代碼，不含任何說明文字或 markdown：`;
+
+    try {
+        let raw = '';
+        if (isGrokModel(bgModel) && AppState.xaiApiKey) {
+            raw = await callGrokText(bgModel, '你是 SVG 視覺設計師，只輸出代碼不輸出任何說明。', prompt, AbortSignal.timeout(60000));
+        } else if (AppState.googleApiKey) {
+            const ver = getGeminiApiVersion(bgModel);
+            const r   = await fetch(
+                `https://generativelanguage.googleapis.com/${ver}/models/${bgModel}:generateContent?key=${AppState.googleApiKey}`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        generationConfig: { temperature: 0.8, maxOutputTokens: 4096 }
+                    }),
+                    signal: AbortSignal.timeout(60000)
+                }
+            );
+            if (r.ok) {
+                const d = await r.json();
+                raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            }
+        }
+
+        if (!raw) return null;
+        // Strip markdown fences
+        raw = raw.replace(/^```(?:svg|xml)?\s*/im,'').replace(/\s*```$/im,'').trim();
+        // Strip outer <svg> if LLM included it
+        raw = raw.replace(/^<svg[^>]*>/i,'').replace(/<\/svg>\s*$/i,'').trim();
+        return raw;  // SVG element fragments
+    } catch(e) {
+        addLog(`⚠ AI 底色生成失敗: ${e.message}`, 'warning');
+        return null;
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// FEATURE 3: DOM-BASED PRE-REVIEW (before LLM review)
+// Programmatically checks contrast, font-size, element bounds
+// Returns issues array — these are CERTAIN, not hallucinated
+// ═══════════════════════════════════════════════════════════════════
+function domPreReview(html) {
+    const issues = [];
+    try {
+        const parser = new DOMParser();
+        const doc    = parser.parseFromString(html, 'text/html');
+        const svg    = doc.getElementById('slide-svg');
+        if (!svg) return issues;
+
+        function lum(r,g,b){ function c(v){v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);} return .2126*c(r)+.7152*c(g)+.0722*c(b); }
+        function hexLum(h){ const m=(h||'').match(/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i); if(!m)return null; return lum(parseInt(m[1],16),parseInt(m[2],16),parseInt(m[3],16)); }
+        function ratio(l1,l2){ const a=Math.max(l1,l2), b=Math.min(l1,l2); return (a+.05)/(b+.05); }
+
+        // Get slide bg color
+        const bgHex = (() => {
+            const r = svg.querySelector('rect[fill]'); if(!r) return '#0f172a';
+            const f = r.getAttribute('fill')||'';
+            return f.match(/#[0-9a-f]{6}/i)?.[0] || '#0f172a';
+        })();
+        const bgL = hexLum(bgHex) ?? 0.02;
+
+        // Check foreignObject text contrast vs card bg
+        svg.querySelectorAll('foreignObject').forEach((fo, foIdx) => {
+            const rb = fo.querySelector('.rb, div');
+            if (!rb) return;
+            const cardBg = rb.style.backgroundColor || rb.style.background || '';
+            const cardHex = cardBg.match(/#[0-9a-f]{6}/i)?.[0] || bgHex;
+            const cardL   = hexLum(cardHex) ?? bgL;
+
+            rb.querySelectorAll('[contenteditable], p, h1, h2, h3, h4, span').forEach(el => {
+                const col = el.style.color || '';
+                const hex = col.match(/#[0-9a-f]{6}/i)?.[0];
+                if (!hex) return;
+                const textL = hexLum(hex);
+                if (textL === null) return;
+                const r = ratio(textL, cardL);
+                if (r < 3.5) {
+                    const tag = el.tagName?.toLowerCase() || 'element';
+                    const txt = (el.textContent || '').trim().slice(0,30);
+                    issues.push({
+                        type: 'contrast',
+                        certain: true,
+                        description: `文字對比不足（比率 ${r.toFixed(1)}:1，需≥4.5）：「${txt}」顏色 ${hex} vs 背景 ${cardHex}`,
+                        fix: `將 foreignObject[${foIdx}] 中 "${txt.slice(0,20)}" 的文字顏色改為對比更高的顏色。背景是 ${cardHex}（${cardL>0.18?'淺色':'深色'}），應使用 ${cardL>0.18?'深色如#111827':'淺色如#f8fafc'}`
+                    });
+                }
+            });
+
+            // Check font-size
+            const fs = parseFloat(rb.style.fontSize || '16');
+            const isTitle = rb.querySelector('h1,h2,h3');
+            if (isTitle && fs < 28) {
+                issues.push({ type:'readability', certain:true,
+                    description:`標題字體過小（${fs}px，建議≥36px）`,
+                    fix:`將標題 foreignObject 的 font-size 從 ${fs}px 增至 36px`
+                });
+            } else if (!isTitle && fs < 14) {
+                issues.push({ type:'readability', certain:true,
+                    description:`正文字體過小（${fs}px，建議≥18px）`,
+                    fix:`將內容 foreignObject 的 font-size 從 ${fs}px 增至 18px`
+                });
+            }
+
+            // Check bounds: is foreignObject outside 1920×1080?
+            const x  = parseFloat(fo.getAttribute('x')  || 0);
+            const y  = parseFloat(fo.getAttribute('y')  || 0);
+            const w  = parseFloat(fo.getAttribute('width')  || 0);
+            const h  = parseFloat(fo.getAttribute('height') || 0);
+            // Also account for transform on parent .dg
+            const dg = fo.closest('.dg');
+            let tx = 0, ty = 0;
+            if (dg) {
+                const tAttr = dg.getAttribute('transform') || '';
+                const tm = tAttr.match(/translate\(([^,]+),([^)]+)\)/);
+                if (tm) { tx = parseFloat(tm[1])||0; ty = parseFloat(tm[2])||0; }
+            }
+            if (tx + x + w > 1940 || ty + y + h > 1100) {
+                issues.push({ type:'layout', certain:true,
+                    description:`元素超出投影片邊界（x=${Math.round(tx+x)},y=${Math.round(ty+y)},w=${Math.round(w)},h=${Math.round(h)}）`,
+                    fix:`將 translate(${Math.round(tx)},${Math.round(ty)}) 調整為不超出 1920×1080 範圍`
+                });
+            }
+        });
+
+    } catch(e) { /* DOM parsing error — skip */ }
+    return issues;
+}
+
 async function reviewSlideWithLLM(screenshotB64, slideData, reviewModel) {
     const xaiKey    = AppState.xaiApiKey;
     const geminiKey = AppState.googleApiKey;
     const isGrok    = isGrokModel(reviewModel);
 
-    const reviewPrompt = `你是投影片視覺品質審查師。請審查這張投影片截圖並回傳 JSON 審查報告。
+    // ── Step A: Run DOM-based deterministic checks FIRST ─────────────
+    // These are injected as certain issues into the review context
+    // so the LLM doesn't need to hallucinate what it can't actually see
+    const domIssues = domPreReview(screenshotB64._html || '');
+    const domSummary = domIssues.length > 0
+        ? `\n\n【DOM 解析已確認的問題（100% 確定，必須修正）】\n${domIssues.map((d,i)=>`${i+1}. [${d.type.toUpperCase()}] ${d.description}`).join('\n')}`
+        : '\n\n【DOM 解析】未發現確定性問題。';
+
+    const reviewPrompt = `你是投影片視覺品質審查師。請根據截圖審查此投影片，回傳 JSON 報告。
+
+投影片：標題「${slideData.title || ''}」版型「${slideData.layout || ''}」
+${domSummary}
+
+【你負責從截圖補充審查以下項目（只回報截圖中明確可見的問題，禁止猜測或虛構）】
+1. 圖片與文字是否在截圖中明顯重疊遮擋
+2. 截圖中是否有明顯的色彩對比問題（肉眼難以閱讀的文字）
+3. 版面構圖是否明顯失衡
+
+【重要規則】
+- 只描述截圖中肉眼確認可見的問題
+- 禁止虛構不存在的元素或問題
+- 若截圖看起來品質良好，直接返回 pass:true
+- DOM 解析確認的問題自動列入 issues，你不需要重複
+
+嚴格輸出純 JSON：
+{"pass":boolean,"score":0-100,"issues":[{"type":"overlap|contrast|readability|layout","description":"問題","fix":"修正指令"}]}
+pass=true 條件：score≥80 且 DOM 無問題 且 截圖無明顯視覺問題。`;
+
+    try {
+        let raw = '';
+        if (isGrok && xaiKey) {
+            const proxyUrl = `${GROK_PROXY}?url=${encodeURIComponent('https://api.x.ai/v1/chat/completions')}`;
+            const resp = await fetch(proxyUrl, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${xaiKey}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    model: reviewModel,
+                    messages: [{ role:'user', content:[
+                        { type:'image_url', image_url:{ url: screenshotB64._jpg } },
+                        { type:'text', text: reviewPrompt }
+                    ]}],
+                    temperature: 0.1
+                }),
+                signal: AbortSignal.timeout(90000)
+            });
+            if (!resp.ok) throw new Error(`Grok review HTTP ${resp.status}`);
+            raw = (await resp.json()).choices?.[0]?.message?.content || '{}';
+        } else if (geminiKey) {
+            const model = reviewModel.startsWith('grok') ? 'gemini-2.5-flash' : reviewModel;
+            const ver   = getGeminiApiVersion(model);
+            const resp = await fetch(
+                `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${geminiKey}`,
+                {
+                    method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({
+                        contents:[{ role:'user', parts:[
+                            { inlineData:{ mimeType:'image/jpeg', data: screenshotB64._jpg?.split(',')?.[1] || screenshotB64.split?.(',')?.[1] || screenshotB64 }},
+                            { text: reviewPrompt }
+                        ]}],
+                        generationConfig:{ temperature:0.1, maxOutputTokens:2048 }
+                    }),
+                    signal: AbortSignal.timeout(90000)
+                }
+            );
+            if (!resp.ok) throw new Error(`Gemini review HTTP ${resp.status}`);
+            raw = (await resp.json()).candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        }
+
+        const m = raw.match(/\{[\s\S]*\}/);
+        const llmResult = JSON.parse(m ? m[0] : '{}');
+
+        // Merge DOM-certain issues with LLM issues
+        const allIssues = [
+            ...domIssues.map(d => ({ ...d, source:'dom' })),
+            ...(llmResult.issues || []).map(d => ({ ...d, source:'llm' }))
+        ];
+        const hasCertain = domIssues.length > 0;
+        return {
+            pass:  !hasCertain && (llmResult.pass !== false),
+            score: hasCertain ? Math.min(llmResult.score ?? 70, 65) : (llmResult.score ?? 80),
+            issues: allIssues
+        };
+
+    } catch(e) {
+        addLog(`⚠ 審查模型呼叫失敗: ${e.message}`, 'warning');
+        // Even if LLM fails, still return DOM issues
+        return { pass: domIssues.length === 0, score: domIssues.length ? 60 : 90, issues: domIssues };
+    }
+}
+
+    const reviewPrompt = `你是投影片視覺品質審查師。請對這張投影片截圖做嚴格品質審查，回傳 JSON 報告。
 
 投影片資料：
 - 標題：${slideData.title || ''}
 - 版型：${slideData.layout || ''}
 - 要點數：${(slideData.bullet_points || []).length}
 
-請檢查以下問題：
-1. overlap（重疊）：文字/圖片元素是否相互重疊
-2. contrast（對比度）：文字與背景對比是否足夠
-3. readability（可讀性）：文字大小是否合適（標題≥36px，正文≥18px）
-4. layout（佈局）：元素是否超出投影片邊界，或有不當留白
+【必須審查的 4 個面向，每個都要認真檢查】
+1. overlap（重疊）：文字/圖片元素是否相互遮擋、重疊
+2. contrast（對比度）：★ 這是最重要的檢查 ★
+   - 所有文字（標題、要點、說明）與其背景色的對比率必須 ≥ 4.5:1（WCAG AA）
+   - 深色背景（如深藍/黑）上出現深灰文字 = 嚴重對比不足，必須標記
+   - 淺色背景上出現白色文字 = 嚴重對比不足，必須標記
+   - 只要發現任何文字看起來「難以辨讀」就必須回報
+   - 若有對比問題，score 必須 ≤ 60，pass 必須為 false
+3. readability（可讀性）：標題 ≥ 36px，正文 ≥ 18px
+4. layout（佈局）：元素是否超出邊界、不當留白
 
-嚴格輸出純 JSON，不含任何 markdown：
+嚴格輸出純 JSON（不含任何 markdown）：
 {
   "pass": true/false,
   "score": 0-100,
   "issues": [
-    {"type": "overlap|contrast|readability|layout", "description": "問題描述（中文，具體說明哪個元素有問題）", "fix": "具體修正指令（中文）"}
+    {"type": "overlap|contrast|readability|layout", "description": "具體問題（中文）", "fix": "具體修正指令（中文）"}
   ]
 }
-若沒有問題，issues 為空陣列，pass 為 true。`;
+pass=true 的條件：score ≥ 80 且沒有 contrast 問題。若有任何 contrast 問題，pass 必須為 false。`;
 
     try {
         if (isGrok && xaiKey) {
@@ -3529,7 +4086,7 @@ async function reviewSlideWithLLM(screenshotB64, slideData, reviewModel) {
                     }],
                     temperature: 0.2
                 }),
-                signal: AbortSignal.timeout(30000)
+                signal: AbortSignal.timeout(90000)
             });
             if (!resp.ok) throw new Error(`Grok review HTTP ${resp.status}`);
             const data = await resp.json();
@@ -3552,7 +4109,7 @@ async function reviewSlideWithLLM(screenshotB64, slideData, reviewModel) {
                         ]}],
                         generationConfig: { temperature: 0.2, maxOutputTokens: 2048 }
                     }),
-                    signal: AbortSignal.timeout(30000)
+                    signal: AbortSignal.timeout(90000)
                 }
             );
             if (!resp.ok) throw new Error(`Gemini review HTTP ${resp.status}`);
@@ -3573,6 +4130,17 @@ async function reviewSlideWithLLM(screenshotB64, slideData, reviewModel) {
 async function fixSlideHTML(html, reviewResult, slideData, theme) {
     if (!reviewResult?.issues?.length) return html;
 
+    // ── Minify HTML before sending to reduce input tokens ~30-40% ──
+    function minifyHtml(src) {
+        return src
+            .replace(/<!--(?!SLIDE_INTERACTION_SCRIPT)[\s\S]*?-->/g, '') // strip comments except placeholder
+            .replace(/\n\s*\n/g, '\n')    // collapse blank lines
+            .replace(/>\s{2,}</g, '><')    // collapse whitespace between tags
+            .replace(/\s{2,}/g, ' ')       // collapse multiple spaces
+            .trim();
+    }
+    const minified = minifyHtml(html);
+
     const issuesSummary = reviewResult.issues.map((iss, i) =>
         `${i+1}. [${iss.type.toUpperCase()}] ${iss.description}\n   修正方式：${iss.fix}`
     ).join('\n');
@@ -3583,7 +4151,7 @@ async function fixSlideHTML(html, reviewResult, slideData, theme) {
 ${issuesSummary}
 
 【原始 HTML】
-${html.slice(0, 60000)}
+${minified.slice(0, 55000)}
 
 【修正要求】
 1. 只修正有問題的元素，保留其他所有結構和樣式不變
@@ -3637,14 +4205,97 @@ ${html.slice(0, 60000)}
 // ═══════════════════════════════════════════════════════════════════
 // REVIEW + FIX PIPELINE (wraps a single slide through Phase 5→6)
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// PROGRAMMATIC CONTRAST PRE-SCAN
+// Parses HTML string, detects low-contrast text, injects !important CSS
+// ═══════════════════════════════════════════════════════════════════
+function programmaticContrastFix(html, theme) {
+    try {
+        const parser  = new DOMParser();
+        const doc     = parser.parseFromString(html, 'text/html');
+
+        // ── Helper: parse any CSS color → {r,g,b} ──────────────────
+        function parseColor(c) {
+            if (!c || c === 'none' || c === 'transparent') return null;
+            // rgb(r,g,b) or rgba(r,g,b,a)
+            const m = c.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+            if (m) return { r:+m[1], g:+m[2], b:+m[3] };
+            // hex #rrggbb or #rgb
+            const h = c.replace('#','');
+            if (h.length === 6) return { r:parseInt(h.slice(0,2),16), g:parseInt(h.slice(2,4),16), b:parseInt(h.slice(4,6),16) };
+            if (h.length === 3) return { r:parseInt(h[0]+h[0],16), g:parseInt(h[1]+h[1],16), b:parseInt(h[2]+h[2],16) };
+            return null;
+        }
+        function lum(c) {
+            if (!c) return 0;
+            function ch(v){ v/=255; return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4); }
+            return 0.2126*ch(c.r)+0.7152*ch(c.g)+0.0722*ch(c.b);
+        }
+        function contrast(c1, c2) {
+            const l1=lum(c1), l2=lum(c2);
+            return (Math.max(l1,l2)+0.05)/(Math.min(l1,l2)+0.05);
+        }
+        function bestTextColor(bg) {
+            const white={r:255,g:255,b:255}, black={r:0,g:0,b:0};
+            return contrast(bg, white) >= contrast(bg, black) ? '#ffffff' : '#111111';
+        }
+
+        // ── Scan SVG text elements for low fill/background contrast ─
+        const bg = theme?.bg_hex || '#0f172a';
+        const bgColor = parseColor(bg) || {r:15,g:23,b:42};
+
+        const issues = [];
+
+        // SVG text fill attributes
+        doc.querySelectorAll('text, tspan').forEach(el => {
+            const fill = el.getAttribute('fill') || el.style.fill || '';
+            const c = parseColor(fill);
+            if (!c) return;
+            if (contrast(c, bgColor) < 3.5) {
+                el.setAttribute('fill', bestTextColor(bgColor));
+                issues.push('svg-text');
+            }
+        });
+
+        // HTML text colors (inside foreignObject or .rb divs)
+        doc.querySelectorAll('[style*="color"]').forEach(el => {
+            const col = el.style.color;
+            const c = parseColor(col);
+            if (!c) return;
+            // Try to find actual background of this element
+            let bgEl = el;
+            let bgC = bgColor;
+            while (bgEl) {
+                const elBg = bgEl.style?.backgroundColor || bgEl.style?.background || '';
+                const parsed = parseColor(elBg);
+                if (parsed) { bgC = parsed; break; }
+                bgEl = bgEl.parentElement;
+            }
+            if (contrast(c, bgC) < 3.5) {
+                el.style.color = bestTextColor(bgC);
+                issues.push('inline-color');
+            }
+        });
+
+        if (issues.length > 0) {
+            addLog(`🎨 程式化對比修正：修正了 ${issues.length} 個低對比元素`, 'info');
+            return '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+        }
+    } catch(e) {
+        // Non-critical — silently skip
+    }
+    return html;
+}
+
 async function reviewAndFixSlide(html, sData, theme) {
     const enabled    = document.getElementById('chk-review-enabled')?.checked;
-    if (!enabled) return html;
+    if (!enabled) return { html, screenshotB64: null };
 
     const reviewModel  = document.getElementById('sel-review-model')?.value || 'grok-4-1-fast-reasoning';
     const maxIter      = parseInt(document.getElementById('sel-review-iterations')?.value || '2');
 
     let currentHTML = html;
+    let lastScreenshot = null;          // ← cache: reuse in PPTX export
     for (let iter = 1; iter <= maxIter; iter++) {
         if (AppState.cancelRequested) break;
 
@@ -3654,6 +4305,7 @@ async function reviewAndFixSlide(html, sData, theme) {
             addLog(`⚠ 截圖失敗，跳過審查`, 'warning');
             break;
         }
+        lastScreenshot = screenshot;   // ← save latest good screenshot
 
         const review = await reviewSlideWithLLM(screenshot, sData, reviewModel);
         const score  = review.score ?? (review.pass ? 100 : 60);
@@ -3668,13 +4320,126 @@ async function reviewAndFixSlide(html, sData, theme) {
         const fixed = await fixSlideHTML(currentHTML, review, sData, theme);
         if (fixed !== currentHTML) {
             currentHTML = fixed;
+            lastScreenshot = null;     // HTML changed — screenshot is stale, clear it
             addLog(`  ✓ 修正完成，繼續審查...`, 'success');
         } else {
             addLog(`  ⚠ 修正無變化，停止迭代`, 'warning');
             break;
         }
     }
-    return currentHTML;
+    return { html: currentHTML, screenshotB64: lastScreenshot };
+}
+
+// ─── Fix 2: enhanced density hints ─────────────────────────────────
+function updateDensityHint() {
+    const mode = document.getElementById('sel-density')?.value || 'balanced';
+    const hints = {
+        document:     '每頁 5–8 個要點，每點 40–100 字詳細說明，含數據、案例與背景脈絡；圖表為主要視覺（折線圖、長條圖、架構圖）；圖片僅輔助說明；適合作為自讀報告、研究摘要或深度學習材料',
+        balanced:     '每頁 3–5 個要點，每點 20–45 字重點說明；流程圖與架構圖佔 25–35%；圖文並茂頁面佔 20–30%；兼顧現場簡報與事後閱讀，適合商務提案、教育培訓',
+        presentation: '每頁 2–3 個要點，每點 8–18 字口語化精簡摘要；大型視覺（圖片、色塊、關鍵數字）佔畫面主導；配合主講者口頭補充，適合發表場合、投資人簡報'
+    };
+    const el = document.getElementById('density-hint');
+    if (el) el.textContent = hints[mode] || '';
+}
+
+// ─── Fix 5: dynamic mode toggle ────────────────────────────────────
+function updateDynamicHint() {
+    const on  = document.getElementById('chk-dynamic-mode')?.checked;
+    const lbl = document.getElementById('dynamic-mode-label');
+    const dsc = document.getElementById('dynamic-mode-desc');
+    if (lbl) lbl.textContent = on ? '✏ 開啟：文字可拖曳 / 改色 / 改大小' : '🔒 關閉：AI 全權決定排版，不可手動調整';
+    if (dsc) dsc.textContent = on
+        ? '生成後可在預覽中直接選取文字改色、拖曳移動、縮放文字框'
+        : '關閉後審查者偵測到重疊或對比問題時，由 AI 自動修正（建議同時開啟視覺審查）';
+}
+
+// ─── Fix 6: web search UI toggle ───────────────────────────────────
+function updateWebSearchUI() {
+    const on  = document.getElementById('chk-web-search')?.checked;
+    const pnl = document.getElementById('web-search-mode-panel');
+    if (pnl) pnl.classList.toggle('hidden', !on);
+}
+
+// ─── Feature 6: web search results picker ──────────────────────────
+let _wspResolve = null;
+
+// Fetch search results via SerpAPI proxy (reuses existing infrastructure)
+async function fetchWebSearchResults(query, count = 20) {
+    const key = AppState.serpApiKey;
+    if (!key) throw new Error('SerpAPI Key 未設定，無法取得搜尋結果');
+
+    const workerUrl = `https://serpapi.kirishimatoka00.workers.dev//?q=${encodeURIComponent(query)}&api_key=${key}&num=${count}`;
+    const resp = await fetch(workerUrl, { signal: AbortSignal.timeout(20000) });
+    const data = await resp.json();
+
+    if (data.error) throw new Error(data.error);
+
+    return (data.organic_results || []).slice(0, count).map(r => ({
+        title:   r.title   || '',
+        snippet: r.snippet || '',
+        link:    r.link    || '',
+        source:  r.displayed_link || r.source || ''
+    }));
+}
+
+function wspSelectAll(val) {
+    document.querySelectorAll('#wsp-list input[type="checkbox"]').forEach(cb => { cb.checked = val; });
+}
+
+function wspConfirm() {
+    const checked = Array.from(document.querySelectorAll('#wsp-list input[type="checkbox"]:checked'))
+        .map(cb => JSON.parse(decodeURIComponent(cb.dataset.result)));
+    document.getElementById('web-search-picker-modal').classList.add('hidden');
+    if (_wspResolve) { _wspResolve(checked); _wspResolve = null; }
+}
+
+function showWebSearchPicker(query) {
+    return new Promise(async (resolve) => {
+        _wspResolve = resolve;
+        const modal   = document.getElementById('web-search-picker-modal');
+        const loading = document.getElementById('wsp-loading');
+        const list    = document.getElementById('wsp-list');
+        const subtitle = document.getElementById('wsp-subtitle');
+
+        subtitle.textContent = `搜尋：「${query.slice(0,60)}」`;
+        loading.classList.remove('hidden');
+        list.classList.add('hidden');
+        list.innerHTML = '';
+        modal.classList.remove('hidden');
+
+        try {
+            const results = await fetchWebSearchResults(query, 20);
+            loading.classList.add('hidden');
+            list.classList.remove('hidden');
+
+            if (!results.length) {
+                list.innerHTML = '<p class="text-slate-500 text-sm text-center py-8">沒有搜尋結果</p>';
+                return;
+            }
+
+            results.forEach((r, i) => {
+                const encoded = encodeURIComponent(JSON.stringify(r));
+                const el = document.createElement('label');
+                el.className = 'flex items-start gap-3 p-3 bg-slate-800/60 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-800 transition-colors';
+                el.innerHTML = `
+                    <input type="checkbox" data-result="${encoded}" checked
+                        class="mt-1 w-4 h-4 rounded accent-sky-400 shrink-0">
+                    <div class="flex-1 min-w-0">
+                        <p class="text-[12px] font-semibold text-slate-100 leading-snug">${r.title.replace(/</g,'&lt;')}</p>
+                        <p class="text-[10px] text-sky-500 mt-0.5 truncate">${r.source.replace(/</g,'&lt;')}</p>
+                        <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">${(r.snippet||'').replace(/</g,'&lt;').slice(0,160)}...</p>
+                    </div>`;
+                list.appendChild(el);
+            });
+        } catch(e) {
+            loading.classList.add('hidden');
+            list.classList.remove('hidden');
+            list.innerHTML = `<div class="text-center py-8">
+                <p class="text-rose-400 text-sm font-semibold">搜尋失敗：${e.message}</p>
+                <button onclick="wspConfirm()" class="mt-3 text-xs text-slate-400 hover:text-white">跳過，直接使用 AI 生成</button>
+            </div>`;
+        }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -3717,6 +4482,22 @@ async function startGeneration() {
         const context = await buildContextFromSources();
         const srcCount = AppState.attachedSources.filter(s => s.content).length;
         if (srcCount > 0) addLog(`✓ 已整合 ${srcCount} 個資料來源（${context.length.toLocaleString()} 字元）`, 'success');
+
+        // ── Feature 6: Manual web search picker ──────────────────────
+        let webSearchContext = '';
+        const webSearchOn   = document.getElementById('chk-web-search')?.checked;
+        const webSearchMode = document.querySelector('input[name="web-search-mode"]:checked')?.value || 'auto';
+
+        if (webSearchOn && webSearchMode === 'manual' && AppState.serpApiKey) {
+            const topic = document.getElementById('inp-topic').value.trim();
+            addLog('🔍 搜尋最新資料，請從結果中選擇要納入的項目...', 'info');
+            const chosen = await showWebSearchPicker(topic);
+            if (chosen.length > 0) {
+                webSearchContext = '\n\n【聯網搜尋結果（已由使用者篩選）】\n' +
+                    chosen.map((r,i) => `${i+1}. ${r.title}\n   ${r.source}\n   ${r.snippet}`).join('\n\n');
+                addLog(`✓ 使用者選擇了 ${chosen.length} 項搜尋結果`, 'success');
+            }
+        }
         setProgress(8);
 
         // ── Google Grounding research (if enabled) ────────────────────
@@ -3729,7 +4510,7 @@ async function startGeneration() {
         setProgress(13);
 
         addLog('🧠 正在生成簡報大綱...', 'ai');
-        const outlineData = await callGeminiForOutline(topic, context + groundingContext);
+        const outlineData = await callGeminiForOutline(topic, context + groundingContext + webSearchContext);
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
         AppState.presentationData = outlineData;
         addLog(`✓ 大綱生成完成：「${outlineData.presentation_title}」共 ${outlineData.slides?.length || 0} 張`, 'success');
@@ -3756,19 +4537,38 @@ async function startGeneration() {
                 addLog(`⚠ 第 ${sData.slide_number} 頁配圖略過`, 'warning');
             }
 
+            // ── Feature 1: Generate AI background if ai_custom mode ──────
+            let aiBgSvgContent = null;
+            const templateKey2 = document.getElementById('sel-template').value;
+            if (templateKey2 === 'ai_custom' && !AppState.cancelRequested) {
+                addLog(`🎨 生成 AI 底色（第 ${sData.slide_number} 頁）...`, 'ai');
+                aiBgSvgContent = await generateAIBackground(sData, i, slides.length);
+                if (aiBgSvgContent) addLog(`✓ AI 底色生成完成`, 'success');
+            }
+
             let html;
             try {
-                html = await generateSlideHTML(sData, theme, imageB64);
+                html = await generateSlideHTML(sData, theme, imageB64, aiBgSvgContent);
                 addLog(`✓ 第 ${sData.slide_number} 頁 HTML 生成完成`, 'success');
             } catch(e) {
                 if (e.message === 'CanceledByUser') throw e;
                 addLog(`⚠ 第 ${sData.slide_number} 頁 HTML 生成失敗，使用備用模板`, 'warning');
                 html = buildFallbackSlideHTML(sData, theme);
+                // Inject AI background into fallback too
+                if (aiBgSvgContent && html.includes('id="slide-svg"')) {
+                    html = html.replace(/(id="slide-svg"[^>]*>)/, `$1\n<!-- AI_BG_START -->${aiBgSvgContent}<!-- AI_BG_END -->`);
+                }
             }
 
+            // ── Phase 4b: Programmatic contrast pre-scan (fast, no API) ─
+            html = programmaticContrastFix(html, theme);
+
             // ── Phase 5 & 6: Visual Review + Auto-Fix ────────────────
+            let screenshotB64 = null;
             if (document.getElementById('chk-review-enabled')?.checked && !AppState.cancelRequested) {
-                html = await reviewAndFixSlide(html, sData, theme);
+                const result = await reviewAndFixSlide(html, sData, theme);
+                html = result.html;
+                screenshotB64 = result.screenshotB64;   // ← reuse in PPTX export
             }
 
             AppState.generatedSlides.push({
@@ -3776,7 +4576,8 @@ async function startGeneration() {
                 title: sData.title,
                 layout: sData.layout,
                 slideData: sData,
-                imageB64: imageB64,   // stored for editable PPTX picture objects
+                imageB64: imageB64,
+                screenshotB64,          // ← cached screenshot (may be null)
                 html
             });
             renderSlidePreviewCard(sData, html, i);
