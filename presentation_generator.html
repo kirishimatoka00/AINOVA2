@@ -222,61 +222,90 @@
                     </div>
 
                     <div class="border-t border-slate-800 pt-3">
-                        <label class="block text-slate-400 mb-1.5 font-semibold">簡報視覺風格</label>
-                        <select id="sel-template" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                            <option value="modern">現代極簡 (Modern Dark)</option>
-                            <option value="tech">科技未來 (Tech Cyber)</option>
-                            <option value="corporate">商務專業 (Corporate Blue)</option>
-                            <option value="creative">活潑創意 (Creative Vivid)</option>
-                            <option value="elegant">高雅精緻 (Elegant Light)</option>
-                            <option value="white">純白底 (Pure White) ☁</option>
-                            <option value="ai_custom">🎨 AI 自訂底色設計…</option>
-                        </select>
-                        <!-- AI Custom Background panel -->
-                        <div id="ai-bg-panel" class="hidden mt-2 space-y-2 bg-slate-950 border border-slate-700 rounded-xl p-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-[11px] text-slate-300 font-semibold">底色設計模式</span>
+                        <label class="block text-slate-400 mb-2 font-semibold flex items-center gap-1.5">
+                            <i class="ph-fill ph-paint-bucket text-amber-400"></i>
+                            投影片底色設計
+                        </label>
+                        <!-- Mode tabs -->
+                        <div class="flex gap-1 mb-3 bg-slate-950 rounded-xl p-1">
+                            <button id="bgmode-btn-preset" onclick="setBgMode('preset')"
+                                class="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all bg-amber-500/20 text-amber-300">
+                                🎨 預設主題
+                            </button>
+                            <button id="bgmode-btn-ai" onclick="setBgMode('ai')"
+                                class="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all text-slate-400 hover:text-slate-200">
+                                ✨ AI 自行決定
+                            </button>
+                            <button id="bgmode-btn-custom" onclick="setBgMode('custom')"
+                                class="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all text-slate-400 hover:text-slate-200">
+                                ✏️ 自訂描述
+                            </button>
+                        </div>
+                        <!-- Preset mode -->
+                        <div id="bgmode-preset">
+                            <select id="sel-template" onchange="updateThemePreview()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
+                                <option value="modern">現代極簡 (Modern Dark)</option>
+                                <option value="tech">科技未來 (Tech Cyber)</option>
+                                <option value="corporate">商務專業 (Corporate Blue)</option>
+                                <option value="creative">活潑創意 (Creative Vivid)</option>
+                                <option value="elegant">高雅精緻 (Elegant Light)</option>
+                                <option value="white">純白底 (Pure White) ☁</option>
+                            </select>
+                            <!-- Theme color preview strip -->
+                            <div id="theme-preview-strip" class="mt-2 flex gap-1.5 items-center">
+                                <div id="tp-bg" class="h-6 flex-1 rounded-md border border-slate-700"></div>
+                                <div id="tp-accent" class="h-6 w-8 rounded-md border border-slate-700"></div>
+                                <div id="tp-text" class="h-6 w-8 rounded-md border border-slate-700"></div>
+                                <div id="tp-card" class="h-6 w-8 rounded-md border border-slate-700"></div>
                             </div>
-                            <div class="flex gap-2">
-                                <label class="flex-1 flex items-center gap-1.5 cursor-pointer">
-                                    <input type="radio" name="bg-design-mode" value="describe" checked class="accent-violet-400">
-                                    <span class="text-[10px] text-slate-300">描述讓 AI 生成</span>
-                                </label>
-                                <label class="flex-1 flex items-center gap-1.5 cursor-pointer">
-                                    <input type="radio" name="bg-design-mode" value="auto" class="accent-violet-400">
-                                    <span class="text-[10px] text-slate-300">AI 自行決定</span>
-                                </label>
+                        </div>
+                        <!-- AI decide mode -->
+                        <div id="bgmode-ai" class="hidden">
+                            <div class="bg-slate-800/60 border border-slate-700 rounded-xl p-3.5 space-y-2">
+                                <p class="text-[11px] text-slate-300 font-semibold">🤖 AI 將根據簡報主題自行設計配色方案</p>
+                                <p class="text-[10px] text-slate-500 leading-relaxed">包含背景漸層、文字顏色、強調色、卡片底色，完全由 AI 依據內容性質決定。</p>
+                                <!-- Live generated theme preview -->
+                                <div id="ai-theme-preview" class="hidden mt-2 rounded-lg overflow-hidden border border-slate-700">
+                                    <div id="ai-theme-bg" class="h-10 flex items-center px-3 gap-2">
+                                        <div id="ai-theme-accent" class="w-4 h-4 rounded-full"></div>
+                                        <span id="ai-theme-label" class="text-[10px] font-semibold text-white/80"></span>
+                                    </div>
+                                </div>
                             </div>
-                            <div id="bg-desc-area">
-                                <textarea id="inp-bg-desc" rows="2" placeholder="描述想要的底色風格，例如：深宇宙藍配金色光暈，科技感強烈..." class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-[11px] text-slate-200 resize-none outline-none focus:border-violet-500 transition-colors"></textarea>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] text-slate-400 mb-1">底色生成模型</label>
-                                <select id="sel-bg-model" class="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 text-slate-200 text-[10px] focus:border-violet-500 outline-none">
-                                    <optgroup label="── Gemini 系列 ──">
-                                        <option value="gemini-2.5-pro" selected>Gemini 2.5 Pro（精細設計）</option>
-                                        <option value="gemini-2.5-flash">Gemini 2.5 Flash（快速）</option>
-                                        <option value="gemini-3-flash-preview">Gemini 3 Flash Preview</option>
-                                    </optgroup>
-                                    <optgroup label="── Grok 系列 ──">
-                                        <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning</option>
-                                        <option value="grok-4-1-fast-non-reasoning">Grok 4.1 Fast Non-Reasoning</option>
-                                    </optgroup>
+                        </div>
+                        <!-- Custom description mode -->
+                        <div id="bgmode-custom" class="hidden space-y-2">
+                            <!-- Background model selector -->
+                            <div class="flex items-center gap-2">
+                                <label class="text-[10px] text-slate-400 shrink-0">生成模型</label>
+                                <select id="sel-bg-model" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:border-amber-500 outline-none">
+                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash（快速）</option>
+                                    <option value="gemini-2.5-pro">Gemini 2.5 Pro（最高品質）</option>
                                 </select>
                             </div>
-                            <p class="text-[10px] text-slate-500">AI 將生成 SVG 背景層 CSS，套用至所有投影片底色</p>
+                            <textarea id="inp-bg-desc" rows="3" placeholder="例如：深海藍漸層底色，右上角有金色光暈，左下角有幾何線條裝飾，整體氛圍神秘且專業…"
+                                class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-sm text-slate-200 focus:border-amber-500 outline-none resize-none text-[12px] leading-relaxed"></textarea>
+                            <button onclick="previewCustomTheme()"
+                                class="w-full py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 text-amber-300 text-[11px] font-semibold hover:from-amber-500/30 hover:to-orange-500/30 transition-all flex items-center justify-center gap-1.5">
+                                <i class="ph-fill ph-sparkle"></i> 預覽 AI 生成配色
+                            </button>
+                            <!-- Error message -->
+                            <div id="custom-theme-error" class="hidden text-[10px] text-red-400 bg-red-400/10 border border-red-400/30 rounded-lg px-3 py-2"></div>
+                            <!-- Generated theme preview card -->
+                            <div id="custom-theme-preview" class="hidden rounded-xl overflow-hidden border border-amber-500/30">
+                                <div id="ctp-bg" class="h-16 flex items-end px-3 pb-2 gap-2">
+                                    <div id="ctp-accent" class="w-5 h-5 rounded-full border-2 border-white/50 shadow-lg"></div>
+                                    <div id="ctp-text-swatch" class="w-5 h-5 rounded-full border-2 border-white/50 shadow-lg"></div>
+                                    <span id="ctp-label" class="text-[11px] font-bold drop-shadow ml-1" style="color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.8)"></span>
+                                </div>
+                                <div id="ctp-card" class="px-3 py-2 flex items-center gap-2 bg-slate-900/60">
+                                    <span class="text-[10px] text-slate-400">卡片</span>
+                                    <div id="ctp-card-swatch" class="h-5 flex-1 rounded border border-slate-600"></div>
+                                    <span class="text-[10px] text-slate-400">強調</span>
+                                    <div id="ctp-text-preview" class="h-5 w-12 rounded border border-slate-600"></div>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <script>
-                    document.getElementById('sel-template').addEventListener('change', function() {
-                        document.getElementById('ai-bg-panel').classList.toggle('hidden', this.value !== 'ai_custom');
-                    });
-                    document.querySelectorAll('input[name="bg-design-mode"]').forEach(r => {
-                        r.addEventListener('change', function() {
-                            document.getElementById('bg-desc-area').classList.toggle('hidden', this.value === 'auto');
-                        });
-                    });
-                    </script>
                     </div>
 
                     <div>
@@ -342,19 +371,18 @@
                         </label>
                         <div class="flex items-center gap-2.5 mb-2">
                             <label class="relative inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="chk-review-enabled" class="sr-only peer" onchange="updateReviewHint()">
+                                <input type="checkbox" id="chk-review-enabled" class="sr-only peer" checked onchange="updateReviewHint()">
                                 <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-violet-600"></div>
                             </label>
                             <span class="text-[11px] text-slate-300 font-medium">啟用 Grok 4.1 視覺審查 + Gemini 自動修正</span>
                         </div>
-                        <div id="review-config" class="hidden space-y-2">
+                        <div id="review-config" class="space-y-2">
                             <div>
                                 <label class="block text-slate-500 mb-1 text-[11px]">審查模型（Reviewer）</label>
                                 <select id="sel-review-model" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-slate-200 text-[11px] focus:border-violet-500 outline-none">
                                     <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast Reasoning（推薦）</option>
                                     <option value="grok-4-1-fast-non-reasoning">Grok 4.1 Fast Non-Reasoning</option>
-                                    <option value="gemini-2.5-pro">Gemini 2.5 Pro（深度審查）</option>
-                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash（快速）</option>
+                                    <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
                                 </select>
                             </div>
                             <div>
@@ -368,51 +396,26 @@
                             <p class="text-slate-600 text-[10px] leading-relaxed">審查後若發現重疊、對比不足等問題，Gemini 2.5 Pro 將自動修正並重新渲染</p>
                         </div>
                     </div>
-
-                    <!-- Content Density -->
-                    <div class="border-t border-slate-800 pt-3">
+                    <div>
                         <label class="block text-slate-400 mb-1.5 font-semibold flex items-center gap-1.5">
-                            <i class="ph-fill ph-sliders text-cyan-400"></i>
-                            內容密度模式
+                            <i class="ph-fill ph-text-t text-amber-400"></i>
+                            投影片文字密度
+                            <span id="density-val" class="text-amber-400 font-bold ml-1">均衡</span>
                         </label>
-                        <select id="sel-density" onchange="updateDensityHint()" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none mb-1.5">
-                            <option value="document">📄 閱讀型 — 詳細文字 + 圖表 + 少量圖片</option>
-                            <option value="balanced" selected>⚖️ 均衡型 — 重點 + 圖表 + 圖片</option>
-                            <option value="presentation">🎤 簡報型 — 精簡重點 + 視覺主導</option>
-                        </select>
-                        <p id="density-hint" class="text-slate-600 text-[10px] leading-relaxed">每頁 3–5 點，要點控制在 25 字內，搭配流程圖與配圖，適合現場簡報</p>
-                    </div>
-
-                    <!-- Dynamic Mode (Feature 5) -->
-                    <div class="border-t border-slate-800 pt-3">
-                        <label class="block text-slate-400 mb-1.5 font-semibold flex items-center gap-1.5">
-                            <i class="ph-fill ph-pencil-simple text-green-400"></i>
-                            HTML 互動編輯模式
-                        </label>
-                        <div class="flex items-center gap-2.5">
-                            <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                                <input type="checkbox" id="chk-dynamic-mode" class="sr-only peer" checked onchange="updateDynamicHint()">
-                                <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                            </label>
-                            <div>
-                                <p class="text-[11px] text-slate-200 font-medium" id="dynamic-mode-label">✏ 開啟：文字可拖曳/改色/改大小</p>
-                                <p class="text-[10px] text-slate-500" id="dynamic-mode-desc">關閉後由 AI 全權決定排版，審查者負責修正重疊與對比問題</p>
-                            </div>
+                        <input type="range" id="range-text-density" min="1" max="3" value="2"
+                            oninput="updateDensityLabel(this.value)"
+                            class="w-full">
+                        <div class="flex justify-between text-slate-600 text-[10px] mt-1">
+                            <span>簡報<br/><span class="text-[9px] text-slate-700">3點·精簡</span></span>
+                            <span class="text-center">均衡<br/><span class="text-[9px] text-slate-700">4~5點·標準</span></span>
+                            <span class="text-right">閱讀<br/><span class="text-[9px] text-slate-700">6~8點·詳盡</span></span>
                         </div>
                     </div>
 
-                    <!-- Quality -->
-                    <div class="border-t border-slate-800 pt-3">
+                    <div>
                         <label class="block text-slate-400 mb-1.5 font-semibold flex items-center gap-1.5">
-                            <i class="ph-fill ph-star text-amber-400"></i>
-                            投影片品質等級
-                        </label>
-                        <select id="sel-quality" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-slate-200 focus:border-amber-500 outline-none">
-                            <option value="premium">✨ Premium — 精緻設計（慢，多 token）</option>
-                            <option value="standard" selected>⚡ Standard — 均衡品質與速度</option>
-                        </select>
-                    </div>
-
+                            <i class="ph-fill ph-presentation-chart text-amber-400"></i>
+                            投影片數量
                             <span id="slide-count-val" class="text-amber-400 font-bold">10 張</span>
                         </label>
                         <input type="range" id="range-slide-count" min="2" max="50" value="10"
@@ -453,40 +456,81 @@
             <label class="block text-sm font-semibold text-white mb-3">
                 <i class="ph-fill ph-pencil-simple-line text-violet-400 mr-1"></i>簡報主題 / 指令
             </label>
+            <!-- ── Output Mode Switch ── -->
+            <div class="mb-3 bg-slate-950 rounded-xl p-1 flex gap-1">
+                <button id="omode-btn-html" onclick="setOutputMode('html')"
+                    class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all bg-violet-500/25 text-violet-300 flex items-center justify-center gap-1.5">
+                    <i class="ph-fill ph-code"></i> HTML/CSS 輸出 PPT
+                </button>
+                <button id="omode-btn-image" onclick="setOutputMode('image')"
+                    class="flex-1 py-2 rounded-lg text-[11px] font-bold transition-all text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5">
+                    <i class="ph-fill ph-image-square"></i> 純圖輸出 PPT
+                </button>
+            </div>
+
+            <!-- Pure Image mode extra model selectors -->
+            <div id="pureimage-models" class="hidden mb-3 bg-slate-800/60 border border-slate-700 rounded-xl p-3 space-y-2">
+                <p class="text-[10px] text-slate-400 font-semibold mb-1">純圖模式模型配置</p>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-400 w-20 shrink-0">背景圖 LLM</span>
+                    <select id="sel-bg-gen-model" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:border-violet-500 outline-none">
+                        <option value="grok-imagine-image-pro">Grok Imagine Image Pro（推薦）</option>
+                        <option value="grok-imagine-image">Grok Imagine Image</option>
+                        <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash-Image</option>
+                        <option value="gemini-2.5-flash-image">Gemini 2.5 Flash-Image</option>
+                        <option value="imagen-4.0-generate-preview-05-20">Imagen 4.0 Standard</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-slate-400 w-20 shrink-0">排版 LLM</span>
+                    <select id="sel-layout-model" class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-slate-200 text-[11px] focus:border-violet-500 outline-none">
+                        <option value="gemini-2.5-pro">Gemini 2.5 Pro（最佳排版）</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash（快速）</option>
+                        <option value="grok-4-1-fast-reasoning">Grok 4.1 Fast</option>
+                    </select>
+                </div>
+                <p class="text-[9px] text-slate-600 leading-relaxed">內容/大綱 LLM 沿用上方「文字模型」設定。三個 LLM 分工：內容 → 背景視覺 → 文字排版合成，最終以不可編輯圖片輸出。</p>
+            </div>
+
             <textarea id="inp-topic" rows="4"
                 placeholder="例如：請幫我生成一份深入探討「2025 AI 發展趨勢」的專業報告，需包含大量數據、具體案例與未來預測...&#10;&#10;也可附加左側資料來源，AI 會先摘要分析後製作簡報。"
                 class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3.5 text-sm text-slate-200 focus:border-violet-500 outline-none transition-colors resize-none"></textarea>
-            <!-- Web Search Mode (Feature 6) -->
-            <div class="mt-3 bg-slate-800/60 border border-slate-700 rounded-xl p-3.5">
-                <div class="flex items-center gap-2.5 mb-2">
-                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                        <input type="checkbox" id="chk-web-search" class="sr-only peer" checked onchange="updateWebSearchUI()">
-                        <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
-                    </label>
-                    <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-1.5">
-                            <i class="ph-fill ph-globe text-sky-400 text-sm"></i>
-                            <span class="text-[11px] text-slate-200 font-semibold">Google 聯網搜尋（Grounding）</span>
-                        </div>
-                        <p class="text-[10px] text-slate-500 mt-0.5">啟用後 AI 先搜尋最新資料再生成，確保內容不依賴舊訓練資料</p>
+            <!-- Web Search Grounding toggle -->
+            <div class="mt-3 flex items-center gap-2.5 bg-slate-800/60 border border-slate-700 rounded-xl px-3.5 py-2.5">
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" id="chk-web-search" class="sr-only peer" checked>
+                    <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-sky-500"></div>
+                </label>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <i class="ph-fill ph-globe text-sky-400 text-sm"></i>
+                        <span class="text-[11px] text-slate-200 font-semibold">Google 聯網搜尋（Grounding）</span>
+                    </div>
+                    <!-- Web search mode selector — only shown when toggle is on -->
+                    <div id="web-search-mode-panel" class="mt-1.5 space-y-1">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="web-search-mode" id="wsm-auto" value="auto" checked class="accent-sky-400">
+                            <span class="text-[10px] text-slate-300">AI 自動選取搜尋結果</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="web-search-mode" id="wsm-manual" value="manual" class="accent-sky-400">
+                            <span class="text-[10px] text-slate-300">手動勾選搜尋結果（顯示 20 項）</span>
+                        </label>
                     </div>
                 </div>
-                <div id="web-search-mode-panel" class="space-y-2">
-                    <div class="text-[10px] text-slate-400 font-semibold mb-1">搜尋結果處理方式</div>
-                    <label class="flex items-start gap-2 cursor-pointer">
-                        <input type="radio" name="web-search-mode" value="auto" checked class="mt-0.5 accent-sky-400 shrink-0">
-                        <div>
-                            <p class="text-[11px] text-slate-200 font-medium">🤖 AI 自動篩選</p>
-                            <p class="text-[10px] text-slate-500">AI 自行決定哪些搜尋結果納入分析，直接生成簡報</p>
-                        </div>
-                    </label>
-                    <label class="flex items-start gap-2 cursor-pointer">
-                        <input type="radio" name="web-search-mode" value="manual" class="mt-0.5 accent-sky-400 shrink-0">
-                        <div>
-                            <p class="text-[11px] text-slate-200 font-medium">☑ 手動選擇搜尋結果</p>
-                            <p class="text-[10px] text-slate-500">顯示前 20 個搜尋結果供你勾選，再交給 AI 分析</p>
-                        </div>
-                    </label>
+            </div>
+            <!-- Dynamic editing mode toggle -->
+            <div class="mt-2 flex items-center gap-2.5 bg-slate-800/60 border border-slate-700 rounded-xl px-3.5 py-2.5">
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                    <input type="checkbox" id="chk-dynamic-mode" class="sr-only peer" checked>
+                    <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-1.5">
+                        <i class="ph-fill ph-pencil-simple text-emerald-400 text-sm"></i>
+                        <span class="text-[11px] text-slate-200 font-semibold">動態編輯模式</span>
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-0.5">開啟：物件可拖曳、文字可直接編輯色彩大小。關閉：全靜態 HTML，由 AI 審查員負責修正排版與對比</p>
                 </div>
             </div>
         </div>
@@ -608,33 +652,6 @@
     </div>
 </div>
 
-<!-- ── WEB SEARCH RESULTS PICKER MODAL (Feature 6) ──────────────── -->
-<div id="web-search-picker-modal" class="hidden fixed inset-0 z-[130] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-2xl">
-        <div class="flex items-center justify-between p-4 border-b border-slate-800 shrink-0">
-            <div class="flex items-center gap-2.5">
-                <i class="ph-fill ph-globe text-sky-400 text-xl"></i>
-                <div>
-                    <h2 class="text-sm font-bold text-white">選擇要納入的搜尋結果</h2>
-                    <p class="text-[10px] text-slate-500" id="wsp-subtitle">勾選後 AI 將分析選定結果，再生成簡報</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-2">
-                <button onclick="wspSelectAll(true)"  class="text-[10px] text-sky-400 hover:text-sky-300 px-2 py-1 rounded hover:bg-sky-500/10 transition-colors">全選</button>
-                <button onclick="wspSelectAll(false)" class="text-[10px] text-slate-500 hover:text-slate-300 px-2 py-1 rounded hover:bg-slate-700 transition-colors">全不選</button>
-                <button onclick="wspConfirm()" class="flex items-center gap-1.5 text-xs font-bold px-3 py-2 bg-sky-600 hover:bg-sky-500 text-white rounded-xl transition-colors">
-                    <i class="ph-bold ph-check"></i>確認並生成
-                </button>
-            </div>
-        </div>
-        <div id="wsp-loading" class="flex flex-col items-center justify-center py-12 gap-3">
-            <div class="w-7 h-7 border-2 border-sky-500 border-t-transparent rounded-full animate-spin"></div>
-            <p class="text-slate-400 text-sm">搜尋最新資料中...</p>
-        </div>
-        <div id="wsp-list" class="hidden flex-1 overflow-y-auto p-4 space-y-2"></div>
-    </div>
-</div>
-
 <!-- ── HISTORY MODAL ─────────────────────────────────────────────── -->
 <div id="history-modal" class="fixed inset-0 z-[100] items-center justify-center bg-black/70 backdrop-blur-sm p-4" onclick="if(event.target===this)closeHistoryModal()">
     <div class="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[85vh] flex flex-col shadow-2xl">
@@ -677,6 +694,16 @@ const AppState = {
 };
 
 // ─── THEME DEFINITIONS ──────────────────────────────────────────────
+/** Returns the theme object to use based on current bg design mode */
+function resolveActiveTheme() {
+    if (AppState.bgDesignMode === 'custom' && AppState.customTheme) {
+        return AppState.customTheme;
+    }
+    // 'ai' mode: use modern as structural fallback, but prompt will override
+    const templateKey = document.getElementById('sel-template')?.value || 'modern';
+    return HTML_THEMES[templateKey] || HTML_THEMES.modern;
+}
+
 const HTML_THEMES = {
     modern: {
         label: '現代極簡 (Modern Dark)',
@@ -827,21 +854,459 @@ function updateImageModeHint() {
     if (el) el.textContent = hints[mode] || '';
 }
 
-function updateDensityHint() {
-    const mode = document.getElementById('sel-density')?.value || 'balanced';
-    const hints = {
-        document:     '每頁 5–8 點，每點 30–80 字，配詳細圖表，適合作為報告文件閱讀',
-        balanced:     '每頁 3–5 點，每點 15–35 字，配圖表與插圖，適合現場簡報兼閱讀',
-        presentation: '每頁 2–3 點，每點 8–20 字，大標題視覺主導，適合現場演講'
-    };
-    const el = document.getElementById('density-hint');
-    if (el) el.textContent = hints[mode] || '';
-}
-
 function updateReviewHint() {
+    const enabled = document.getElementById('chk-review-enabled')?.checked;
     const cfg = document.getElementById('review-config');
     if (cfg) cfg.classList.toggle('hidden', !enabled);
 }
+
+function updateDensityLabel(v) {
+    const labels = { '1':'簡報', '2':'均衡', '3':'閱讀' };
+    document.getElementById('density-val').textContent = labels[v] || '均衡';
+}
+
+// ─── Output Mode ──────────────────────────────────────────────────
+AppState.outputMode   = 'html';     // 'html' | 'image'
+AppState.bgDesignMode = 'preset';   // 'preset' | 'ai' | 'custom'
+AppState.customTheme  = null;
+
+function setOutputMode(mode) {
+    AppState.outputMode = mode;
+    ['html','image'].forEach(m => {
+        const btn = document.getElementById(`omode-btn-${m}`);
+        if (btn) btn.className = `flex-1 py-2 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 ${
+            m === mode
+                ? (m==='html' ? 'bg-violet-500/25 text-violet-300' : 'bg-sky-500/25 text-sky-300')
+                : 'text-slate-400 hover:text-slate-200'
+        }`;
+    });
+    const piPanel = document.getElementById('pureimage-models');
+    if (piPanel) piPanel.classList.toggle('hidden', mode !== 'image');
+}
+
+// ─── Pure Image PPT: Imagen-3 Background Generator ────────────────
+async function generateSlideBackgroundImage(slideData, theme, bgModel, signal) {
+    const prompt = `Professional presentation slide background image for topic "${slideData.title}". ` +
+        `Abstract geometric shapes, flowing gradients, depth. ` +
+        `Color palette: ${theme.accent || '#818cf8'} and ${theme.bg_hex || '#0f172a'}. ` +
+        `NO text, NO labels, NO charts. Widescreen 16:9 aspect ratio. Ultra detailed, premium quality.`;
+
+    // ── Grok image models (via xAI) ───────────────────────────────
+    if (bgModel.startsWith('grok')) {
+        const xaiKey = AppState.xaiApiKey;
+        if (!xaiKey) throw new Error('缺少 Grok API Key');
+        const r = await fetch(`${GROK_PROXY}?url=${encodeURIComponent(GROK_IMG_API)}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${xaiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: bgModel, prompt, response_format: 'b64_json' }),
+            signal
+        });
+        if (!r.ok) throw new Error(`Grok Image HTTP ${r.status}`);
+        const item = (await r.json()).data?.[0];
+        if (item?.b64_json) return `data:image/png;base64,${item.b64_json}`;
+        throw new Error('Grok image: no data returned');
+    }
+
+    // ── Imagen 4.0 (predict endpoint) ─────────────────────────────
+    if (bgModel.startsWith('imagen')) {
+        const apiKey = AppState.googleApiKey;
+        if (!apiKey) throw new Error('缺少 Gemini API Key');
+        const r = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${bgModel}:predict?key=${apiKey}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ instances: [{ prompt }], parameters: { sampleCount: 1, aspectRatio: '16:9' } }),
+              signal }
+        );
+        if (!r.ok) throw new Error(`Imagen HTTP ${r.status}`);
+        const b64 = (await r.json()).predictions?.[0]?.bytesBase64Encoded;
+        if (b64) return `data:image/png;base64,${b64}`;
+        throw new Error('Imagen: no image data');
+    }
+
+    // ── Gemini image gen (generateContent with IMAGE modality) ─────
+    if (bgModel.startsWith('gemini')) {
+        const apiKey = AppState.googleApiKey;
+        if (!apiKey) throw new Error('缺少 Gemini API Key');
+        const ver = bgModel.includes('preview') ? 'v1alpha' : 'v1beta';
+        const r = await fetch(
+            `https://generativelanguage.googleapis.com/${ver}/models/${bgModel}:generateContent?key=${apiKey}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                  generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
+              }), signal }
+        );
+        if (!r.ok) throw new Error(`Gemini Image HTTP ${r.status}`);
+        const imgPart = (await r.json()).candidates?.[0]?.content?.parts
+            ?.find(p => p.inlineData?.mimeType?.startsWith('image/'));
+        if (imgPart?.inlineData?.data)
+            return `data:${imgPart.inlineData.mimeType};base64,${imgPart.inlineData.data}`;
+        throw new Error('Gemini image: no image part in response');
+    }
+
+    throw new Error(`未知的背景圖模型：${bgModel}`);
+}
+
+// ─── Pure Image PPT: Layout LLM composes text over background ─────
+async function compositeSlideWithLayoutLLM(slideData, backgroundB64, theme, layoutModel, apiKey, signal) {
+    const hasBg = !!backgroundB64;
+    const bgSrc = hasBg ? 'REPLACE_BG_SRC' : '';
+
+    const sysPrompt = `You are a world-class presentation slide designer. Generate a complete, beautiful HTML slide (1920×1080px) that composites text content over the given background. Output ONLY complete HTML, no markdown.`;
+
+    const userPrompt = `Create a stunning 1920×1080px presentation slide:
+
+Slide data: ${JSON.stringify(slideData)}
+Theme: ${theme.label || 'modern'}, bg: ${theme.bg}, accent: ${theme.accent}, text: ${theme.text || '#f8fafc'}
+Background: ${hasBg ? 'Use <img src="REPLACE_BG_SRC" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"> as background layer.' : `Use CSS: background:${theme.bg};`}
+
+Requirements:
+- Full 1920×1080px, position:relative, overflow:hidden
+- All text MUST have strong contrast against background (use text-shadow or semi-transparent backdrop)
+- Title: large bold, positioned top or center
+- Bullet points: clearly readable, with padding, semi-transparent card backgrounds
+- NO interaction scripts, NO contenteditable, NO draggable handles — pure static HTML
+- Must look professional and polished
+
+Output complete HTML starting with <!DOCTYPE html>:`;
+
+    // Route to Grok or Gemini based on model name
+    let html = '';
+    if (isGrokModel(layoutModel)) {
+        const xaiKey = AppState.xaiApiKey;
+        if (!xaiKey) throw new Error('缺少 Grok API Key');
+        const r = await fetch(`${GROK_PROXY}?url=${encodeURIComponent('https://api.x.ai/v1/chat/completions')}`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${xaiKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: layoutModel,
+                messages: [
+                    { role: 'system', content: sysPrompt },
+                    { role: 'user',   content: userPrompt }
+                ],
+                max_tokens: 8192, temperature: 0.7
+            }),
+            signal
+        });
+        if (!r.ok) throw new Error(`Grok Layout HTTP ${r.status}`);
+        html = (await r.json()).choices?.[0]?.message?.content || '';
+    } else {
+        // Gemini
+        const apiKey = AppState.googleApiKey;
+        if (!apiKey) throw new Error('缺少 Gemini API Key');
+        const r = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/${layoutModel}:generateContent?key=${apiKey}`,
+            { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                  system_instruction: { parts: [{ text: sysPrompt }] },
+                  contents: [{ role: 'user', parts: [{ text: userPrompt }] }],
+                  generationConfig: { temperature: 0.7, maxOutputTokens: 8192 }
+              }), signal }
+        );
+        if (!r.ok) throw new Error(`Layout LLM HTTP ${r.status}`);
+        html = (await r.json()).candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+    }
+
+    // Clean up the HTML
+    html = html.replace(/^```html\s*/im, '').replace(/\s*```$/im, '').trim();
+    // Replace background placeholder if background was generated
+    if (hasBg && backgroundB64) {
+        html = html.replace(/REPLACE_BG_SRC/g, backgroundB64);
+    } else {
+        // Remove any broken REPLACE_BG_SRC placeholders (would cause black image)
+        html = html.replace(/src=["']REPLACE_BG_SRC["']/g,
+            `style="display:none"`)
+            .replace(/href=["']REPLACE_BG_SRC["']/g, '');
+    }
+    return html;
+}
+
+// ─── Pure Image PPT: Main Generation Function ─────────────────────
+async function startPureImageGeneration() {
+    const apiKey = AppState.googleApiKey;
+    if (!apiKey) { showToast('❌ 純圖模式需要 Gemini API Key'); return; }
+    const topic = document.getElementById('inp-topic').value.trim();
+    if (!topic) { showToast('❌ 請輸入主題'); return; }
+
+    AppState.isGenerating = true; AppState.cancelRequested = false;
+    AppState.abortController = new AbortController();
+    AppState.generatedSlides = [];
+
+    ['section-empty'].forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    ['section-progress'].forEach(id => document.getElementById(id)?.classList.remove('hidden'));
+    document.getElementById('section-preview')?.classList.add('hidden');
+    document.getElementById('slides-preview-grid').innerHTML = '';
+    document.getElementById('log-container').innerHTML = '';
+    document.getElementById('btn-generate')?.classList.add('hidden');
+    document.getElementById('btn-stop')?.classList.remove('hidden');
+
+    const bgGenModel   = document.getElementById('sel-bg-gen-model')?.value   || 'grok-imagine-image-pro';
+    const layoutModel  = document.getElementById('sel-layout-model')?.value   || 'gemini-2.5-pro';
+    const theme        = resolveActiveTheme();
+    const signal       = AppState.abortController.signal;
+
+    try {
+        addLog('📂 讀取資料來源...', 'info');
+        const context = await buildContextFromSources();
+        setProgress(5);
+
+        let groundingContext = '';
+        try { groundingContext = await researchTopicWithGrounding(topic, AppState.abortController.signal); }
+        catch(e) { if (e.name==='AbortError') throw new Error('CanceledByUser'); }
+        setProgress(10);
+
+        addLog('🧠 生成大綱（內容 LLM）...', 'ai');
+        const outlineData = await callGeminiForOutline(topic, context + groundingContext);
+        AppState.presentationData = outlineData;
+        addLog(`✓ 大綱：${outlineData.presentation_title}，共 ${outlineData.slides?.length||0} 張`, 'success');
+        setProgress(15);
+
+        document.getElementById('section-preview')?.classList.remove('hidden');
+        const slides = outlineData.slides || [];
+        const progressPerSlide = 80 / Math.max(slides.length, 1);
+
+        for (let i = 0; i < slides.length; i++) {
+            if (AppState.cancelRequested) throw new Error('CanceledByUser');
+            const sData = slides[i];
+            addLog(`🖼 第 ${sData.slide_number}/${slides.length}：${sData.title}`, 'info');
+
+            // Step 1: Background LLM → generates visual background image
+            let bgB64 = null;
+            try {
+                addLog(`  🎨 背景 LLM（${bgGenModel}）生成背景圖...`, 'ai');
+                bgB64 = await generateSlideBackgroundImage(sData, theme, bgGenModel, signal);
+                if (bgB64) addLog(`  ✓ 背景圖生成完成`, 'success');
+            } catch(e) {
+                if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
+                addLog(`  ⚠ 背景生成失敗 (${e.message})，使用主題漸層代替`, 'warning');
+            }
+
+            // Step 2: Layout LLM → composites text over background
+            let html = '';
+            try {
+                addLog(`  📐 排版 LLM（${layoutModel}）合成排版...`, 'ai');
+                html = await compositeSlideWithLayoutLLM(sData, bgB64, theme, layoutModel, apiKey, signal);
+                addLog(`  ✓ 排版完成`, 'success');
+            } catch(e) {
+                if (e.message === 'CanceledByUser') throw e;
+                addLog(`  ⚠ 排版失敗: ${e.message}，使用備援佈局`, 'warning');
+                html = buildFallbackSlideHTML(sData, theme);  // ← correct function name
+            }
+
+            // Guard: ensure html is never empty
+            if (!html || html.trim().length < 50) {
+                addLog(`  ⚠ HTML 為空，使用備援佈局`, 'warning');
+                html = buildFallbackSlideHTML(sData, theme);
+            }
+
+            // Step 2b: Programmatic contrast pre-scan
+            html = programmaticContrastFix(html, theme);
+
+            // Step 3: Visual review (same as HTML mode, if enabled)
+            let screenshotB64 = null;
+            if (document.getElementById('chk-review-enabled')?.checked && !AppState.cancelRequested) {
+                addLog(`  🔍 視覺審查中...`, 'ai');
+                const reviewResult = await reviewAndFixSlide(html, sData, theme);
+                html         = reviewResult.html;
+                screenshotB64 = reviewResult.screenshotB64;
+            }
+
+            // Step 4: Screenshot → final slide image
+            if (!screenshotB64) {
+                addLog(`  📸 渲染截圖...`, 'info');
+                screenshotB64 = await captureSlideScreenshot(html);
+            }
+            if (!screenshotB64) addLog(`  ⚠ 截圖失敗，此頁將顯示為空`, 'warning');
+
+            AppState.generatedSlides.push({
+                slideNumber: sData.slide_number, title: sData.title,
+                layout: sData.layout, slideData: sData,
+                imageB64: null, screenshotB64,
+                html // kept for reference / re-export
+            });
+
+            renderSlidePreviewCard(sData, html, i);
+            setProgress(15 + Math.round((i + 1) * progressPerSlide));
+        }
+
+        addLog('✅ 純圖 PPT 生成完成！', 'success');
+        setProgress(100);
+        ['btn-pptx-group','btn-save-html'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
+        });
+        saveToHistory();
+
+    } catch(e) {
+        if (e.message !== 'CanceledByUser') { addLog(`❌ 錯誤：${e.message}`, 'error'); console.error(e); }
+        else addLog('⏹ 已取消', 'warning');
+    } finally {
+        AppState.isGenerating = false;
+        document.getElementById('btn-generate')?.classList.remove('hidden');
+        document.getElementById('btn-stop')?.classList.add('hidden');
+    }
+}
+
+function setBgMode(mode) {
+    AppState.bgDesignMode = mode;
+    ['preset','ai','custom'].forEach(m => {
+        const btn   = document.getElementById(`bgmode-btn-${m}`);
+        const panel = document.getElementById(`bgmode-${m}`);
+        const active = m === mode;
+        if (btn) btn.className = `flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${
+            active ? 'bg-amber-500/20 text-amber-300' : 'text-slate-400 hover:text-slate-200'
+        }`;
+        if (panel) panel.classList.toggle('hidden', !active);
+    });
+}
+
+function updateThemePreview() {
+    const key   = document.getElementById('sel-template')?.value || 'modern';
+    const theme = HTML_THEMES[key];
+    if (!theme) return;
+    const bg    = document.getElementById('tp-bg');
+    const acc   = document.getElementById('tp-accent');
+    const txt   = document.getElementById('tp-text');
+    const card  = document.getElementById('tp-card');
+    if (bg)   bg.style.background  = theme.bg;
+    if (acc)  acc.style.background  = theme.accent;
+    if (txt)  txt.style.background  = theme.text;
+    if (card) card.style.background = theme.card;
+}
+
+async function previewCustomTheme() {
+    const desc = document.getElementById('inp-bg-desc')?.value.trim();
+    const errEl = document.getElementById('custom-theme-error');
+    if (errEl) errEl.classList.add('hidden');
+
+    if (!desc) {
+        if (errEl) { errEl.textContent = '請先輸入底色描述'; errEl.classList.remove('hidden'); }
+        return;
+    }
+    const apiKey = AppState.googleApiKey;
+    if (!apiKey) {
+        if (errEl) { errEl.textContent = '需要 Gemini API Key — 請在右上角 ⚙ 設定填入'; errEl.classList.remove('hidden'); }
+        return;
+    }
+    const model = document.getElementById('sel-bg-model')?.value || 'gemini-2.5-flash';
+    const btn = document.querySelector('[onclick="previewCustomTheme()"]');
+    if (btn) { btn.innerHTML = '<i class="ph-fill ph-circle-notch" style="animation:spin 1s linear infinite"></i> AI 生成中…'; btn.disabled = true; }
+
+    try {
+        const theme = await generateCustomTheme(desc, apiKey, model);
+        if (theme) {
+            AppState.customTheme = theme;
+            _renderCustomThemePreview(theme);
+        }
+    } catch(e) {
+        console.error('Custom theme gen failed', e);
+        if (errEl) { errEl.textContent = `生成失敗：${e.message}`; errEl.classList.remove('hidden'); }
+    } finally {
+        if (btn) { btn.innerHTML = '<i class="ph-fill ph-sparkle"></i> 預覽 AI 生成配色'; btn.disabled = false; }
+    }
+}
+
+async function generateCustomTheme(description, apiKey, model = 'gemini-2.5-flash') {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+    const prompt = `你是投影片配色設計師。根據以下描述，生成一套完整的投影片配色方案。
+
+描述：${description}
+
+嚴格只輸出純 JSON，不含任何 markdown 或說明：
+{
+  "label": "配色名稱（中文，10字以內）",
+  "bg": "CSS 背景值（可用 linear-gradient 或純色 hex）",
+  "bg_hex": "背景主色 hex（#rrggbb）",
+  "titleColor": "標題顏色 hex",
+  "accent": "強調色 hex",
+  "text": "正文顏色 hex",
+  "muted": "次要文字顏色 hex",
+  "card": "卡片背景（rgba(r,g,b,a)）",
+  "border": "邊框顏色（rgba(r,g,b,a)）"
+}
+設計要求：
+- 確保文字與背景對比率 ≥ 4.5:1
+- bg 可使用漸層（linear-gradient）增加視覺豐富度
+- 整體風格符合描述的氛圍`;
+
+    const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 1024,
+                responseMimeType: 'application/json'   // force JSON output, avoids thinking blocks
+            }
+        })
+    });
+    if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({}));
+        throw new Error(errBody?.error?.message || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    // Extract text — filter out thinking parts (type !== 'text')
+    const raw  = (data.candidates?.[0]?.content?.parts || [])
+        .filter(p => p.text)
+        .map(p => p.text)
+        .join('');
+    if (!raw.trim()) throw new Error('AI 回應為空，請重試');
+    // Try JSON parse directly first, then regex extract
+    let parsed;
+    try {
+        parsed = JSON.parse(raw.trim());
+    } catch {
+        const m = raw.match(/\{[\s\S]*\}/);
+        if (!m) throw new Error(`No JSON in response（原始回應前50字：${raw.slice(0,50)}）`);
+        parsed = JSON.parse(m[0]);
+    }
+    return parsed;
+}
+
+function _renderCustomThemePreview(theme) {
+    const wrap = document.getElementById('custom-theme-preview');
+    if (!wrap) return;
+    wrap.classList.remove('hidden');
+
+    const bg   = document.getElementById('ctp-bg');
+    const acc  = document.getElementById('ctp-accent');
+    const txts = document.getElementById('ctp-text-swatch');
+    const lbl  = document.getElementById('ctp-label');
+    const card = document.getElementById('ctp-card-swatch');
+    const txtp = document.getElementById('ctp-text-preview');
+
+    // Apply bg — use backgroundImage for gradients, backgroundColor for hex
+    if (bg) {
+        if (theme.bg && theme.bg.includes('gradient')) {
+            bg.style.backgroundImage = theme.bg;
+            bg.style.backgroundColor = theme.bg_hex || '#0f172a';
+        } else {
+            bg.style.background = theme.bg || theme.bg_hex || '#0f172a';
+        }
+    }
+    if (acc)  acc.style.background  = theme.accent     || '#6366f1';
+    if (txts) txts.style.background = theme.titleColor || '#ffffff';
+    if (lbl) {
+        lbl.textContent = theme.label || '自訂配色';
+        // Auto text color based on bg brightness
+        lbl.style.color = theme.titleColor || '#ffffff';
+    }
+    if (card) {
+        card.style.background = theme.card   || 'rgba(255,255,255,0.1)';
+        card.style.border     = `1px solid ${theme.border || 'rgba(255,255,255,0.2)'}`;
+    }
+    if (txtp) txtp.style.background = theme.accent || theme.text || '#818cf8';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateThemePreview();
+    setBgMode('preset');
+    setOutputMode('html');
+    updateWsPanel();
+    updateReviewHint();
+    document.getElementById('chk-web-search')?.addEventListener('change', updateWsPanel);
+});
 
 // ─── Logo ─────────────────────────────────────────────────────────
 function handleLogoUpload(e) {
@@ -1142,61 +1607,170 @@ function stopGeneration() {
 // LLM: OUTLINE GENERATION  ── supports Gemini + Grok ──
 // ═══════════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════════
-// Web Grounding: use Gemini Google Search to gather latest info on topic
-// Returns a string of researched context, or '' if disabled/failed.
+// Web Grounding — two modes: auto (AI picks) / manual (user picks)
 // ═══════════════════════════════════════════════════════════════════
 async function researchTopicWithGrounding(topic, signal) {
     if (!document.getElementById('chk-web-search')?.checked) return '';
     const apiKey = AppState.googleApiKey;
     if (!apiKey) { addLog('⚠ 聯網搜尋需要 Gemini API Key，略過', 'warning'); return ''; }
 
-    addLog('🌐 Google 聯網搜尋中，抓取最新資料...', 'ai');
+    const mode = document.querySelector('input[name="web-search-mode"]:checked')?.value || 'auto';
 
+    if (mode === 'auto') {
+        return await _groundingAuto(topic, signal, apiKey);
+    } else {
+        return await _groundingManual(topic, signal, apiKey);
+    }
+}
+
+async function _groundingAuto(topic, signal, apiKey) {
+    addLog('🌐 Google 聯網搜尋（AI 自動選取）...', 'ai');
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const body = {
-        contents: [{
-            role: 'user',
-            parts: [{ text: `請用繁體中文針對以下主題進行深度研究，整理最新數據、趨勢、案例、統計資料、重要觀點。內容要具體、有數字支撐、有來源說明，供後續製作專業簡報使用。\n\n主題：${topic}` }]
-        }],
+        contents: [{ role: 'user', parts: [{ text:
+            `請用繁體中文針對以下主題進行深度研究，整理最新數據、趨勢、案例、統計資料、重要觀點。內容要具體、有數字支撐、有來源說明，供後續製作專業簡報使用。\n\n主題：${topic}`
+        }]}],
         tools: [{ google_search: {} }],
         generationConfig: { maxOutputTokens: 4096, temperature: 0.3 }
     };
-
     try {
-        const resp = await fetch(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body),
-            signal
-        });
-        if (!resp.ok) {
-            const err = await resp.json().catch(() => ({}));
-            throw new Error(err?.error?.message || `HTTP ${resp.status}`);
-        }
+        const resp = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body), signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const data = await resp.json();
-        const text = data.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
+        const text = data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
         const queries = data.candidates?.[0]?.groundingMetadata?.webSearchQueries || [];
         if (text) {
-            addLog(`✓ 聯網研究完成（搜尋了 ${queries.length} 個查詢），整合至大綱生成`, 'success');
+            addLog(`✓ 聯網研究完成（${queries.length} 個搜尋查詢）`, 'success');
             return `\n\n【Google 聯網搜尋最新資料 — ${new Date().toLocaleDateString('zh-TW')}】\n${text}`;
         }
     } catch(e) {
-        if (e.name === 'AbortError') throw e;
-        addLog(`⚠ 聯網搜尋失敗（${e.message}），改用模型自身知識`, 'warning');
+        if (e.name==='AbortError') throw e;
+        addLog(`⚠ 聯網搜尋失敗（${e.message}），略過`, 'warning');
     }
     return '';
+}
+
+async function _groundingManual(topic, signal, apiKey) {
+    addLog('🌐 Google 聯網搜尋（手動勾選模式）— 抓取搜尋結果清單...', 'ai');
+
+    // Step 1: fetch search results as structured JSON
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const listBody = {
+        contents: [{ role:'user', parts:[{ text:
+            `請針對主題「${topic}」搜尋最新資訊，整理出 20 條重要的搜尋結果或資料要點。
+每條格式如下（嚴格輸出 JSON 陣列，不含任何 markdown）：
+[{"id":1,"title":"標題","source":"來源名稱","summary":"一句話摘要（50字以內）"},...]`
+        }]}],
+        tools: [{ google_search: {} }],
+        generationConfig: { maxOutputTokens: 3000, temperature: 0.2 }
+    };
+
+    let results = [];
+    try {
+        const resp = await fetch(endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(listBody), signal });
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const data = await resp.json();
+        const raw = data.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('') || '';
+        const m = raw.match(/\[[\s\S]*\]/);
+        if (m) results = JSON.parse(m[0]);
+    } catch(e) {
+        if (e.name==='AbortError') throw e;
+        addLog(`⚠ 抓取搜尋結果失敗（${e.message}），略過`, 'warning');
+        return '';
+    }
+
+    if (!results.length) { addLog('⚠ 未獲得搜尋結果', 'warning'); return ''; }
+
+    // Step 2: Show modal with checkboxes, wait for user selection
+    const selected = await _showSearchResultPicker(results);
+    if (!selected || !selected.length) {
+        addLog('ℹ 未選取任何搜尋結果，略過聯網資料', 'info');
+        return '';
+    }
+    addLog(`✓ 已選取 ${selected.length} 條搜尋結果，整合至大綱生成`, 'success');
+    const ctx = selected.map(r=>`[${r.source}] ${r.title}：${r.summary}`).join('\n');
+    return `\n\n【手動選取的聯網搜尋資料 — ${new Date().toLocaleDateString('zh-TW')}】\n${ctx}`;
+}
+
+function _showSearchResultPicker(results) {
+    return new Promise(resolve => {
+        // Build modal
+        const overlay = document.createElement('div');
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px;';
+
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#0f172a;border:1.5px solid rgba(99,102,241,.6);border-radius:16px;width:100%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden;';
+
+        // Header
+        const hdr = document.createElement('div');
+        hdr.style.cssText = 'padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;';
+        hdr.innerHTML = '<span style="color:#e2e8f0;font-weight:700;font-size:14px;">🌐 選取要納入的搜尋結果</span>' +
+            '<span style="color:#64748b;font-size:11px;">勾選後 AI 將只分析所選資料</span>';
+
+        // List
+        const list = document.createElement('div');
+        list.style.cssText = 'flex:1;overflow-y:auto;padding:12px 16px;display:flex;flex-direction:column;gap:6px;';
+
+        const checks = [];
+        results.forEach((r, i) => {
+            const row = document.createElement('label');
+            row.style.cssText = 'display:flex;gap:10px;align-items:flex-start;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:8px 10px;cursor:pointer;';
+            const cb = document.createElement('input'); cb.type='checkbox'; cb.checked=true;
+            cb.style.cssText = 'margin-top:2px;flex-shrink:0;accent-color:#818cf8;';
+            const txt = document.createElement('div');
+            txt.innerHTML = `<div style="color:#e2e8f0;font-size:12px;font-weight:600;line-height:1.3;">${r.title}</div>` +
+                `<div style="color:#64748b;font-size:10px;margin-top:2px;">${r.source} · ${r.summary}</div>`;
+            row.appendChild(cb); row.appendChild(txt);
+            list.appendChild(row);
+            checks.push({ cb, r });
+        });
+
+        // Footer
+        const ftr = document.createElement('div');
+        ftr.style.cssText = 'padding:12px 16px;border-top:1px solid rgba(255,255,255,.08);display:flex;gap:8px;justify-content:flex-end;';
+
+        const btnAll = document.createElement('button');
+        btnAll.textContent='全選'; btnAll.style.cssText='padding:6px 14px;background:rgba(255,255,255,.08);color:#94a3b8;border:none;border-radius:8px;cursor:pointer;font-size:12px;';
+        btnAll.onclick = () => checks.forEach(c => c.cb.checked=true);
+
+        const btnNone = document.createElement('button');
+        btnNone.textContent='全不選'; btnNone.style.cssText='padding:6px 14px;background:rgba(255,255,255,.08);color:#94a3b8;border:none;border-radius:8px;cursor:pointer;font-size:12px;';
+        btnNone.onclick = () => checks.forEach(c => c.cb.checked=false);
+
+        const btnConfirm = document.createElement('button');
+        btnConfirm.textContent='確認使用已勾選項目'; btnConfirm.style.cssText='padding:6px 18px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:12px;font-weight:700;';
+        btnConfirm.onclick = () => {
+            overlay.remove();
+            resolve(checks.filter(c=>c.cb.checked).map(c=>c.r));
+        };
+
+        ftr.appendChild(btnAll); ftr.appendChild(btnNone); ftr.appendChild(btnConfirm);
+        box.appendChild(hdr); box.appendChild(list); box.appendChild(ftr);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+    });
 }
 
 async function callGeminiForOutline(topic, context) {
     if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
     const userModel  = document.getElementById('sel-text-model').value;
-    const slideCount  = document.getElementById('range-slide-count').value;
+    const slideCount = document.getElementById('range-slide-count').value;
+    const densityVal = document.getElementById('range-text-density')?.value || '2';
+    const densitySpec = {
+        '1': '簡報模式：每張 bullet_points 精確 3 點，每點 10~20 字，簡潔有力，適合演講投影',
+        '2': '均衡模式：每張 bullet_points 4~5 點，每點 15~35 字，資訊豐富且清晰',
+        '3': '閱讀模式：每張 bullet_points 6~8 點，每點 30~60 字，詳盡說明，適合自學閱讀'
+    }[densityVal] || '均衡模式：每張 bullet_points 4~5 點，每點 15~35 字';
     const templateKey = document.getElementById('sel-template').value;
-    const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
+    const theme = resolveActiveTheme();
+
+    const themeDesc = AppState.bgDesignMode === 'ai'
+        ? 'AI 自行決定最適合此主題的配色方案（不需依賴預設主題）'
+        : AppState.bgDesignMode === 'custom' && AppState.customTheme
+            ? `自訂配色「${AppState.customTheme.label}」：${AppState.customTheme.bg}`
+            : theme.label || 'Modern Dark';
     const imageMode = document.getElementById('sel-image-mode').value;
-    const density   = document.getElementById('sel-density')?.value   || 'balanced';
-    const quality   = document.getElementById('sel-quality')?.value   || 'standard';
 
     const GEMINI_FALLBACKS = ['gemini-2.5-pro', 'gemini-2.5-flash', 'gemini-3-flash-preview'];
     const MODEL_QUEUE = isGrokModel(userModel)
@@ -1213,48 +1787,20 @@ async function callGeminiForOutline(topic, context) {
         serp_mixed:   'SerpAPI + AI 混合模式，有需要配圖時使用 text_and_image'
     }[imageMode] || '';
 
-    const densityRules = {
-        document: `【閱讀型密度規則】
-- 每張 bullet_points：5–8 點，每點 30–80 字（詳細解釋，包含數據、案例、背景）
-- 允許 diagram_slide 佔 30% 以上（圖表、數據表格、比較圖）
-- text_and_image 圖片僅輔助說明，非視覺主角
-- 文字資訊密度：高；視覺娛樂性：低`,
-        balanced: `【均衡型密度規則】
-- 每張 bullet_points：3–5 點，每點 15–35 字
-- diagram_slide 佔 20–30%（流程圖、架構圖）
-- text_and_image 約佔 20–30%
-- 文字資訊密度：中；視覺吸引力：中`,
-        presentation: `【簡報型密度規則】
-- 每張 bullet_points：2–3 點，每點 8–20 字（精簡有力，口語化）
-- diagram_slide 佔 20%（簡單流程圖、架構圖）
-- text_and_image 佔 40–50%（視覺為主角）
-- title_only 封面要視覺震撼
-- 文字資訊密度：低；視覺衝擊力：高`
-    }[density] || '';
+    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。
 
-    const qualityRules = quality === 'premium' ? `
-【Premium 品質要求 — NotebookLM 水準】
-- 每張投影片必須有獨特的視覺亮點（資料視覺化、圖標、關鍵數字強調）
-- diagram_slide 必須是真正有洞察力的圖表（不是簡單清單）
-- 標題要有行動力和驚喜感（問句、數字開頭、對比結構）
-- 資料點：每張至少有 1 個具體數字或統計
-- 版型多樣性：相鄰頁不允許相同 layout` : '';
-
-    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份 HTML 簡報大綱 JSON。
-
-視覺風格主題：${theme.label || 'Modern Dark'}
+視覺風格主題：${themeDesc}
 投影片張數：${slideCount} 張
 圖片使用策略：${imageModeHint}
 
-${densityRules}
-${qualityRules}
-
-【基本品質要求】
-1. 拒絕空泛：必須含具體案例、數據、深度邏輯
-2. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
-3. diagram_slide 時 diagram_description 必填（具體描述圖解內容）
-4. text_and_image 時 image_prompt 必填（英文具體繪圖提示詞）
-5. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
+【內容品質要求】
+1. 拒絕空泛：必須含具體案例、數據預估、深度邏輯推演
+2. 文字密度規則：${densitySpec}
+3. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
+4. diagram_slide 表示需要流程圖、圖表、架構圖的頁面
+5. image_prompt 為具體英文 AI 繪圖提示詞 (text_and_image 時必填)
+6. diagram_description 描述圖解內容 (diagram_slide 時必填)
+7. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
 
 JSON Schema:
 {
@@ -1398,26 +1944,24 @@ const SLIDE_INTERACTION_SCRIPT = `
        Uses range.surroundContents() to wrap selected text in a span.
        Falls back to changing the container if selection crosses element boundaries. */
     function applyFontSizeToRange(range, delta){
-      /* Restore the selection first */
       try{ var sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(range); }catch(e){ return; }
-
       var anc=range.commonAncestorContainer;
       var node=anc.nodeType===3?anc.parentNode:anc;
       var curPx=parseFloat(window.getComputedStyle(node).fontSize)||18;
       var newPx=Math.max(8, Math.min(120, curPx+delta));
-
       try{
-        /* Clone the range to avoid mutation issues */
         var r=range.cloneRange();
         var span=document.createElement('span');
         span.style.fontSize=newPx+'px';
         r.surroundContents(span);
-        /* Move selection inside the new span and update savedRange */
-        var s2=window.getSelection(); s2.removeAllRanges(); s2.selectAllChildren(span);
-        savedRange=s2.getRangeAt(0).cloneRange();
+        /* Build a new range pointing inside the span — do NOT rely on getSelection() */
+        var newRange=document.createRange();
+        newRange.selectNodeContents(span);
+        savedRange=newRange;   /* update outer savedRange directly */
+        /* Also update live selection so it feels natural */
+        try{ var s2=window.getSelection(); s2.removeAllRanges(); s2.addRange(newRange); }catch(e){}
       }catch(e){
-        /* surroundContents throws if selection crosses element boundaries —
-           fall back to adjusting the container element */
+        /* surroundContents fails on multi-element selections — fallback to container */
         node.style.fontSize=newPx+'px';
       }
     }
@@ -1434,48 +1978,55 @@ const SLIDE_INTERACTION_SCRIPT = `
       return s;
     }
     function mkColorPicker(title,initColor,onPick){
-      /* ── Direct-input pattern ─────────────────────────────────────────
-         Use a real <input type="color"> styled as a swatch.
-         mousedown on it:
-           1. ev.preventDefault() → keeps contenteditable focus + selection
-           2. snapshots savedRange
-         Then the browser receives a genuine click (mousedown→mouseup on the
-         same element = click) and opens the OS colour picker normally.
-         This avoids the setTimeout→hidden.click() trick which browsers now
-         block as a non-gesture-triggered picker open.
+      /* ── Two-element pattern ──────────────────────────────────────────
+         Hidden <input type="color"> is what the browser opens for picking.
+         Visible <button> (colour swatch) handles mousedown:
+           1. preventDefault() → keeps contenteditable focused / selection alive
+           2. saves range snapshot
+           3. setTimeout → programmatically fires .click() on the hidden input
+               (triggered outside a mousedown, so browser opens the picker)
          ─────────────────────────────────────────────────────────────── */
-      var inp=document.createElement('input');
-      inp.type='color'; inp.value=initColor; inp.title=title;
-      inp.style.cssText=
-        'width:22px;height:22px;border:2px solid rgba(255,255,255,.35);'+
-        'border-radius:4px;cursor:pointer;padding:0;flex-shrink:0;'+
-        'background:'+initColor+';appearance:none;-webkit-appearance:none;overflow:hidden;';
-      /* Make the colour swatch visible: hide the default browser chrome */
-      inp.style.setProperty('--webkit-color-swatch-wrapper-padding','0px');
+      var hidden=document.createElement('input');
+      hidden.type='color'; hidden.value=initColor;
+      hidden.style.cssText='position:absolute;width:0;height:0;opacity:0;pointer-events:none;';
+      hidden.addEventListener('input',function(){
+        /* Restore selection, then apply colour */
+        if(savedRange){
+          try{ var s=window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); }catch(e){}
+        }
+        onPick(hidden.value, savedRange);
+        /* Keep swatch colour in sync */
+        swatch.style.background=hidden.value;
+      });
 
-      /* mousedown: save selection & signal picker is opening */
-      inp.addEventListener('mousedown',function(ev){
-        /* DO NOT preventDefault here — we need the browser to process the
-           click on the <input type="color"> as a real user gesture so that
-           the OS colour-picker dialog opens. Instead we just snapshot range. */
+      var swatch=document.createElement('button');
+      swatch.title=title;
+      swatch.style.cssText='width:22px;height:22px;border:2px solid rgba(255,255,255,.35);'+
+        'border-radius:4px;cursor:pointer;padding:0;flex-shrink:0;background:'+initColor+';';
+      swatch.addEventListener('mousedown',function(ev){
+        ev.preventDefault();        /* ← keeps selection alive */
+        /* Re-snapshot range right now (user may have adjusted selection) */
         try{
           var s=window.getSelection();
           if(s&&s.rangeCount&&!s.isCollapsed) savedRange=s.getRangeAt(0).cloneRange();
         }catch(e){}
+        /* Signal that a picker is about to open — block mouseup from closing toolbar */
         pickerOpen=true;
+        /* Open picker on next tick (outside the mousedown handler) */
+        setTimeout(function(){ hidden.click(); }, 0);
       });
 
-      inp.addEventListener('input',function(){
-        if(savedRange){
-          try{ var s=window.getSelection(); s.removeAllRanges(); s.addRange(savedRange); }catch(e){}
-        }
-        onPick(inp.value, savedRange);
-        inp.style.background=inp.value;
-      });
-      inp.addEventListener('change', function(){ setTimeout(function(){ pickerOpen=false; },100); });
-      inp.addEventListener('blur',   function(){ setTimeout(function(){ pickerOpen=false; },200); });
+      /* When picker closes (change fires after user picks or cancels) */
+      hidden.addEventListener('change', function(){ pickerOpen=false; });
+      /* Also clear on blur in case user hits Escape */
+      hidden.addEventListener('blur',   function(){ setTimeout(function(){ pickerOpen=false; }, 200); });
 
-      return inp;
+      /* Wrap both in a tiny container */
+      var wrap=document.createElement('span');
+      wrap.style.cssText='position:relative;display:inline-flex;flex-shrink:0;';
+      wrap.appendChild(hidden);
+      wrap.appendChild(swatch);
+      return wrap;
     }
     function mkBtn(label,action){
       var b=document.createElement('button'); b.textContent=label;
@@ -1505,15 +2056,15 @@ const SLIDE_INTERACTION_SCRIPT = `
           'border-radius:10px;padding:6px 10px;box-shadow:0 6px 24px rgba(0,0,0,.7);pointer-events:auto;max-width:340px;';
 
         var rect=range.getBoundingClientRect();
-        var tx=Math.max(4,Math.min(window.innerWidth-280,rect.left+rect.width/2-110));
-        var ty=Math.max(4,rect.top-50);
+        var tx=Math.max(4,Math.min(window.innerWidth-340,rect.left+rect.width/2-140));
+        var ty=Math.max(4,rect.top-52);
         t.style.left=tx+'px'; t.style.top=ty+'px';
 
-        /* ── Simplified toolbar: Text color | A− A+ | × ── */
-        /* (B/I/U removed per UX simplification) */
+        /* Text color */
         t.appendChild(mkLabel('文字色'));
         t.appendChild(mkColorPicker('文字顏色','#ffffff',function(c,r){ applyColorToRange(c,r); }));
         t.appendChild(mkSep());
+        /* Font size */
         t.appendChild(mkLabel('大小'));
         t.appendChild(mkBtn('A−',function(){
           if(!savedRange) return;
@@ -1522,6 +2073,20 @@ const SLIDE_INTERACTION_SCRIPT = `
         t.appendChild(mkBtn('A+',function(){
           if(!savedRange) return;
           applyFontSizeToRange(savedRange, +2);
+        }));
+        t.appendChild(mkSep());
+        /* Format */
+        t.appendChild(mkBtn('B',function(){
+          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
+          document.execCommand('bold');
+        }));
+        t.appendChild(mkBtn('I',function(){
+          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
+          document.execCommand('italic');
+        }));
+        t.appendChild(mkBtn('U',function(){
+          if(savedRange){try{var s2=window.getSelection();s2.removeAllRanges();s2.addRange(savedRange);}catch(e){}}
+          document.execCommand('underline');
         }));
         /* Close */
         var x=mkBtn('×',removeMini);
@@ -1667,13 +2232,14 @@ const SLIDE_INTERACTION_SCRIPT = `
   /* drag */
   function mpt(evt){var ctm=svg.getScreenCTM();var src=evt.touches?evt.touches[0]:evt;return {x:(src.clientX-ctm.e)/ctm.a,y:(src.clientY-ctm.f)/ctm.d};}
   function startDrag(evt){
-    if(evt.target.closest('.ctrl')||evt.target.tagName.toLowerCase()==='input'||evt.target.isContentEditable)return;
-    if(evt.target.tagName.toLowerCase()==='text')return;
-    /* Fix 4: block drag while selection mini-toolbar is showing */
-    if(document.getElementById('_mini_toolbar'))return;
+    if(evt.target.closest('.ctrl')) return;
+    if(evt.target.tagName.toLowerCase()==='input') return;
+    /* Only allow drag from the .dh drag-handle OR from the .dg border area.
+       If the pointer is inside a .rb text block → it's a text selection, not a drag. */
+    var insideRb = evt.target.closest('.rb');
+    var onHandle = evt.target.closest('.dh');
+    if(insideRb && !onHandle) return;   /* text area — let browser handle selection */
     var dg=evt.target.closest('.dg');if(!dg)return;
-    var box=evt.target.closest('.rb');
-    if(box){var rc=box.getBoundingClientRect();if(evt.clientX>rc.right-22&&evt.clientY>rc.bottom-22)return;}
     evt.preventDefault();
     sel=dg;sel.parentNode.appendChild(sel);
     var tl=sel.transform.baseVal;
@@ -1698,7 +2264,7 @@ const SLIDE_INTERACTION_SCRIPT = `
 // ═══════════════════════════════════════════════════════════════════
 // LLM: HTML/CSS SLIDE GENERATION 
 // ═══════════════════════════════════════════════════════════════════
-async function generateSlideHTML(slideData, theme, imageB64, aiBgSvgContent = null) {
+async function generateSlideHTML(slideData, theme, imageB64) {
     if (AppState.cancelRequested) throw new Error('CanceledByUser');
 
     const userModel = document.getElementById('sel-text-model').value;
@@ -1723,47 +2289,23 @@ async function generateSlideHTML(slideData, theme, imageB64, aiBgSvgContent = nu
         ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 外層（body 內）用 <img id="slide-logo" src="REPLACE_LOGO_SRC" style="position:fixed;${logoPosMap[logoPos]}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;"> 放置 Logo。`
         : '';
 
-    // Background: ai_custom > uploaded template > theme
-    const bgInstruction = aiBgSvgContent
-        ? `【重要】本投影片已有 AI 預生成的底色背景（SVG 元素代碼如下）。請在 SVG 的 <defs> 之後、所有其他內容之前，直接插入以下 SVG 背景元素，禁止修改它們，禁止再另外生成背景層：
-\`\`\`
-${aiBgSvgContent}
-\`\`\`
-文字和卡片配色需配合底色，確保足夠對比度。`
-        : AppState.bgTemplateBase64
-            ? `【特別重要】本簡報使用自定義底稿背景圖片。背景層必須是 <image href="REPLACE_BG_SRC" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>，放在所有其他元素之前。禁止使用漸層或純色作為背景，必須使用此底稿圖片。文字和卡片配色需配合底稿，若底稿較亮則用深色文字，若底稿較暗則用淺色文字。`
-            : `背景基調: ${theme.bg}（使用此漸層或顏色作為全背景）`;
+    // Background: use uploaded template or theme
+    const bgInstruction = AppState.bgTemplateBase64
+        ? `【特別重要】本簡報使用自定義底稿背景圖片。背景層必須是 <image href="REPLACE_BG_SRC" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>，放在所有其他元素之前。禁止使用漸層或純色作為背景，必須使用此底稿圖片。文字和卡片配色需配合底稿，若底稿較亮則用深色文字，若底稿較暗則用淺色文字。`
+        : `背景基調: ${theme.bg}（使用此漸層或顏色作為全背景）`;
 
-    const density = document.getElementById('sel-density')?.value || 'balanced';
-    const quality = document.getElementById('sel-quality')?.value || 'standard';
-
-    const densityVisualRules = {
-        document: `【閱讀型視覺規範】
-- 文字卡片要寬，字體 font-size: 18–22px，bullet 項目條列清晰
-- 每個要點完整顯示（不截斷），允許卡片較高（height > 200px）
-- 圖表優先（diagram_slide 用詳細、資訊豐富的 SVG 圖表）
-- 視覺裝飾簡約，以資訊清晰為主`,
-        balanced: `【均衡型視覺規範】
-- 文字卡片與視覺元素 50/50 平衡
-- font-size 20–26px，留白適中
-- 圖表清晰易讀，圖片與文字良好搭配`,
-        presentation: `【簡報型視覺規範】
-- 標題極大（font-size ≥ 64px），要點極簡
-- 大量留白，視覺衝擊第一，文字第二
-- 用大色塊、漸層、幾何形狀製造視覺震撼
-- 每點文字控制在一行內（< 20 字）`
-    }[density] || '';
-
-    const premiumRules = quality === 'premium' ? `
-【★ Premium 設計規範 — 比肩 NotebookLM】
-1. 色彩深度：背景使用至少 3 層漸層（主色 + 輔助光暈 + 邊緣暗化），不用單一純色
-2. 版型多樣：善用非對稱佈局（30/70、黃金比例）而非均分
-3. 資料視覺化：diagram_slide 必須有真正的資料圖（bar chart SVG、折線圖、同心圓等），不只是方框加箭頭
-4. 關鍵數字：重要數字（百分比、金額、年份）用超大字體（≥ 80px）單獨展示，形成視覺錨點
-5. 微細節：圓角 border-radius 12–20px，卡片加 backdrop-filter:blur(12px)，投影用 drop-shadow
-6. 圖標：在要點前用內聯 SVG 圖標（⚡📊🎯🔑等 Unicode 也可）增加視覺層次
-7. 動態感：漸層角度 135deg，光暈偏角，製造運動感
-8. 一致性：整張投影片的強調色只用 1–2 種，避免色彩混亂` : '';
+    // Additional background design instruction based on mode
+    const densityHint   = { '1':'精簡（大字、少文）','2':'均衡','3':'詳盡（小字、多文）' }[document.getElementById('range-text-density')?.value||'2']||'均衡';
+    const bgDesignInstr = AppState.bgDesignMode === 'ai'        ? `\n   ★ AI 自主配色模式：請根據簡報主題的性質自行設計最合適的底色方案。
+      可使用多色漸層、幾何紋理、深色/淺色 — 完全由你決定，不受限於任何預設主題。
+      標準：背景需與內容有強烈視覺對比，文字必須清晰可讀。`
+        : AppState.bgDesignMode === 'custom' && AppState.customTheme
+            ? `\n   ★ 自訂配色「${AppState.customTheme.label}」：
+      背景：${AppState.customTheme.bg}
+      標題色：${AppState.customTheme.titleColor}  強調色：${AppState.customTheme.accent}
+      卡片底色：${AppState.customTheme.card}  邊框：${AppState.customTheme.border}
+      正文：${AppState.customTheme.text}  ← 請嚴格依此配色渲染`
+        : '';
 
     const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師。你的投影片必須完全符合以下架構規範。
 
@@ -1773,9 +2315,6 @@ ${JSON.stringify(slideData)}
 【圖片】${imgInstruction}
 【Logo】${logoInstruction || '無 Logo。'}
 【背景】${bgInstruction}
-
-${densityVisualRules}
-${premiumRules}
 
 ══════════════════════════════════════════════════════
 ★★★ 核心強制規範（違反任何一條都是錯誤輸出）★★★
@@ -1845,11 +2384,26 @@ G. 【版型佈局規範（僅本頁適用：${slideData.layout}）】
 
 ${(()=>{
   const L = slideData.layout;
-  if (L === 'title_only') return `  ★ title_only（封面）：
-    - 背景：全尺寸 SVG 漸層/裝飾（SVG rect, path, circle 等）
-    - 主標題：.dg foreignObject，translate(100,350)，width:1400，height:280，font-size:80px，font-weight:900
-    - 副標題（若有）：.dg foreignObject，translate(100,650)，width:900，height:120，font-size:32px
-    - 裝飾：SVG 幾何形狀（禁止在裝飾上放文字）`;
+  if (L === 'title_only') return `  ★ title_only（精美封面）— 務必用豐富的 SVG 背景藝術：
+    【背景層（必須做，不可省略）】
+    1. 主背景：<rect width="1920" height="1080" fill="url(#bgGrad)"/> 使用 2~3 色深色漸層
+       linearGradient 範例：from ${theme.bg} → 更深的同色系 → 加一個對比accent色
+    2. 幾何裝飾（至少 4 個大型形狀）：
+       a) 右上角大圓：<circle cx="1650" cy="-100" r="550" fill="rgba(99,102,241,0.15)"/>
+       b) 左下角弧：<ellipse cx="100" cy="1100" rx="600" ry="400" fill="rgba(139,92,246,0.1)"/>
+       c) 斜線裝飾帶：<polygon points="0,800 400,1080 0,1080" fill="rgba(255,255,255,0.03)"/>
+       d) 右側豎條：<rect x="1700" y="0" width="8" height="1080" fill="rgba(99,102,241,0.5)" rx="4"/>
+    3. 光暈效果：<circle cx="960" cy="540" r="700" fill="url(#glowGrad)" opacity="0.15"/>
+    4. 小點綴（4~8 個）：小圓點 r="3"~"8"，散落角落，fill="rgba(255,255,255,0.2)"
+    5. 必須在 <defs> 定義 2 個 linearGradient（bgGrad + glowGrad）和至少 1 個 radialGradient
+    【文字層】
+    - 主標題：.dg foreignObject translate(120,360) width:1340 height:280
+      font-size:72~90px font-weight:900 letter-spacing:-1px line-height:1.1
+      加 text-shadow: 0 4px 40px rgba(0,0,0,0.5)
+    - 副標題：.dg foreignObject translate(120,660) width:1000 height:120
+      font-size:28~34px font-weight:400 opacity:0.85 letter-spacing:1px
+    - 裝飾線條：<line x1="120" y1="340" x2="500" y2="340" stroke="accent色" stroke-width="3"/>
+    【設計原則】色彩不超過 3 種主色系，但透過不同 opacity 創造層次感`;
   if (L === 'text_only') return `  ★ text_only（純文字）：
     - 標題卡：translate(80,60)，width:1760，height:140，font-size:52px，bold
     - 要點卡片（每個要點獨立 .dg）：
@@ -1880,7 +2434,8 @@ ${(()=>{
 
 H. 【對比度規範】
    - 深色背景→文字用淺色（#f8fafc/#ffffff）；淺色背景→文字用深色（#111827/#0f172a）
-   - ${AppState.bgTemplateBase64 ? '自訂底稿：預設用深色文字 #111827' : `背景：${theme.bg}`}
+   - ${AppState.bgTemplateBase64 ? '自訂底稿：預設用深色文字 #111827' : `背景：${theme.bg}`}${bgDesignInstr}
+   - 文字密度模式：${densityHint}（${densityHint.includes('精簡') ? '字型放大 20%，減少要點' : densityHint.includes('詳盡') ? '字型縮小 15%，行間距 1.4' : '維持標準字型'}）
 
 I. 只輸出純 HTML，不含任何 markdown 標記。
 
@@ -1921,16 +2476,14 @@ I. 只輸出純 HTML，不含任何 markdown 標記。
                 if (m) html = '<!DOCTYPE html>\n' + m[0];
             }
 
-            // Feature 5: dynamic mode — inject or strip interaction JS
-            const dynamicOn = document.getElementById('chk-dynamic-mode')?.checked !== false;
-            if (dynamicOn) {
+            const dynamicMode = document.getElementById('chk-dynamic-mode')?.checked !== false;
+            if (dynamicMode) {
                 html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', SLIDE_INTERACTION_SCRIPT);
                 if (!html.includes(SLIDE_INTERACTION_SCRIPT.slice(0, 30))) {
                     html = html.replace('</body>', SLIDE_INTERACTION_SCRIPT + '\n</body>');
                 }
             } else {
-                html = html.replace(/<!--SLIDE_INTERACTION_SCRIPT-->/g, '');
-                html = html.replace(/contenteditable="true"/gi, '');
+                html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', '');
             }
 
             // 【修改點】：無論是 Base64 還是 URL，統一將 REPLACE_IMAGE_SRC 替換為實際圖片。
@@ -1943,20 +2496,11 @@ I. 只輸出純 HTML，不含任何 markdown 標記。
             // Inject background template
             if (AppState.bgTemplateBase64) {
                 html = html.replace(/REPLACE_BG_SRC/g, AppState.bgTemplateBase64);
+                // If LLM didn't include placeholder, insert as first SVG child
                 if (!html.includes(AppState.bgTemplateBase64) && html.includes('id="slide-svg"')) {
                     html = html.replace(
                         /(id="slide-svg"[^>]*>)/,
                         `$1\n<image href="${AppState.bgTemplateBase64}" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>`
-                    );
-                }
-            }
-
-            // Inject AI-generated background SVG (if LLM didn't include it already)
-            if (aiBgSvgContent && html.includes('id="slide-svg"')) {
-                if (!html.includes('AI_BG_START')) {
-                    html = html.replace(
-                        /(id="slide-svg"[^>]*>)/,
-                        `$1\n<!-- AI_BG_START -->${aiBgSvgContent}<!-- AI_BG_END -->`
                     );
                 }
             }
@@ -2013,9 +2557,10 @@ function pickReadableColor(bgHex, preferred, fallbackLight = '#f8fafc', fallback
 
 // Inject contrast-safe CSS overrides into an HTML slide string
 function injectContrastFix(html, theme) {
+    const themeBg = theme?.bg || theme?.bg_hex || '#0f172a';
     const bgHex = AppState.bgTemplateBase64
-        ? '#808080'   // unknown bg image → use mid-grey assumption, safer to use light text
-        : (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[0] || '#0f172a');
+        ? '#808080'
+        : (themeBg.match(/#([0-9a-fA-F]{6})/)?.[0] || '#0f172a');
 
     const [bgR, bgG, bgB] = hexToRgbArr(bgHex);
     const bgLum = getLuminance(bgR, bgG, bgB);
@@ -2806,7 +3351,7 @@ async function downloadEditablePptx() {
         pres.layout = 'LAYOUT_16x9';
 
         const templateKey = document.getElementById('sel-template').value;
-        const theme = HTML_THEMES[templateKey] || HTML_THEMES.modern;
+        const theme = resolveActiveTheme();
         const accentHex = (theme.accent.match(/#([0-9a-fA-F]{6})/)?.[1] || '818cf8');
         const bgHex     = AppState.bgTemplateBase64 ? 'FFFFFF' : (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[1] || '0f172a').toUpperCase();
         const logoPos    = document.getElementById('sel-logo-pos').value;
@@ -3319,6 +3864,23 @@ function showImagePicker(slideNum, slideTitle, serpQuery) {
     });
 }
 
+/** Validates that a URL actually serves an image (not a webpage).
+ *  Uses Image element — cross-origin-safe, works even without CORS headers. */
+function validateImageUrl(url) {
+    return new Promise(resolve => {
+        if (!url || url.startsWith('data:')) { resolve(!!url); return; }
+        const img = new Image();
+        const timer = setTimeout(() => { img.src=''; resolve(false); }, 6000);
+        img.onload  = () => {
+            clearTimeout(timer);
+            // naturalWidth=0 means the "image" is actually HTML or invalid
+            resolve(img.naturalWidth > 0 && img.naturalHeight > 0);
+        };
+        img.onerror = () => { clearTimeout(timer); resolve(false); };
+        img.src = url;
+    });
+}
+
 async function imgPickerConfirm() {
     const btn = document.getElementById('img-picker-confirm-btn');
     const originalUrl  = btn.getAttribute('data-url')  || '';
@@ -3359,9 +3921,25 @@ async function imgPickerConfirm() {
         }
     }
 
-    addLog(`⚠ 所有方式失敗，直接嵌入縮圖 URL（建議設定 Apps Script URL）`, 'warning');
-    document.getElementById('img-picker-modal').classList.remove('open');
-    if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: thumbnailUrl }); _pickerResolve = null; }
+    // Final fallback: try validating the thumbnail URL before using it directly
+    addLog(`⚠ base64 轉換均失敗，嘗試驗證縮圖 URL 是否為有效圖片...`, 'warning');
+    const isValidImg = await validateImageUrl(thumbnailUrl);
+    if (isValidImg) {
+        addLog(`✓ 縮圖 URL 驗證為有效圖片，直接嵌入使用`, 'info');
+        document.getElementById('img-picker-modal').classList.remove('open');
+        if (_pickerResolve) { _pickerResolve({ mode: 'serp_url', b64: thumbnailUrl }); _pickerResolve = null; }
+    } else {
+        // URL is not a valid image (might be a webpage) — prompt user to choose another
+        addLog(`⚠ 所選圖片 URL 無效（可能是網頁而非圖片），請重新選擇`, 'warning');
+        btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
+        btn.disabled = false;
+        // Show error in picker
+        const errMsg = document.getElementById('img-picker-error-msg');
+        const errDiv = document.getElementById('img-picker-error');
+        if (errMsg) errMsg.textContent = '所選圖片無法載入（URL 可能是網頁或已失效），請選擇其他圖片';
+        if (errDiv) { errDiv.classList.remove('hidden'); errDiv.classList.add('flex'); }
+        return; // Keep modal open so user can choose another
+    }
     btn.innerHTML = '<i class="ph-bold ph-check"></i>確認使用此圖';
     btn.disabled = false;
 }
@@ -3769,303 +4347,59 @@ async function captureSlideScreenshot(html) {
     });
 
     const result = await iframeCapture();
-    const jpg = result || await (async () => { addLog('⚠ iframe 截圖失敗，切換 SVG fallback...', 'warning'); return await svgCapture(); })();
-    if (!jpg) return null;
-    // Return composite object so DOM pre-review can access raw html
-    return { _jpg: jpg, _html: html };
+    if (result) return result;
+    addLog('⚠ iframe 截圖失敗，切換 SVG fallback...', 'warning');
+    return await svgCapture();
 }
 
-// ═══════════════════════════════════════════════════════════════════
-// FEATURE 1: AI BACKGROUND GENERATOR
-// ═══════════════════════════════════════════════════════════════════
-async function generateAIBackground(slideData, slideIndex, totalSlides) {
-    const templateKey = document.getElementById('sel-template').value;
-    if (templateKey !== 'ai_custom') return null;  // not in AI custom mode
-
-    const bgModel   = document.getElementById('sel-bg-model')?.value || 'gemini-2.5-pro';
-    const bgMode    = document.querySelector('input[name="bg-design-mode"]:checked')?.value || 'auto';
-    const bgDesc    = document.getElementById('inp-bg-desc')?.value?.trim() || '';
-    const quality   = document.getElementById('sel-quality')?.value || 'standard';
-
-    const userIntent = bgMode === 'describe' && bgDesc
-        ? `根據以下描述設計底色：「${bgDesc}」`
-        : '請完全由 AI 自行決定最適合此投影片主題和版型的底色設計';
-
-    const prompt = `你是世界頂級的投影片視覺設計師，專精 SVG 背景層設計。
-請為以下投影片生成一個精美、豐富的 SVG 背景層（僅背景，不含文字）。
-
-【投影片資訊】
-- 標題：${slideData.title || ''}
-- 版型：${slideData.layout || ''}
-- 此為第 ${slideIndex + 1} 頁，共 ${totalSlides} 頁
-- 底色設計指令：${userIntent}
-
-【輸出規格】
-- 輸出尺寸：1920×1080（SVG viewBox="0 0 1920 1080"）
-- 只輸出 SVG 背景層的內部元素（defs + rect/path/circle 等），不需要外層 <svg> 標籤
-- 不含任何 <text> 或文字元素
-- 可使用：linearGradient、radialGradient、feGaussianBlur、feDropShadow、pattern、clip-path
-- 多層次設計：基礎色層 + 光暈層 + 幾何裝飾層 + 紋理層（共 3–5 個 SVG 元素）
-- 確保有足夠的文字對比空間（避免在文字區域用過亮的色彩）
-
-${quality === 'premium' ? `【Premium 底色設計規範】
-- 使用至少 3 個漸層（主背景 + 角落光暈 + 中心焦點）
-- 加入精細幾何裝飾（細線、多邊形、圓弧）
-- 使用 feGaussianBlur 製作柔和光暈效果
-- 色調：飽和度高（HSL: S≥60%），深度足夠（L≤40% for dark themes）` : ''}
-
-只輸出 SVG 背景元素代碼，不含任何說明文字或 markdown：`;
-
-    try {
-        let raw = '';
-        if (isGrokModel(bgModel) && AppState.xaiApiKey) {
-            raw = await callGrokText(bgModel, '你是 SVG 視覺設計師，只輸出代碼不輸出任何說明。', prompt, AbortSignal.timeout(60000));
-        } else if (AppState.googleApiKey) {
-            const ver = getGeminiApiVersion(bgModel);
-            const r   = await fetch(
-                `https://generativelanguage.googleapis.com/${ver}/models/${bgModel}:generateContent?key=${AppState.googleApiKey}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: 0.8, maxOutputTokens: 4096 }
-                    }),
-                    signal: AbortSignal.timeout(60000)
-                }
-            );
-            if (r.ok) {
-                const d = await r.json();
-                raw = d.candidates?.[0]?.content?.parts?.[0]?.text || '';
-            }
-        }
-
-        if (!raw) return null;
-        // Strip markdown fences
-        raw = raw.replace(/^```(?:svg|xml)?\s*/im,'').replace(/\s*```$/im,'').trim();
-        // Strip outer <svg> if LLM included it
-        raw = raw.replace(/^<svg[^>]*>/i,'').replace(/<\/svg>\s*$/i,'').trim();
-        return raw;  // SVG element fragments
-    } catch(e) {
-        addLog(`⚠ AI 底色生成失敗: ${e.message}`, 'warning');
-        return null;
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════
-// FEATURE 3: DOM-BASED PRE-REVIEW (before LLM review)
-// Programmatically checks contrast, font-size, element bounds
-// Returns issues array — these are CERTAIN, not hallucinated
-// ═══════════════════════════════════════════════════════════════════
-function domPreReview(html) {
-    const issues = [];
-    try {
-        const parser = new DOMParser();
-        const doc    = parser.parseFromString(html, 'text/html');
-        const svg    = doc.getElementById('slide-svg');
-        if (!svg) return issues;
-
-        function lum(r,g,b){ function c(v){v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);} return .2126*c(r)+.7152*c(g)+.0722*c(b); }
-        function hexLum(h){ const m=(h||'').match(/#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})/i); if(!m)return null; return lum(parseInt(m[1],16),parseInt(m[2],16),parseInt(m[3],16)); }
-        function ratio(l1,l2){ const a=Math.max(l1,l2), b=Math.min(l1,l2); return (a+.05)/(b+.05); }
-
-        // Get slide bg color
-        const bgHex = (() => {
-            const r = svg.querySelector('rect[fill]'); if(!r) return '#0f172a';
-            const f = r.getAttribute('fill')||'';
-            return f.match(/#[0-9a-f]{6}/i)?.[0] || '#0f172a';
-        })();
-        const bgL = hexLum(bgHex) ?? 0.02;
-
-        // Check foreignObject text contrast vs card bg
-        svg.querySelectorAll('foreignObject').forEach((fo, foIdx) => {
-            const rb = fo.querySelector('.rb, div');
-            if (!rb) return;
-            const cardBg = rb.style.backgroundColor || rb.style.background || '';
-            const cardHex = cardBg.match(/#[0-9a-f]{6}/i)?.[0] || bgHex;
-            const cardL   = hexLum(cardHex) ?? bgL;
-
-            rb.querySelectorAll('[contenteditable], p, h1, h2, h3, h4, span').forEach(el => {
-                const col = el.style.color || '';
-                const hex = col.match(/#[0-9a-f]{6}/i)?.[0];
-                if (!hex) return;
-                const textL = hexLum(hex);
-                if (textL === null) return;
-                const r = ratio(textL, cardL);
-                if (r < 3.5) {
-                    const tag = el.tagName?.toLowerCase() || 'element';
-                    const txt = (el.textContent || '').trim().slice(0,30);
-                    issues.push({
-                        type: 'contrast',
-                        certain: true,
-                        description: `文字對比不足（比率 ${r.toFixed(1)}:1，需≥4.5）：「${txt}」顏色 ${hex} vs 背景 ${cardHex}`,
-                        fix: `將 foreignObject[${foIdx}] 中 "${txt.slice(0,20)}" 的文字顏色改為對比更高的顏色。背景是 ${cardHex}（${cardL>0.18?'淺色':'深色'}），應使用 ${cardL>0.18?'深色如#111827':'淺色如#f8fafc'}`
-                    });
-                }
-            });
-
-            // Check font-size
-            const fs = parseFloat(rb.style.fontSize || '16');
-            const isTitle = rb.querySelector('h1,h2,h3');
-            if (isTitle && fs < 28) {
-                issues.push({ type:'readability', certain:true,
-                    description:`標題字體過小（${fs}px，建議≥36px）`,
-                    fix:`將標題 foreignObject 的 font-size 從 ${fs}px 增至 36px`
-                });
-            } else if (!isTitle && fs < 14) {
-                issues.push({ type:'readability', certain:true,
-                    description:`正文字體過小（${fs}px，建議≥18px）`,
-                    fix:`將內容 foreignObject 的 font-size 從 ${fs}px 增至 18px`
-                });
-            }
-
-            // Check bounds: is foreignObject outside 1920×1080?
-            const x  = parseFloat(fo.getAttribute('x')  || 0);
-            const y  = parseFloat(fo.getAttribute('y')  || 0);
-            const w  = parseFloat(fo.getAttribute('width')  || 0);
-            const h  = parseFloat(fo.getAttribute('height') || 0);
-            // Also account for transform on parent .dg
-            const dg = fo.closest('.dg');
-            let tx = 0, ty = 0;
-            if (dg) {
-                const tAttr = dg.getAttribute('transform') || '';
-                const tm = tAttr.match(/translate\(([^,]+),([^)]+)\)/);
-                if (tm) { tx = parseFloat(tm[1])||0; ty = parseFloat(tm[2])||0; }
-            }
-            if (tx + x + w > 1940 || ty + y + h > 1100) {
-                issues.push({ type:'layout', certain:true,
-                    description:`元素超出投影片邊界（x=${Math.round(tx+x)},y=${Math.round(ty+y)},w=${Math.round(w)},h=${Math.round(h)}）`,
-                    fix:`將 translate(${Math.round(tx)},${Math.round(ty)}) 調整為不超出 1920×1080 範圍`
-                });
-            }
-        });
-
-    } catch(e) { /* DOM parsing error — skip */ }
-    return issues;
-}
-
-async function reviewSlideWithLLM(screenshotB64, slideData, reviewModel) {
+// Call Grok 4.1 (or selected reviewer) to visually review a slide screenshot
+async function reviewSlideWithLLM(screenshotB64, slideData, reviewModel, slideHtml) {
     const xaiKey    = AppState.xaiApiKey;
     const geminiKey = AppState.googleApiKey;
     const isGrok    = isGrokModel(reviewModel);
 
-    // ── Step A: Run DOM-based deterministic checks FIRST ─────────────
-    // These are injected as certain issues into the review context
-    // so the LLM doesn't need to hallucinate what it can't actually see
-    const domIssues = domPreReview(screenshotB64._html || '');
-    const domSummary = domIssues.length > 0
-        ? `\n\n【DOM 解析已確認的問題（100% 確定，必須修正）】\n${domIssues.map((d,i)=>`${i+1}. [${d.type.toUpperCase()}] ${d.description}`).join('\n')}`
-        : '\n\n【DOM 解析】未發現確定性問題。';
-
-    const reviewPrompt = `你是投影片視覺品質審查師。請根據截圖審查此投影片，回傳 JSON 報告。
-
-投影片：標題「${slideData.title || ''}」版型「${slideData.layout || ''}」
-${domSummary}
-
-【你負責從截圖補充審查以下項目（只回報截圖中明確可見的問題，禁止猜測或虛構）】
-1. 圖片與文字是否在截圖中明顯重疊遮擋
-2. 截圖中是否有明顯的色彩對比問題（肉眼難以閱讀的文字）
-3. 版面構圖是否明顯失衡
-
-【重要規則】
-- 只描述截圖中肉眼確認可見的問題
-- 禁止虛構不存在的元素或問題
-- 若截圖看起來品質良好，直接返回 pass:true
-- DOM 解析確認的問題自動列入 issues，你不需要重複
-
-嚴格輸出純 JSON：
-{"pass":boolean,"score":0-100,"issues":[{"type":"overlap|contrast|readability|layout","description":"問題","fix":"修正指令"}]}
-pass=true 條件：score≥80 且 DOM 無問題 且 截圖無明顯視覺問題。`;
-
+    // Extract real element positions from HTML for grounding (prevents hallucination)
+    let elementInfo = '';
     try {
-        let raw = '';
-        if (isGrok && xaiKey) {
-            const proxyUrl = `${GROK_PROXY}?url=${encodeURIComponent('https://api.x.ai/v1/chat/completions')}`;
-            const resp = await fetch(proxyUrl, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${xaiKey}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    model: reviewModel,
-                    messages: [{ role:'user', content:[
-                        { type:'image_url', image_url:{ url: screenshotB64._jpg } },
-                        { type:'text', text: reviewPrompt }
-                    ]}],
-                    temperature: 0.1
-                }),
-                signal: AbortSignal.timeout(90000)
-            });
-            if (!resp.ok) throw new Error(`Grok review HTTP ${resp.status}`);
-            raw = (await resp.json()).choices?.[0]?.message?.content || '{}';
-        } else if (geminiKey) {
-            const model = reviewModel.startsWith('grok') ? 'gemini-2.5-flash' : reviewModel;
-            const ver   = getGeminiApiVersion(model);
-            const resp = await fetch(
-                `https://generativelanguage.googleapis.com/${ver}/models/${model}:generateContent?key=${geminiKey}`,
-                {
-                    method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({
-                        contents:[{ role:'user', parts:[
-                            { inlineData:{ mimeType:'image/jpeg', data: screenshotB64._jpg?.split(',')?.[1] || screenshotB64.split?.(',')?.[1] || screenshotB64 }},
-                            { text: reviewPrompt }
-                        ]}],
-                        generationConfig:{ temperature:0.1, maxOutputTokens:2048 }
-                    }),
-                    signal: AbortSignal.timeout(90000)
-                }
-            );
-            if (!resp.ok) throw new Error(`Gemini review HTTP ${resp.status}`);
-            raw = (await resp.json()).candidates?.[0]?.content?.parts?.[0]?.text || '{}';
-        }
-
-        const m = raw.match(/\{[\s\S]*\}/);
-        const llmResult = JSON.parse(m ? m[0] : '{}');
-
-        // Merge DOM-certain issues with LLM issues
-        const allIssues = [
-            ...domIssues.map(d => ({ ...d, source:'dom' })),
-            ...(llmResult.issues || []).map(d => ({ ...d, source:'llm' }))
-        ];
-        const hasCertain = domIssues.length > 0;
-        return {
-            pass:  !hasCertain && (llmResult.pass !== false),
-            score: hasCertain ? Math.min(llmResult.score ?? 70, 65) : (llmResult.score ?? 80),
-            issues: allIssues
-        };
-
-    } catch(e) {
-        addLog(`⚠ 審查模型呼叫失敗: ${e.message}`, 'warning');
-        // Even if LLM fails, still return DOM issues
-        return { pass: domIssues.length === 0, score: domIssues.length ? 60 : 90, issues: domIssues };
-    }
-}
+        const doc = new DOMParser().parseFromString(slideHtml || '', 'text/html');
+        const elems = [];
+        doc.querySelectorAll('.dg').forEach(dg => {
+            const tf = dg.getAttribute('transform') || '';
+            const tm = tf.match(/translate\(\s*([\d.-]+)[,\s]+([\d.-]+)\s*\)/);
+            const fo = dg.querySelector('foreignObject');
+            if (tm && fo) {
+                const txt = fo.querySelector('[contenteditable]')?.textContent?.trim().slice(0,30) || '';
+                const w = fo.getAttribute('width'), h = fo.getAttribute('height');
+                elems.push(`  · (${Math.round(tm[1])},${Math.round(tm[2])}) ${w}×${h}px — "${txt}"`);
+            }
+        });
+        if (elems.length) elementInfo = '\n\n【投影片中的實際元素位置（勿幻覺）】\n' + elems.join('\n');
+    } catch(e) {}
 
     const reviewPrompt = `你是投影片視覺品質審查師。請對這張投影片截圖做嚴格品質審查，回傳 JSON 報告。
 
 投影片資料：
 - 標題：${slideData.title || ''}
 - 版型：${slideData.layout || ''}
-- 要點數：${(slideData.bullet_points || []).length}
+- 要點數：${(slideData.bullet_points || []).length}${elementInfo}
 
-【必須審查的 4 個面向，每個都要認真檢查】
-1. overlap（重疊）：文字/圖片元素是否相互遮擋、重疊
-2. contrast（對比度）：★ 這是最重要的檢查 ★
-   - 所有文字（標題、要點、說明）與其背景色的對比率必須 ≥ 4.5:1（WCAG AA）
-   - 深色背景（如深藍/黑）上出現深灰文字 = 嚴重對比不足，必須標記
-   - 淺色背景上出現白色文字 = 嚴重對比不足，必須標記
-   - 只要發現任何文字看起來「難以辨讀」就必須回報
-   - 若有對比問題，score 必須 ≤ 60，pass 必須為 false
+【必須審查的 4 個面向】
+1. overlap（重疊）：文字/圖片元素是否相互遮擋、重疊。只依據截圖中「實際可見」的狀況判斷，勿幻覺。
+2. contrast（對比度）★最重要★：
+   - 所有文字與其背景對比率必須 ≥ 4.5:1（WCAG AA）
+   - 深色背景出現深灰/深藍文字 = 嚴重對比不足
+   - 淺色背景出現白色文字 = 嚴重對比不足
+   - 只要發現任何「難以辨讀」的文字必須回報
+   - 若有對比問題，score ≤ 60，pass = false
 3. readability（可讀性）：標題 ≥ 36px，正文 ≥ 18px
-4. layout（佈局）：元素是否超出邊界、不當留白
+4. layout（佈局）：元素超出 1920×1080 邊界、不當留白
+
+⚠ 重要：只描述截圖中「實際存在且可見」的問題，禁止幻覺。
+⚠ 若截圖中的圖片顯示為：網頁內容、錯誤頁面、404 頁面、空白框、或任何非照片/插圖的內容 → 必須回報 image_error。
 
 嚴格輸出純 JSON（不含任何 markdown）：
-{
-  "pass": true/false,
-  "score": 0-100,
-  "issues": [
-    {"type": "overlap|contrast|readability|layout", "description": "具體問題（中文）", "fix": "具體修正指令（中文）"}
-  ]
-}
-pass=true 的條件：score ≥ 80 且沒有 contrast 問題。若有任何 contrast 問題，pass 必須為 false。`;
+{"pass":true/false,"score":0-100,"issues":[{"type":"overlap|contrast|readability|layout|image_error","description":"具體問題","fix":"具體修正指令"}]}
+pass=true 條件：score ≥ 85 且沒有 contrast/overlap/image_error 問題。`;
 
     try {
         if (isGrok && xaiKey) {
@@ -4209,6 +4543,51 @@ ${minified.slice(0, 55000)}
 // PROGRAMMATIC CONTRAST PRE-SCAN
 // Parses HTML string, detects low-contrast text, injects !important CSS
 // ═══════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════
+// PROGRAMMATIC OVERLAP DETECTION — parses .dg transform coordinates
+// and foreignObject dimensions, reports any overlapping pairs.
+// This runs BEFORE the AI reviewer so real issues are always caught.
+// ═══════════════════════════════════════════════════════════════════
+function detectOverlaps(html) {
+    const issues = [];
+    try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const boxes = [];
+        doc.querySelectorAll('.dg').forEach(dg => {
+            // Parse translate(x,y) from transform attribute
+            const tf = dg.getAttribute('transform') || '';
+            const tm = tf.match(/translate\(\s*([\d.-]+)[,\s]+([\d.-]+)\s*\)/);
+            if (!tm) return;
+            const x = parseFloat(tm[1]), y = parseFloat(tm[2]);
+            // Find foreignObject or rect to get width/height
+            const fo = dg.querySelector('foreignObject');
+            const rect = dg.querySelector('rect');
+            const w = parseFloat(fo?.getAttribute('width') || rect?.getAttribute('width') || '0');
+            const h = parseFloat(fo?.getAttribute('height') || rect?.getAttribute('height') || '0');
+            if (w > 0 && h > 0) {
+                const label = fo?.querySelector('[contenteditable]')?.textContent?.slice(0, 20) || `元素@${Math.round(x)},${Math.round(y)}`;
+                boxes.push({ x, y, w, h, label });
+            }
+        });
+        // Check all pairs for intersection (with 10px tolerance)
+        const TOL = 10;
+        for (let i = 0; i < boxes.length; i++) {
+            for (let j = i + 1; j < boxes.length; j++) {
+                const a = boxes[i], b = boxes[j];
+                const overlapX = Math.min(a.x+a.w, b.x+b.w) - Math.max(a.x, b.x) - TOL;
+                const overlapY = Math.min(a.y+a.h, b.y+b.h) - Math.max(a.y, b.y) - TOL;
+                if (overlapX > 0 && overlapY > 0) {
+                    issues.push({ type: 'overlap', area: Math.round(overlapX * overlapY),
+                        description: `「${a.label}」與「${b.label}」重疊 ${Math.round(overlapX)}×${Math.round(overlapY)}px`,
+                        fix: `調整其中一個的 translate 座標使其不重疊，建議移動「${b.label}」至 translate(${Math.round(b.x)},${Math.round(a.y+a.h+20)})`
+                    });
+                }
+            }
+        }
+    } catch(e) {}
+    return issues;
+}
+
 function programmaticContrastFix(html, theme) {
     try {
         const parser  = new DOMParser();
@@ -4307,12 +4686,50 @@ async function reviewAndFixSlide(html, sData, theme) {
         }
         lastScreenshot = screenshot;   // ← save latest good screenshot
 
-        const review = await reviewSlideWithLLM(screenshot, sData, reviewModel);
+        const review = await reviewSlideWithLLM(screenshot, sData, reviewModel, currentHTML);
+        const progOverlaps = detectOverlaps(currentHTML);
+
+        // Merge programmatic overlap issues (ground truth) into AI review
+        if (progOverlaps.length) {
+            const aiOverlapTypes = (review.issues || []).filter(i=>i.type==='overlap');
+            if (!aiOverlapTypes.length) {
+                // AI missed real overlaps — inject them
+                review.issues = [...(review.issues||[]), ...progOverlaps];
+                review.pass   = false;
+                review.score  = Math.min(review.score ?? 80, 55);
+                addLog(`  ⚙ 程式化偵測到 ${progOverlaps.length} 個重疊（AI 未偵測到），已強制標記`, 'warning');
+            }
+        }
+        // Stricter pass: require score ≥ 85 AND no overlap AND no contrast
+        const hasContrast = (review.issues||[]).some(i=>i.type==='contrast');
+        const hasOverlap  = (review.issues||[]).some(i=>i.type==='overlap');
+        if (hasContrast || hasOverlap) review.pass = false;
+        if (review.pass && (review.score??100) < 85) review.pass = false;
         const score  = review.score ?? (review.pass ? 100 : 60);
         const issueCount = (review.issues || []).length;
 
         addLog(`  審查分數：${score}/100，問題數：${issueCount}${review.pass ? ' ✓ 通過' : ' ✗ 需修正'}`, review.pass ? 'success' : 'warning');
         (review.issues || []).forEach(iss => addLog(`  • [${iss.type}] ${iss.description}`, 'warning'));
+
+        // ── image_error: reviewer found a webpage/broken image ─────────
+        const imageErrIssue = (review.issues || []).find(i => i.type === 'image_error');
+        if (imageErrIssue) {
+            addLog(`🖼 審查員偵測到圖片顯示為網頁或錯誤，請重新選擇圖片`, 'warning');
+            // Re-open image picker for this slide
+            const newImgResult = await showImagePicker(sData.slide_number, sData.title, sData.image_search_query || sData.title);
+            if (newImgResult?.b64 && newImgResult.b64 !== 'skip') {
+                const newB64 = newImgResult.b64;
+                currentHTML = currentHTML.replace(
+                    /<img([^>]*)src=["'][^"']*["']([^>]*)>/g,
+                    (m, pre, post) => m.includes('slide-logo') ? m : `<img${pre}src="${newB64}"${post}>`
+                );
+                currentHTML = currentHTML.replace(/<image([^>]*)(href|xlink:href)=["'][^"']*["']([^>]*)>/g,
+                    (m) => m.includes('slide-logo') ? m : m.replace(/(href|xlink:href)=["'][^"']*["']/, `href="${newB64}"`));
+                lastScreenshot = null;
+                addLog(`✓ 圖片已替換，繼續審查`, 'success');
+                continue;
+            }
+        }
 
         if (review.pass || !issueCount) break;
 
@@ -4330,120 +4747,10 @@ async function reviewAndFixSlide(html, sData, theme) {
     return { html: currentHTML, screenshotB64: lastScreenshot };
 }
 
-// ─── Fix 2: enhanced density hints ─────────────────────────────────
-function updateDensityHint() {
-    const mode = document.getElementById('sel-density')?.value || 'balanced';
-    const hints = {
-        document:     '每頁 5–8 個要點，每點 40–100 字詳細說明，含數據、案例與背景脈絡；圖表為主要視覺（折線圖、長條圖、架構圖）；圖片僅輔助說明；適合作為自讀報告、研究摘要或深度學習材料',
-        balanced:     '每頁 3–5 個要點，每點 20–45 字重點說明；流程圖與架構圖佔 25–35%；圖文並茂頁面佔 20–30%；兼顧現場簡報與事後閱讀，適合商務提案、教育培訓',
-        presentation: '每頁 2–3 個要點，每點 8–18 字口語化精簡摘要；大型視覺（圖片、色塊、關鍵數字）佔畫面主導；配合主講者口頭補充，適合發表場合、投資人簡報'
-    };
-    const el = document.getElementById('density-hint');
-    if (el) el.textContent = hints[mode] || '';
-}
-
-// ─── Fix 5: dynamic mode toggle ────────────────────────────────────
-function updateDynamicHint() {
-    const on  = document.getElementById('chk-dynamic-mode')?.checked;
-    const lbl = document.getElementById('dynamic-mode-label');
-    const dsc = document.getElementById('dynamic-mode-desc');
-    if (lbl) lbl.textContent = on ? '✏ 開啟：文字可拖曳 / 改色 / 改大小' : '🔒 關閉：AI 全權決定排版，不可手動調整';
-    if (dsc) dsc.textContent = on
-        ? '生成後可在預覽中直接選取文字改色、拖曳移動、縮放文字框'
-        : '關閉後審查者偵測到重疊或對比問題時，由 AI 自動修正（建議同時開啟視覺審查）';
-}
-
-// ─── Fix 6: web search UI toggle ───────────────────────────────────
-function updateWebSearchUI() {
-    const on  = document.getElementById('chk-web-search')?.checked;
-    const pnl = document.getElementById('web-search-mode-panel');
-    if (pnl) pnl.classList.toggle('hidden', !on);
-}
-
-// ─── Feature 6: web search results picker ──────────────────────────
-let _wspResolve = null;
-
-// Fetch search results via SerpAPI proxy (reuses existing infrastructure)
-async function fetchWebSearchResults(query, count = 20) {
-    const key = AppState.serpApiKey;
-    if (!key) throw new Error('SerpAPI Key 未設定，無法取得搜尋結果');
-
-    const workerUrl = `https://serpapi.kirishimatoka00.workers.dev//?q=${encodeURIComponent(query)}&api_key=${key}&num=${count}`;
-    const resp = await fetch(workerUrl, { signal: AbortSignal.timeout(20000) });
-    const data = await resp.json();
-
-    if (data.error) throw new Error(data.error);
-
-    return (data.organic_results || []).slice(0, count).map(r => ({
-        title:   r.title   || '',
-        snippet: r.snippet || '',
-        link:    r.link    || '',
-        source:  r.displayed_link || r.source || ''
-    }));
-}
-
-function wspSelectAll(val) {
-    document.querySelectorAll('#wsp-list input[type="checkbox"]').forEach(cb => { cb.checked = val; });
-}
-
-function wspConfirm() {
-    const checked = Array.from(document.querySelectorAll('#wsp-list input[type="checkbox"]:checked'))
-        .map(cb => JSON.parse(decodeURIComponent(cb.dataset.result)));
-    document.getElementById('web-search-picker-modal').classList.add('hidden');
-    if (_wspResolve) { _wspResolve(checked); _wspResolve = null; }
-}
-
-function showWebSearchPicker(query) {
-    return new Promise(async (resolve) => {
-        _wspResolve = resolve;
-        const modal   = document.getElementById('web-search-picker-modal');
-        const loading = document.getElementById('wsp-loading');
-        const list    = document.getElementById('wsp-list');
-        const subtitle = document.getElementById('wsp-subtitle');
-
-        subtitle.textContent = `搜尋：「${query.slice(0,60)}」`;
-        loading.classList.remove('hidden');
-        list.classList.add('hidden');
-        list.innerHTML = '';
-        modal.classList.remove('hidden');
-
-        try {
-            const results = await fetchWebSearchResults(query, 20);
-            loading.classList.add('hidden');
-            list.classList.remove('hidden');
-
-            if (!results.length) {
-                list.innerHTML = '<p class="text-slate-500 text-sm text-center py-8">沒有搜尋結果</p>';
-                return;
-            }
-
-            results.forEach((r, i) => {
-                const encoded = encodeURIComponent(JSON.stringify(r));
-                const el = document.createElement('label');
-                el.className = 'flex items-start gap-3 p-3 bg-slate-800/60 border border-slate-700 rounded-xl cursor-pointer hover:bg-slate-800 transition-colors';
-                el.innerHTML = `
-                    <input type="checkbox" data-result="${encoded}" checked
-                        class="mt-1 w-4 h-4 rounded accent-sky-400 shrink-0">
-                    <div class="flex-1 min-w-0">
-                        <p class="text-[12px] font-semibold text-slate-100 leading-snug">${r.title.replace(/</g,'&lt;')}</p>
-                        <p class="text-[10px] text-sky-500 mt-0.5 truncate">${r.source.replace(/</g,'&lt;')}</p>
-                        <p class="text-[11px] text-slate-400 mt-1 leading-relaxed">${(r.snippet||'').replace(/</g,'&lt;').slice(0,160)}...</p>
-                    </div>`;
-                list.appendChild(el);
-            });
-        } catch(e) {
-            loading.classList.add('hidden');
-            list.classList.remove('hidden');
-            list.innerHTML = `<div class="text-center py-8">
-                <p class="text-rose-400 text-sm font-semibold">搜尋失敗：${e.message}</p>
-                <button onclick="wspConfirm()" class="mt-3 text-xs text-slate-400 hover:text-white">跳過，直接使用 AI 生成</button>
-            </div>`;
-        }
-    });
-}
-
 // ═══════════════════════════════════════════════════════════════════
 async function startGeneration() {
+    if (AppState.outputMode === 'image') { await startPureImageGeneration(); return; }
+
     const selectedModel = document.getElementById('sel-text-model').value;
     const needsGemini = !isGrokModel(selectedModel);
     const needsGrok   = isGrokModel(selectedModel);
@@ -4482,22 +4789,6 @@ async function startGeneration() {
         const context = await buildContextFromSources();
         const srcCount = AppState.attachedSources.filter(s => s.content).length;
         if (srcCount > 0) addLog(`✓ 已整合 ${srcCount} 個資料來源（${context.length.toLocaleString()} 字元）`, 'success');
-
-        // ── Feature 6: Manual web search picker ──────────────────────
-        let webSearchContext = '';
-        const webSearchOn   = document.getElementById('chk-web-search')?.checked;
-        const webSearchMode = document.querySelector('input[name="web-search-mode"]:checked')?.value || 'auto';
-
-        if (webSearchOn && webSearchMode === 'manual' && AppState.serpApiKey) {
-            const topic = document.getElementById('inp-topic').value.trim();
-            addLog('🔍 搜尋最新資料，請從結果中選擇要納入的項目...', 'info');
-            const chosen = await showWebSearchPicker(topic);
-            if (chosen.length > 0) {
-                webSearchContext = '\n\n【聯網搜尋結果（已由使用者篩選）】\n' +
-                    chosen.map((r,i) => `${i+1}. ${r.title}\n   ${r.source}\n   ${r.snippet}`).join('\n\n');
-                addLog(`✓ 使用者選擇了 ${chosen.length} 項搜尋結果`, 'success');
-            }
-        }
         setProgress(8);
 
         // ── Google Grounding research (if enabled) ────────────────────
@@ -4510,16 +4801,15 @@ async function startGeneration() {
         setProgress(13);
 
         addLog('🧠 正在生成簡報大綱...', 'ai');
-        const outlineData = await callGeminiForOutline(topic, context + groundingContext + webSearchContext);
+        const outlineData = await callGeminiForOutline(topic, context + groundingContext);
         if (AppState.cancelRequested) throw new Error('CanceledByUser');
         AppState.presentationData = outlineData;
         addLog(`✓ 大綱生成完成：「${outlineData.presentation_title}」共 ${outlineData.slides?.length || 0} 張`, 'success');
         setProgress(15);
 
         const slides     = outlineData.slides || [];
-        const templateKey = document.getElementById('sel-template').value;
-        const theme       = HTML_THEMES[templateKey] || HTML_THEMES.modern;
-        const imageMode   = document.getElementById('sel-image-mode').value;
+        const theme      = resolveActiveTheme();
+        const imageMode  = document.getElementById('sel-image-mode').value;
 
         document.getElementById('section-preview').classList.remove('hidden');
 
@@ -4537,27 +4827,14 @@ async function startGeneration() {
                 addLog(`⚠ 第 ${sData.slide_number} 頁配圖略過`, 'warning');
             }
 
-            // ── Feature 1: Generate AI background if ai_custom mode ──────
-            let aiBgSvgContent = null;
-            const templateKey2 = document.getElementById('sel-template').value;
-            if (templateKey2 === 'ai_custom' && !AppState.cancelRequested) {
-                addLog(`🎨 生成 AI 底色（第 ${sData.slide_number} 頁）...`, 'ai');
-                aiBgSvgContent = await generateAIBackground(sData, i, slides.length);
-                if (aiBgSvgContent) addLog(`✓ AI 底色生成完成`, 'success');
-            }
-
             let html;
             try {
-                html = await generateSlideHTML(sData, theme, imageB64, aiBgSvgContent);
+                html = await generateSlideHTML(sData, theme, imageB64);
                 addLog(`✓ 第 ${sData.slide_number} 頁 HTML 生成完成`, 'success');
             } catch(e) {
                 if (e.message === 'CanceledByUser') throw e;
                 addLog(`⚠ 第 ${sData.slide_number} 頁 HTML 生成失敗，使用備用模板`, 'warning');
                 html = buildFallbackSlideHTML(sData, theme);
-                // Inject AI background into fallback too
-                if (aiBgSvgContent && html.includes('id="slide-svg"')) {
-                    html = html.replace(/(id="slide-svg"[^>]*>)/, `$1\n<!-- AI_BG_START -->${aiBgSvgContent}<!-- AI_BG_END -->`);
-                }
             }
 
             // ── Phase 4b: Programmatic contrast pre-scan (fast, no API) ─
