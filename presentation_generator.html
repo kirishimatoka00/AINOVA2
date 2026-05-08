@@ -960,9 +960,9 @@ async function generateSlideBackgroundImage(slideData, theme, bgModel, signal) {
 }
 
 // ─── Pure Image PPT: Layout LLM composes text over background ─────
-async function compositeSlideWithLayoutLLM(slideData, backgroundB64, theme, layoutModel, apiKey, signal) {
-    const hasBg = !!backgroundB64;
-    const bgSrc = hasBg ? 'REPLACE_BG_SRC' : '';
+async function compositeSlideWithLayoutLLM(slideData, backgroundB64, contentImgB64, theme, layoutModel, apiKey, signal) {
+    const hasBg      = !!backgroundB64;
+    const hasContent = !!contentImgB64;
 
     const sysPrompt = `You are a world-class presentation slide designer. Generate a complete, beautiful HTML slide (1920×1080px) that composites text content over the given background. Output ONLY complete HTML, no markdown.`;
 
@@ -970,14 +970,20 @@ async function compositeSlideWithLayoutLLM(slideData, backgroundB64, theme, layo
 
 Slide data: ${JSON.stringify(slideData)}
 Theme: ${theme.label || 'modern'}, bg: ${theme.bg}, accent: ${theme.accent}, text: ${theme.text || '#f8fafc'}
-Background: ${hasBg ? 'Use <img src="REPLACE_BG_SRC" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"> as background layer.' : `Use CSS: background:${theme.bg};`}
+Background layer: ${hasBg
+    ? '<img src="REPLACE_BG_SRC" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"> as full background.'
+    : `CSS: background:${theme.bg};`}
+${hasContent
+    ? `Content image: <img src="REPLACE_CONTENT_SRC" style="position:absolute;right:60px;top:160px;width:820px;height:680px;object-fit:cover;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:2;"> Place it on the RIGHT side, text on the LEFT.`
+    : ''}
 
 Requirements:
 - Full 1920×1080px, position:relative, overflow:hidden
-- All text MUST have strong contrast against background (use text-shadow or semi-transparent backdrop)
-- Title: large bold, positioned top or center
-- Bullet points: clearly readable, with padding, semi-transparent card backgrounds
+- All text MUST have strong contrast (use text-shadow or semi-transparent backdrop)
+- Title: large bold, positioned ${hasContent ? 'left side, top' : 'center or top'}
+- Bullet points: clearly readable, with semi-transparent card backgrounds
 - NO interaction scripts, NO contenteditable, NO draggable handles — pure static HTML
+- z-index layering: bg(0) → decorations(1) → content-image(2) → text(3)
 - Must look professional and polished
 
 Output complete HTML starting with <!DOCTYPE html>:`;
@@ -1021,14 +1027,19 @@ Output complete HTML starting with <!DOCTYPE html>:`;
 
     // Clean up the HTML
     html = html.replace(/^```html\s*/im, '').replace(/\s*```$/im, '').trim();
-    // Replace background placeholder if background was generated
+    // Replace background placeholder
     if (hasBg && backgroundB64) {
         html = html.replace(/REPLACE_BG_SRC/g, backgroundB64);
     } else {
-        // Remove any broken REPLACE_BG_SRC placeholders (would cause black image)
-        html = html.replace(/src=["']REPLACE_BG_SRC["']/g,
-            `style="display:none"`)
-            .replace(/href=["']REPLACE_BG_SRC["']/g, '');
+        html = html.replace(/src=["']REPLACE_BG_SRC["']/g, 'style="display:none"')
+                   .replace(/href=["']REPLACE_BG_SRC["']/g, '');
+    }
+    // Replace content image placeholder
+    if (hasContent && contentImgB64) {
+        html = html.replace(/REPLACE_CONTENT_SRC/g, contentImgB64);
+    } else {
+        html = html.replace(/src=["']REPLACE_CONTENT_SRC["']/g, 'style="display:none"')
+                   .replace(/href=["']REPLACE_CONTENT_SRC["']/g, '');
     }
     return html;
 }
@@ -1074,13 +1085,24 @@ async function startPureImageGeneration() {
         setProgress(15);
 
         document.getElementById('section-preview')?.classList.remove('hidden');
-        const slides = outlineData.slides || [];
+        const slides    = outlineData.slides || [];
+        const imageMode = document.getElementById('sel-image-mode')?.value || 'auto';
         const progressPerSlide = 80 / Math.max(slides.length, 1);
 
         for (let i = 0; i < slides.length; i++) {
             if (AppState.cancelRequested) throw new Error('CanceledByUser');
             const sData = slides[i];
             addLog(`🖼 第 ${sData.slide_number}/${slides.length}：${sData.title}`, 'info');
+
+            // Step 0: Content image (same as HTML mode — SerpAPI / AI image)
+            let contentImgB64 = null;
+            try {
+                contentImgB64 = await getSlideImage(sData, imageMode, i);
+                if (contentImgB64) addLog(`  ✓ 內容圖片已取得`, 'success');
+            } catch(e) {
+                if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
+                addLog(`  ⚠ 內容圖片: ${e.message}`, 'warning');
+            }
 
             // Step 1: Background LLM → generates visual background image
             let bgB64 = null;
@@ -1097,7 +1119,7 @@ async function startPureImageGeneration() {
             let html = '';
             try {
                 addLog(`  📐 排版 LLM（${layoutModel}）合成排版...`, 'ai');
-                html = await compositeSlideWithLayoutLLM(sData, bgB64, theme, layoutModel, apiKey, signal);
+                html = await compositeSlideWithLayoutLLM(sData, bgB64, contentImgB64, theme, layoutModel, apiKey, signal);
                 addLog(`  ✓ 排版完成`, 'success');
             } catch(e) {
                 if (e.message === 'CanceledByUser') throw e;
@@ -1258,19 +1280,39 @@ async function generateCustomTheme(description, apiKey, model = 'gemini-2.5-flas
         throw new Error(errBody?.error?.message || `HTTP ${resp.status}`);
     }
     const data = await resp.json();
-    // Extract text — filter out thinking parts (type !== 'text')
-    const raw  = (data.candidates?.[0]?.content?.parts || [])
-        .filter(p => p.text)
+
+    // Diagnose finish reason (SAFETY block / empty candidates)
+    const candidate   = data.candidates?.[0];
+    const finishReason = candidate?.finishReason || 'UNKNOWN';
+    if (!candidate || !candidate.content) {
+        const blockReason = data.promptFeedback?.blockReason || finishReason;
+        throw new Error(`AI 無回應（原因：${blockReason}）— 請換一個描述後重試`);
+    }
+
+    // Filter: exclude thinking parts (thought:true), only keep actual response text
+    const parts = candidate.content.parts || [];
+    const raw   = parts
+        .filter(p => p.text && !p.thought)   // ← exclude thinking tokens
         .map(p => p.text)
         .join('');
-    if (!raw.trim()) throw new Error('AI 回應為空，請重試');
+
+    if (!raw.trim()) {
+        // Fallback: try including all text parts (model might not mark thought)
+        const rawAll = parts.filter(p => p.text).map(p => p.text).join('');
+        if (!rawAll.trim()) throw new Error('AI 回應為空（finishReason: ' + finishReason + '），請重試');
+        // Try to extract JSON from mixed content
+        const m2 = rawAll.match(/\{[\s\S]*?\}(?=\s*$)/);
+        if (m2) return JSON.parse(m2[0]);
+        throw new Error('無法從回應中提取 JSON，請重試');
+    }
+
     // Try JSON parse directly first, then regex extract
     let parsed;
     try {
         parsed = JSON.parse(raw.trim());
     } catch {
         const m = raw.match(/\{[\s\S]*\}/);
-        if (!m) throw new Error(`No JSON in response（原始回應前50字：${raw.slice(0,50)}）`);
+        if (!m) throw new Error(`No JSON in response（原始回應前80字：${raw.slice(0, 80)}）`);
         parsed = JSON.parse(m[0]);
     }
     return parsed;
@@ -3483,24 +3525,30 @@ function saveToHistory() {
         const id = 'h_' + Date.now();
 
         const slidesForStorage = AppState.generatedSlides.map(s => {
-            // Strip inline base64 from HTML (imageB64 content image)
-            let html = s.html || '';
-            const imgB64 = s.imageB64 || null;
-            if (imgB64) html = html.split(imgB64).join('__SLIDE_IMG_B64__');
-
-            // For pure-image mode: screenshotB64 IS the slide (store separately)
+            const imgB64  = s.imageB64     || null;
             const shotB64 = s.screenshotB64 || null;
-            // Strip screenshotB64 from html too if it happens to be embedded
-            if (shotB64 && html.includes(shotB64)) html = html.split(shotB64).join('__SLIDE_SHOT_B64__');
+            let html      = s.html || '';
+
+            if (shotB64) {
+                // ── Pure-image mode slide ──────────────────────────────
+                // The composite HTML contains large background base64 (500KB+).
+                // Replace it entirely with a tiny screenshot wrapper.
+                // screenshotB64 IS the final slide — it's all we need for preview + PPTX.
+                html = `<!DOCTYPE html><html><body style="margin:0;padding:0;width:1920px;height:1080px;overflow:hidden;background:#0f172a"><img src="__SLIDE_SHOT_B64__" style="width:100%;height:100%;object-fit:cover;display:block"></body></html>`;
+            } else {
+                // ── HTML/CSS mode slide ────────────────────────────────
+                // Strip inline imageB64 so HTML stays small enough for localStorage
+                if (imgB64) html = html.split(imgB64).join('__SLIDE_IMG_B64__');
+            }
 
             return {
-                slideNumber:  s.slideNumber,
-                title:        s.title,
-                layout:       s.layout,
-                slideData:    s.slideData,
-                imageB64:     imgB64,
-                screenshotB64: shotB64,      // ← new: store final rendered image
-                html:         html.slice(0, 300000)
+                slideNumber:   s.slideNumber,
+                title:         s.title,
+                layout:        s.layout,
+                slideData:     s.slideData,
+                imageB64:      imgB64,
+                screenshotB64: shotB64,
+                html:          html.slice(0, 300000)
             };
         });
 
