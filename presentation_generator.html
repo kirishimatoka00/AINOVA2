@@ -2435,6 +2435,13 @@ F. 【技術規範】
    7. </svg> 後插入：<!--SLIDE_INTERACTION_SCRIPT-->
    8. foreignObject 內的 div 必須加 xmlns="http://www.w3.org/1999/xhtml"
 
+★★★ 嚴格禁止（這些會造成錯誤渲染）★★★
+   ⛔ 禁止在任何文字節點內容中放置 CSS 顏色代碼（如 #666666、#fff、rgba(...)）
+   ⛔ 禁止在任何文字節點中出現 "16:9"、"1920×1080"、"viewBox" 等技術標記
+   ⛔ ACCENT_HEX、TEXT_HEX、BG_HEX 是佔位符，生成時必須替換為實際 hex 值，禁止原樣輸出
+   ⛔ 禁止在 diagram_slide 中使用 position:fixed 或讓元素超出 1920×1080 範圍
+   ⛔ 圖表容器必須放在 <foreignObject> 或 SVG 內部，禁止頁面級 fixed 彈窗
+
 G. 【版型佈局規範（僅本頁適用：${slideData.layout}）】
 
 ${(()=>{
@@ -2485,16 +2492,36 @@ ${(()=>{
       要點3：translate(60,570)，width:880，height:160
     - 圖片：translate(1000,80)，width:860，height:900（用 E 模板）`;
   }
-  if (L === 'diagram_slide') return `  ★ diagram_slide（流程圖/架構圖）：
-    - 標題卡：translate(60,30)，width:1800，height:110，font-size:44px
-    - 每個流程節點 = SVG 框(rect) + 獨立 .dg 文字標籤
-    - 4節點水平佈局（間距≥420px）：
-      框1：x=60,y=200,w=380,h=220 → 文字：translate(70,210),width:360,height:200
+  if (L === 'diagram_slide') return `  ★ diagram_slide（流程圖/架構圖/圖表）：
+    ⚠ 所有內容必須嚴格在 1920×1080px 範圍內，禁止任何溢出：
+    - body 和 SVG 都設 overflow:hidden
+    - 禁止使用 position:fixed 或讓 div 出現在 SVG 外部
+    - 圖表（Chart.js/D3/Canvas）必須包在 <foreignObject> 內，foreignObject 有明確 width/height
+
+    【標題】translate(60,30)，width:1800，height:110，font-size:44px
+
+    【佈局方案 A — 流程節點（適合流程/架構）】
+    4節點水平排列，所有元素不超出 y=880：
+      框1：x=60,y=200,w=380,h=220  → 文字：translate(70,210),width:360,height:200
       框2：x=520,y=200,w=380,h=220 → 文字：translate(530,210),width:360,height:200
       框3：x=980,y=200,w=380,h=220 → 文字：translate(990,210),width:360,height:200
-      框4：x=1440,y=200,w=380,h=220 → 文字：translate(1450,210),width:360,height:200
+      框4：x=1440,y=200,w=380,h=220→ 文字：translate(1450,210),width:360,height:200
       箭頭：SVG path + marker-end
-    - 說明卡（選用）：translate(60,500)，width:1800，height:400，font-size:18px`;
+    說明卡（選用）：translate(60,470)，width:1800，height:380（不得超出 y=880）
+
+    【佈局方案 B — 內嵌圖表（適合折線圖/柱狀圖）】
+    如需渲染 Chart.js 圖表，使用以下結構：
+    <g class="dg" transform="translate(60,150)">
+      <foreignObject x="0" y="0" width="1800" height="780">
+        <div xmlns="http://www.w3.org/1999/xhtml"
+             style="width:1800px;height:780px;overflow:hidden;background:rgba(255,255,255,0.08);border-radius:12px;padding:20px;box-sizing:border-box;">
+          <canvas id="myChart" style="max-width:100%;max-height:100%;display:block;"></canvas>
+        </div>
+      </foreignObject>
+    </g>
+    Chart.js 腳本放在 </svg> 後、<!--SLIDE_INTERACTION_SCRIPT--> 前，
+    用 document.getElementById('myChart') 取得 canvas，
+    設 options.responsive:false，width/height 明確指定（≤1760,≤740）`;
   return `  ★ 使用 text_only 佈局作為預設（layout="${L}" 未定義，自動 fallback）`;
 })()}
 
@@ -4718,6 +4745,27 @@ function detectOverlaps(html) {
     return issues;
 }
 
+/** Remove AI hallucinations: hex color codes and technical labels in text nodes */
+function cleanSlideArtifacts(html) {
+    try {
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
+        const toFix = [];
+        let node;
+        while ((node = walker.nextNode())) {
+            const txt = node.textContent;
+            // Hex color codes appearing as standalone text (e.g. "#66666", "#ffffff")
+            const cleaned = txt
+                .replace(/(?<!\w)#[0-9a-fA-F]{3,8}(?!\w)/g, '')   // remove #hexcodes
+                .replace(/\b(16:9|1920[×x]1080|viewBox|ACCENT_HEX|TEXT_HEX|BG_HEX)\b/g, '');
+            if (cleaned !== txt) toFix.push({ node, cleaned });
+        }
+        toFix.forEach(({ node, cleaned }) => { node.textContent = cleaned; });
+        if (toFix.length) return '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+    } catch(e) {}
+    return html;
+}
+
 function programmaticContrastFix(html, theme) {
     try {
         const parser  = new DOMParser();
@@ -4969,6 +5017,8 @@ async function startGeneration() {
 
             // ── Phase 4b: Programmatic contrast pre-scan (fast, no API) ─
             html = programmaticContrastFix(html, theme);
+            // ── Phase 4c: Strip AI hallucinations (hex codes, tech labels) ─
+            html = cleanSlideArtifacts(html);
 
             // ── Phase 5 & 6: Visual Review + Auto-Fix ────────────────
             let screenshotB64 = null;
