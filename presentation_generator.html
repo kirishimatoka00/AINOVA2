@@ -1155,8 +1155,9 @@ async function startPureImageGeneration() {
             AppState.generatedSlides.push({
                 slideNumber: sData.slide_number, title: sData.title,
                 layout: sData.layout, slideData: sData,
-                imageB64: null, screenshotB64,
-                html // kept for reference / re-export
+                imageB64: contentImgB64,
+                screenshotB64, isPureImage: true,   // ← flag for editable PPTX routing
+                html
             });
 
             renderSlidePreviewCard(sData, html, i);
@@ -2477,13 +2478,20 @@ ${(()=>{
   if (L === 'text_and_image') {
     const isReading = densityHint.includes('詳盡');
     return isReading
-    ? `  ★ text_and_image（閱讀密度）— 文字優先，圖片縮小靠右：
-    - 標題卡：translate(60,30)，width:1800，height:120，font-size:38px，bold（完整一行，不換行）
-    - 文字欄（左側大欄）：translate(60,180)，width:1220（圖片佔右側36%）
-      要點1~8（各 .dg）：height:90px，font-size:15px，行距1.4，允許文字換行
-    - 圖片區（右側）：translate(1320,180)，width:560，height:860
-      （E 模板圖片；保持圖片完整不裁切）
-    - ⚠ 全部文字 .dg 的 width 均不得超過 1220；若要點超過 8 條改為 6 條`
+    ? `  ★ text_and_image（閱讀密度）— 三層獨立結構，從上到下依序：
+
+    【第 1 層：全寬標題（必須橫跨整個投影片寬度 1920px）】
+    ⚠ 標題 .dg 的 width 必須是 1800（translate(60,30) width:1800），絕對不能是 880 或其他小值
+    height:130，font-size:38~44px，bold，禁止在此層放圖片
+
+    【第 2 層：主內容區（標題下方，y 從 190 開始）】
+    左側文字欄：translate(60,190)，width:1200（不得超過 1200）
+      - 要點1~8 各自獨立 .dg，font-size:15px，height:90~100px
+      - 文字嚴格在 width:1200 範圍內，超過換行不超出邊界
+    右側圖片：translate(1310,190)，width:570，height:830
+      - 使用 E 模板圖片；若沒有圖片省略此欄，文字欄可擴至 width:1800
+
+    【第 3 層：裝飾/頁腳（選用，y > 900）】`
     : `  ★ text_and_image（圖文並排）：
     - 標題卡：translate(60,40)，width:880，height:130，font-size:44px
     - 要點卡片（每個要點獨立）：
@@ -3470,7 +3478,7 @@ async function downloadEditablePptx() {
             addLog(`📝 解析第 ${s.slideNumber} 頁文字方塊...`, 'info');
 
             // ── Pure-image mode slide: screenshot bg + text boxes from slideData ──
-            if (s.screenshotB64) {
+            if (s.isPureImage) {
                 // Check if we have the full composite HTML (current session slide, not history wrapper)
                 const hasFullHtml = s.html && (s.html.includes('class="dg"') || s.html.includes('slide-svg'));
 
@@ -3656,6 +3664,7 @@ function saveToHistory() {
                 slideData:     s.slideData,
                 imageB64:      imgB64,
                 screenshotB64: shotB64,
+                isPureImage:   s.isPureImage || false,
                 html:          html.slice(0, 300000)
             };
         });
@@ -4801,10 +4810,24 @@ function cleanSlideArtifacts(html) {
         let node;
         while ((node = walker.nextNode())) {
             const txt = node.textContent;
-            // Hex color codes appearing as standalone text (e.g. "#66666", "#ffffff")
-            const cleaned = txt
-                .replace(/(?<!\w)#[0-9a-fA-F]{3,8}(?!\w)/g, '')   // remove #hexcodes
-                .replace(/\b(16:9|1920[×x]1080|viewBox|ACCENT_HEX|TEXT_HEX|BG_HEX)\b/g, '');
+            let cleaned = txt
+                .replace(/(?<!\w)#[0-9a-fA-F]{3,8}(?!\w)/g, '')       // hex color codes
+                .replace(/\b(16:9|1920[×x]1080|viewBox|ACCENT_HEX|TEXT_HEX|BG_HEX)\b/g, '') // tech labels
+                // AI-generated ID-like artifacts (e.g. "Abstr7a2a", "Decor3f2c"):
+                // Pattern: starts with 2-8 ASCII letters, then 1-2 digits, then 2-6 hex-ish chars,
+                // no Chinese chars in same node, looks like a CSS id/hash
+                .replace(/\b[A-Za-z]{2,8}\d{1,2}[a-f\d]{2,6}\b/g, (m) => {
+                    // Only remove if the entire node content looks like an artifact (no CJK text nearby)
+                    const hasCJK = /[\u4e00-\u9fff\u3040-\u30ff]/.test(txt);
+                    return hasCJK ? m : '';   // preserve if mixed with real content
+                });
+            // Also remove standalone single words that look like class/id names
+            // (isolated text nodes with only ASCII alphanumeric, no spaces, 5-20 chars)
+            const trimmed = cleaned.trim();
+            if (!trimmed.includes(' ') && /^[A-Za-z][A-Za-z\d\-_]{4,19}$/.test(trimmed)) {
+                const hasCJK = /[\u4e00-\u9fff]/.test(trimmed);
+                if (!hasCJK) cleaned = '';
+            }
             if (cleaned !== txt) toFix.push({ node, cleaned });
         }
         toFix.forEach(({ node, cleaned }) => { node.textContent = cleaned; });
