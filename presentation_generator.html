@@ -2570,6 +2570,16 @@ I. 只輸出純 HTML，不含任何 markdown 標記。
             }
 
             const dynamicMode = document.getElementById('chk-dynamic-mode')?.checked !== false;
+            // ── Inject normalization CSS to prevent white borders in preview/capture ──
+            const normCSS = `<style id="slide-norm">
+html,body{margin:0!important;padding:0!important;overflow:hidden!important;
+width:1920px!important;height:1080px!important;box-sizing:border-box!important;}</style>`;
+            if (html.includes('<head>')) {
+                html = html.replace('<head>', '<head>' + normCSS);
+            } else {
+                html = html.replace('<!DOCTYPE html>', '<!DOCTYPE html>' + normCSS);
+            }
+
             if (dynamicMode) {
                 html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', SLIDE_INTERACTION_SCRIPT);
                 if (!html.includes(SLIDE_INTERACTION_SCRIPT.slice(0, 30))) {
@@ -3461,14 +3471,26 @@ async function downloadEditablePptx() {
 
             // ── Pure-image mode slide: screenshot bg + text boxes from slideData ──
             if (s.screenshotB64) {
-                // Background = the full rendered screenshot (contains visual design + diagrams)
-                slide.addImage({ data: s.screenshotB64, x:0, y:0, w:10, h:5.625 });
+                // Check if we have the full composite HTML (current session slide, not history wrapper)
+                const hasFullHtml = s.html && (s.html.includes('class="dg"') || s.html.includes('slide-svg'));
+
+                // Background: render slide WITHOUT text if possible, else use screenshot
+                let bgImg = s.screenshotB64;
+                if (hasFullHtml) {
+                    addLog(`  🖼 渲染無文字背景圖（防止可編輯文字重疊）...`, 'info');
+                    const bgOnly = await captureSlideBackgroundOnly(s.html);
+                    if (bgOnly) bgImg = bgOnly;
+                }
+
+                slide.addImage({ data: bgImg, x:0, y:0, w:10, h:5.625 });
 
                 // Overlay editable text boxes from slideData
+                // Only when we have a text-free background (hasFullHtml=true means bg was rendered without text)
+                // For history slides (hasFullHtml=false), screenshot already contains all text — skip boxes
                 const titleText  = sd.title || '';
                 const bullets    = sd.bullet_points || [];
-                const textColor  = accentHex;
 
+                if (hasFullHtml) {
                 // Title box
                 if (titleText) {
                     slide.addShape('rect', { x:0.4, y:0.15, w:9.2, h:0.8,
@@ -3493,6 +3515,7 @@ async function downloadEditablePptx() {
                         });
                     });
                 }
+                } // end hasFullHtml
 
                 // Page number + logo (same as HTML mode)
                 slide.addText(`${s.slideNumber}`, {
@@ -4425,6 +4448,17 @@ function closeEditModal() {
 // ─── Render a slide HTML → base64 JPEG via SVG serialization ────────────
 // Strategy: parse the slide's SVG from the HTML string, serialize it to a
 // Blob URL, draw onto an offscreen canvas, export JPEG. No iframe needed.
+/** Renders slide with all text/interactive elements hidden — used as editable PPTX background */
+async function captureSlideBackgroundOnly(html) {
+    const noTextCSS = `<style id="hide-text-for-bg">
+        .dg>foreignObject>div,.rb,[contenteditable],.dh,.ctrl{opacity:0!important;visibility:hidden!important;}
+    </style>`;
+    const bgHtml = html.includes('<head>')
+        ? html.replace('<head>', '<head>' + noTextCSS)
+        : noTextCSS + html;
+    return await captureSlideScreenshot(bgHtml, true);  // high-res for PPTX
+}
+
 async function captureSlideScreenshot(html, highRes = false) {
     // ── Primary: render slide in hidden iframe → html2canvas ──────────
     const iframeCapture = () => new Promise((resolve) => {
@@ -4440,13 +4474,26 @@ async function captureSlideScreenshot(html, highRes = false) {
                 try {
                     const idoc = iframe.contentDocument || iframe.contentWindow?.document;
                     if (!idoc || !idoc.body) { clearTimeout(timer); cleanup(); resolve(null); return; }
+
+                    // ── Force exact 1920×1080, no margin/scrollbar leakage ──
+                    const forceStyle = idoc.createElement('style');
+                    forceStyle.textContent = 'html,body{margin:0!important;padding:0!important;' +
+                        'width:1920px!important;height:1080px!important;overflow:hidden!important;' +
+                        'box-sizing:border-box!important;}';
+                    idoc.head.appendChild(forceStyle);
+                    // Sync layout before capture
+                    await new Promise(r => setTimeout(r, 50));
+
                     if (typeof html2canvas !== 'undefined') {
-                        const scale = highRes ? 1.5 : 1.0;   // ← 0.5→1.0 normal, 1.5 for PPTX
-                        const canvas = await html2canvas(idoc.documentElement, {
+                        const scale = highRes ? 1.5 : 1.0;
+                        // Capture idoc.body (not documentElement) to avoid html-element white bg
+                        const canvas = await html2canvas(idoc.body, {
                             width: 1920, height: 1080, scale,
                             useCORS: true, allowTaint: true,
-                            backgroundColor: '#0f172a', logging: false,
-                            windowWidth: 1920, windowHeight: 1080
+                            backgroundColor: null,   // ← null: use body's own background
+                            logging: false,
+                            windowWidth: 1920, windowHeight: 1080,
+                            x: 0, y: 0
                         });
                         clearTimeout(timer); cleanup();
                         resolve(canvas.toDataURL('image/jpeg', highRes ? 0.95 : 0.88));
