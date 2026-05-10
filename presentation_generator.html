@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI HTML 簡報生成器 · NOVA 120 Pro</title>
+    <title>AI HTML 簡報生成器 v26 · NOVA 120 Pro</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -68,7 +68,7 @@
                 <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
             </a>
             <div class="w-px h-5 bg-slate-700"></div>
-            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 Pro</h1>
+            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v26 Pro</h1>
         </div>
         <div class="flex items-center gap-2">
             <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
@@ -807,8 +807,16 @@ function updateHeaderBadge() {
 }
 
 function setProgress(pct) {
-    document.getElementById('progress-bar').style.width = pct + '%';
-    document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
+    const bar     = document.getElementById('progress-bar');
+    const pctEl   = document.getElementById('progress-pct');
+    const spinner = document.getElementById('progress-spinner');
+    if (bar)   bar.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = Math.round(pct) + '%';
+    // Auto-stop spinner when generation is fully complete
+    if (pct >= 100 && spinner) {
+        spinner.classList.remove('animate-spin');
+        spinner.style.cssText = 'width:20px;height:20px;border:2px solid #10b981;border-radius:50%;flex-shrink:0;';
+    }
 }
 
 function addLog(msg, type = 'info') {
@@ -1134,6 +1142,7 @@ async function startPureImageGeneration() {
             }
 
             // Step 2b: Programmatic contrast pre-scan
+            html = enforceLayoutSafety(html);
             html = programmaticContrastFix(html, theme);
 
             // Step 3: Visual review (same as HTML mode, if enabled)
@@ -1165,11 +1174,14 @@ async function startPureImageGeneration() {
         }
 
         addLog('✅ 純圖 PPT 生成完成！', 'success');
-        setProgress(100);
-        ['btn-pptx-group','btn-save-html'].forEach(id => {
+        setProgress(100);  // ← setProgress(100) now auto-stops spinner
+        ['btn-pptx-group','btn-save-html','btn-preview-html'].forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
         });
+        document.getElementById('btn-generate')?.classList.remove('hidden');
+        addLog(`🎉 完成！共 ${AppState.generatedSlides.length} 張投影片。`, 'success');
+        showToast(`✅ ${AppState.generatedSlides.length} 張投影片生成完成！`);
         saveToHistory();
 
     } catch(e) {
@@ -2376,6 +2388,28 @@ ${JSON.stringify(slideData)}
 ★★★ 核心強制規範（違反任何一條都是錯誤輸出）★★★
 ══════════════════════════════════════════════════════
 
+▓▓▓ 三區域佈局系統（MANDATORY ZONE SYSTEM）▓▓▓
+每張投影片畫布 1920×1080px，嚴格分3個不重疊區域，所有元素必須落在對應區域內：
+
+  【ZONE 1 — 標題區 (Title Zone)】  y = 0 ~ 160px
+    · 唯一一個標題 .dg：translate(70,40)，width=1780，height=140
+    · 標準版面 font-size: 46~52px；title_only 版面 font-size: 68~84px
+    · ⛔ 禁止在此區放圖片、要點、圖表
+
+  【ZONE 2 — 主內容區 (Content Zone)】  y = 180px ~ 960px（高度=780px）
+    根據 layout 類型分配：
+    · text_and_image：文字左欄 x=70 w=860，圖片右欄 x=990 w=860
+    · text_only：單欄 x=70 w=1780，最多4個要點卡（每卡高度≤165px）
+    · diagram_slide：圖表容器 x=70 y=180 w=1780 h=760
+    · title_only：裝飾/副標置中，y=220~860 自由設計
+
+  【ZONE 3 — 頁腳區 (Footer Zone, 選用)】  y = 970 ~ 1060px
+    · 頁碼、品牌名等，y ≥ 970，height ≤ 90px
+
+⚠ 安全邊界硬性限制：translate(X,Y) 中 X+width ≤ 1870，Y+height ≤ 1060
+⚠ 所有 .rb div 必須設：overflow:hidden; box-sizing:border-box; word-wrap:break-word
+⚠ 文字超過卡片高度時：縮小 font-size（每增加2個要點縮小2px），禁止撐大容器
+
 A. 【文字架構】 — 所有文字（標題、副標、要點、流程圖標籤、圖表說明、數字）
    ★ 禁止使用 SVG <text> 元素放置任何內容文字
    ★ 所有文字必須放在 foreignObject > div.rb > [contenteditable] 中
@@ -2386,11 +2420,12 @@ B. 【流程圖/架構圖文字標籤規則】
    - 每個節點的標籤文字必須是獨立的 .dg 元素，可以單獨拖曳、編輯、改色
    - 箭頭（SVG path/line）和裝飾可以繼續用 SVG，但文字標籤絕對不可以
 
-C. 【防重疊規範】
-   - 每個 .dg 元素的 translate(X,Y) 坐標必須根據實際尺寸計算，確保不重疊
+C. 【防重疊/防爆框規範（CRITICAL）】
+   - 每個 .dg 元素的 translate(X,Y) 坐標必須根據三區域系統計算，確保不重疊
    - diagram_slide 的節點佈局：4 節點水平排列間距 ≥ 420px，垂直排列間距 ≥ 200px
-   - text_only/text_and_image：所有文字卡片間距 ≥ 20px，不得超出 1920×1080 範圍
-   - foreignObject 的 width/height 必須小於兩個相鄰 .dg 之間的間距
+   - text_only/text_and_image：所有文字卡片間距 ≥ 20px，嚴格在 ZONE 2 邊界內
+   - foreignObject 的 width/height 必須 ≤ 相鄰 .dg 間距
+   - ⛔ 兩個 .dg 的座標差值必須 > 各自對應的 width/height，確保零重疊
 
 D. 【標準文字卡 HTML 模板】（所有文字卡必須使用此結構）：
 <g class="dg" transform="translate(X,Y)">
@@ -3398,12 +3433,19 @@ async function extractSlideTextBoxes(slideHtml) {
 
     // Find all .dg groups containing foreignObjects
     svgEl.querySelectorAll('g.dg').forEach(g => {
-        // Get transform (position)
+        // Get transform via regex on attribute — far more reliable than transform.baseVal
         let tx = 0, ty = 0;
-        const tl = g.transform?.baseVal;
-        if (tl && tl.length > 0) {
-            tx = tl.getItem(0).matrix.e;
-            ty = tl.getItem(0).matrix.f;
+        const tAttr = g.getAttribute('transform') || '';
+        const tMatch = tAttr.match(/translate\(\s*([\d.+-]+)\s*[, ]\s*([\d.+-]+)\s*\)/);
+        if (tMatch) {
+            tx = parseFloat(tMatch[1]) || 0;
+            ty = parseFloat(tMatch[2]) || 0;
+        } else {
+            // Fallback: try SVG DOM baseVal (works when fully rendered)
+            const tl = g.transform?.baseVal;
+            if (tl && tl.length > 0) {
+                try { tx = tl.getItem(0).matrix.e; ty = tl.getItem(0).matrix.f; } catch(e) {}
+            }
         }
 
         const fo = g.querySelector('foreignObject');
@@ -3541,7 +3583,20 @@ async function downloadEditablePptx() {
             if (AppState.bgTemplateBase64) {
                 slide.addImage({ data: AppState.bgTemplateBase64, x:0, y:0, w:10, h:5.625 });
             } else {
-                slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
+                // ── Render slide background WITHOUT text — gives beautiful visual fidelity ──
+                addLog(`  🖼 渲染視覺背景（可編輯文字將疊加於上方）...`, 'info');
+                let bgShot = s.screenshotB64; // reuse review-phase cache if available
+                try {
+                    const bgOnly = await captureSlideBackgroundOnly(s.html);
+                    if (bgOnly) bgShot = bgOnly;
+                } catch(e) { /* fallback to screenshot or flat color */ }
+
+                if (bgShot) {
+                    slide.addImage({ data: bgShot, x:0, y:0, w:10, h:5.625 });
+                } else {
+                    // last resort: flat fill
+                    slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
+                }
             }
 
             // ── Extract text boxes from HTML DOM ─────────────────────
@@ -4802,7 +4857,58 @@ function detectOverlaps(html) {
 }
 
 /** Remove AI hallucinations: hex color codes and technical labels in text nodes */
-function cleanSlideArtifacts(html) {
+// ═══════════════════════════════════════════════════════════════════
+// LAYOUT SAFETY ENFORCEMENT
+// Injects overflow:hidden + box-sizing on all containers so AI-
+// generated HTML can never overflow the 1920×1080 canvas.
+// ═══════════════════════════════════════════════════════════════════
+function enforceLayoutSafety(html) {
+    const safeCss = `<style id="layout-safety">
+/* ── Zone-level overflow guard ── */
+html, body {
+    overflow: hidden !important;
+    width: 1920px !important; height: 1080px !important;
+    max-width: 1920px !important; max-height: 1080px !important;
+    box-sizing: border-box !important;
+}
+/* ── All draggable / resizable boxes ── */
+.rb, g.dg > foreignObject > div {
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+}
+/* ── Everything inside a box ── */
+.rb *, g.dg > foreignObject > div * {
+    max-width: 100% !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    white-space: normal !important;
+    box-sizing: border-box !important;
+}
+/* ── Prevent inner images from stretching container ── */
+.rb img, g.dg > foreignObject > div img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+}
+/* ── Prevent canvas/chart overflow ── */
+canvas { max-width: 100% !important; max-height: 100% !important; display: block; }
+/* ── Clip text that truly overflows ── */
+[contenteditable] {
+    overflow: hidden !important;
+    word-break: break-word !important;
+}
+</style>`;
+    try {
+        if (html.includes('<head>')) return html.replace('<head>', '<head>' + safeCss);
+        if (html.includes('<html>'))  return html.replace('<html>',  '<html>'  + safeCss);
+    } catch(e) {}
+    return html;
+}
+
+
     try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
@@ -5085,6 +5191,8 @@ async function startGeneration() {
                 html = buildFallbackSlideHTML(sData, theme);
             }
 
+            // ── Phase 4a: Layout safety — inject overflow:hidden on all containers ──
+            html = enforceLayoutSafety(html);
             // ── Phase 4b: Programmatic contrast pre-scan (fast, no API) ─
             html = programmaticContrastFix(html, theme);
             // ── Phase 4c: Strip AI hallucinations (hex codes, tech labels) ─
