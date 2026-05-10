@@ -2344,7 +2344,7 @@ async function generateSlideHTML(slideData, theme, imageB64) {
     const hasImage = !!imageB64;
     const imgInstruction = hasImage
         ? `本投影片有一張圖片可使用。請務必在 foreignObject 的 <img> 標籤中使用 src="REPLACE_IMAGE_SRC"，或在 SVG 內使用 <image href="REPLACE_IMAGE_SRC"/> 來放置。圖片元素必須被 <g class="dg" transform="translate(x,y)"> 包裹，讓使用者可以拖曳移動圖片位置。`
-        : `本投影片無圖片，請以純 SVG 圖形、漸層、幾何裝飾填補視覺。`;
+        : `【無圖模式】本投影片無圖片。對於 text_and_image 版型，必須將圖片欄改為「全版文字佈局」——把原本圖片所在的右欄空間也分配給文字卡片，讓所有要點可以橫跨完整畫布寬度（width:1780）。不要留下空白的圖片佔位框。`;
 
     const logoPos = document.getElementById('sel-logo-pos')?.value || 'TR';
     const logoPosMap = {
@@ -2512,6 +2512,31 @@ ${(()=>{
     - 右側裝飾：translate(960,200) 放 SVG 視覺元素`;
   if (L === 'text_and_image') {
     const isReading = densityHint.includes('詳盡');
+
+    // ── No-image path: expand text to full canvas width ──────────────
+    if (!hasImage) {
+      const bulletCount = (slideData.bullet_points || []).length;
+      const cardH  = bulletCount <= 3 ? 200 : bulletCount <= 4 ? 160 : 125;
+      const cardGap = bulletCount <= 3 ? 20  : bulletCount <= 4 ? 16  : 10;
+      const fontSize = bulletCount <= 3 ? 20  : bulletCount <= 4 ? 17  : 14;
+      let bulletLayout = '';
+      for (let bi = 0; bi < Math.min(bulletCount || 3, 6); bi++) {
+        const yPos = 200 + bi * (cardH + cardGap);
+        bulletLayout += `
+      要點${bi+1}：translate(70,${yPos})，width:1780，height:${cardH}，font-size:${fontSize}px`;
+      }
+      return `  ★ text_and_image【無圖全版文字模式】— 本頁沒有圖片，請將文字佈滿整張投影片：
+
+    【ZONE 1 標題】translate(70,40)，width=1780，height=140，font-size:48px，bold
+
+    【ZONE 2 要點卡（全寬，每張獨立 .dg）】${bulletLayout}
+      · 每卡 width 固定 1780（從 x=70 到 x=1850），禁止縮窄為 880 或留空白
+      · 右側空間（原圖片欄）完全讓給文字，不要留佔位框
+      · 卡片設 overflow:hidden; box-sizing:border-box; word-wrap:break-word
+
+    【ZONE 2 裝飾（可選）】在 SVG 層加入右側細線或色塊做點綴，y=200~960，x>1820`;
+    }
+
     return isReading
     ? `  ★ text_and_image（閱讀密度）— 三層獨立結構，從上到下依序：
 
@@ -2524,16 +2549,16 @@ ${(()=>{
       - 要點1~8 各自獨立 .dg，font-size:15px，height:90~100px
       - 文字嚴格在 width:1200 範圍內，超過換行不超出邊界
     右側圖片：translate(1310,190)，width:570，height:830
-      - 使用 E 模板圖片；若沒有圖片省略此欄，文字欄可擴至 width:1800
+      - 使用 E 模板圖片；圖片必須在 Zone 2 右欄，不可超出 y=960
 
-    【第 3 層：裝飾/頁腳（選用，y > 900）】`
-    : `  ★ text_and_image（圖文並排）：
-    - 標題卡：translate(60,40)，width:880，height:130，font-size:44px
-    - 要點卡片（每個要點獨立）：
-      要點1：translate(60,210)，width:880，height:160
-      要點2：translate(60,390)，width:880，height:160
-      要點3：translate(60,570)，width:880，height:160
-    - 圖片：translate(1000,80)，width:860，height:900（用 E 模板）`;
+    【第 3 層：裝飾/頁腳（選用，y > 960）】`
+    : `  ★ text_and_image（圖文並排，有圖片）：
+    【ZONE 1 標題】translate(70,40)，width:1780，height:140，font-size:48px，bold
+    【ZONE 2 左欄：文字】x=70，y=200~960
+      - 要點卡各自獨立 .dg，width:860，間距 16px
+      - 3 點：height:220px；4 點：height:160px；5+ 點：height:125px，font-size縮小
+    【ZONE 2 右欄：圖片】translate(990,200)，width:860，height:760（E 模板）
+      · preserveAspectRatio="xMidYMid slice"`;
   }
   if (L === 'diagram_slide') return `  ★ diagram_slide（流程圖/架構圖/圖表）：
     ⚠ 所有內容必須嚴格在 1920×1080px 範圍內，禁止任何溢出：
@@ -4908,7 +4933,7 @@ canvas { max-width: 100% !important; max-height: 100% !important; display: block
     return html;
 }
 
-
+function cleanSlideArtifacts(html) {
     try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
