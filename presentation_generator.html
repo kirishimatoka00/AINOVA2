@@ -3470,75 +3470,159 @@ function runsToPptxText(runs, fontSize, baseBold, baseItalic) {
 }
 
 // Extract all text boxes from a slide's HTML by rendering it in a hidden iframe
-async function extractSlideTextBoxes(slideHtml) {
-    const { iframe, doc } = await loadSlideInHiddenIframe(slideHtml);
+/**
+ * Extract all editable text boxes from a slide HTML string.
+ * Uses DOMParser (synchronous, reliable) instead of iframe rendering.
+ * Handles: .dg groups with foreignObject, inline SVG <text> elements,
+ *   .rb being itself contenteditable, nested bold/italic spans.
+ */
+function extractSlideTextBoxes(slideHtml) {
     const boxes = [];
+    try {
+        const parser = new DOMParser();
+        const doc    = parser.parseFromString(slideHtml, 'text/html');
+        const svgEl  = doc.getElementById('slide-svg') || doc.querySelector('svg');
+        if (!svgEl) return boxes;
 
-    if (!doc) { iframe.remove(); return boxes; }
-
-    const svgEl = doc.getElementById('slide-svg');
-    if (!svgEl) { iframe.remove(); return boxes; }
-
-    // Find all .dg groups containing foreignObjects
-    svgEl.querySelectorAll('g.dg').forEach(g => {
-        // Get transform via regex on attribute — far more reliable than transform.baseVal
-        let tx = 0, ty = 0;
-        const tAttr = g.getAttribute('transform') || '';
-        const tMatch = tAttr.match(/translate\(\s*([\d.+-]+)\s*[, ]\s*([\d.+-]+)\s*\)/);
-        if (tMatch) {
-            tx = parseFloat(tMatch[1]) || 0;
-            ty = parseFloat(tMatch[2]) || 0;
-        } else {
-            // Fallback: try SVG DOM baseVal (works when fully rendered)
-            const tl = g.transform?.baseVal;
-            if (tl && tl.length > 0) {
-                try { tx = tl.getItem(0).matrix.e; ty = tl.getItem(0).matrix.f; } catch(e) {}
-            }
+        // ── Helper: parse transform="translate(X,Y)" attribute ──────────
+        function parseTx(el) {
+            const tAttr = el.getAttribute('transform') || '';
+            const m = tAttr.match(/translate\(\s*([\d.+\-]+)\s*[, ]\s*([\d.+\-]+)\s*\)/);
+            return m ? [parseFloat(m[1])||0, parseFloat(m[2])||0] : [0,0];
         }
 
-        const fo = g.querySelector('foreignObject');
-        if (!fo) return; // skip image-only groups
+        // ── Helper: first matching inline color from style string ────────
+        function colorFromStyle(styleStr) {
+            if (!styleStr) return null;
+            const m = styleStr.match(/color\s*:\s*(#[0-9a-fA-F]{3,8}|rgb\([^)]+\))/);
+            return m ? colorToHex6(m[1]) : null;
+        }
 
-        const rb = fo.querySelector('.rb, div');
-        if (!rb) return;
+        // ── Helper: collect all text from a DOM node recursively ─────────
+        function collectText(node, defaultColor) {
+            const runs = [];
+            function walk(n, color) {
+                if (n.nodeType === 3) {
+                    const t = n.textContent;
+                    if (t) runs.push({ text: t, color });
+                    return;
+                }
+                if (n.nodeType !== 1) return;
+                // Skip control chrome elements
+                if (n.className && /dh|ctrl/.test(n.className)) return;
+                const tag = n.tagName.toUpperCase();
+                // Line breaks
+                if (tag === 'BR') { runs.push({ text: '\n', color }); return; }
+                // Block-level → trailing newline after
+                const isBlock = /^(P|DIV|LI|H[1-6]|TR|TD|TH|SECTION|ARTICLE|BLOCKQUOTE)$/.test(tag);
+                const inlineColor = colorFromStyle(n.getAttribute('style') || '') || color;
+                for (const child of n.childNodes) walk(child, inlineColor);
+                if (isBlock && runs.length && runs[runs.length-1].text !== '\n')
+                    runs.push({ text: '\n', color: inlineColor });
+            }
+            walk(node, defaultColor);
+            return runs;
+        }
 
-        // Get size
-        const foW = parseFloat(fo.getAttribute('width') || 300);
-        const foH = parseFloat(fo.getAttribute('height') || 200);
+        // ── Process each .dg group ───────────────────────────────────────
+        svgEl.querySelectorAll('g.dg').forEach(g => {
+            const fo = g.querySelector('foreignObject');
+            if (!fo) return;  // image-only group
 
-        // Convert 1920×1080 coordinates to PPTX inches (10"×5.625")
-        const pptX = (tx / 1920) * 10;
-        const pptY = (ty / 1080) * 5.625;
-        const pptW = Math.max(0.5, (foW / 1920) * 10);
-        const pptH = Math.max(0.3, (foH / 1080) * 5.625);
+            const [tx, ty] = parseTx(g);
 
-        // Get font size
-        const fs = parseFloat(rb.style.fontSize || '16');
-        const pptFs = Math.max(8, Math.min(72, Math.round(fs * 0.75))); // px → pt approx
+            // Size from foreignObject attributes
+            const foW = parseFloat(fo.getAttribute('width')  || 300);
+            const foH = parseFloat(fo.getAttribute('height') || 200);
 
-        // Get background
-        const bgCss = rb.style.backgroundColor || rb.style.background || '';
-        const bgHex = colorToHex6(bgCss);
+            // Convert 1920×1080 px → PPTX inches (10"×5.625")
+            const pptX = (tx  / 1920) * 10;
+            const pptY = (ty  / 1080) * 5.625;
+            const pptW = Math.max(0.5, (foW / 1920) * 10);
+            const pptH = Math.max(0.3, (foH / 1080) * 5.625);
 
-        // Gather all contenteditable elements (skip .dh handle and .ctrl)
-        const editables = rb.querySelectorAll('[contenteditable]');
-        if (!editables.length) return;
+            // Clamp to slide boundaries
+            const cX = Math.max(0, Math.min(pptX, 9.5));
+            const cY = Math.max(0, Math.min(pptY, 5.3));
+            const cW = Math.min(pptW, 10 - cX);
+            const cH = Math.min(pptH, 5.625 - cY);
 
-        // Collect all text with colors
-        let allRuns = [];
-        editables.forEach((el, idx) => {
-            if (idx > 0) allRuns.push({ text: '\n', color: null });
-            const elColor = colorToHex6(el.style.color || '') || 'FFFFFF';
-            const runs = extractTextRuns(el, elColor);
-            allRuns = allRuns.concat(runs);
+            // The .rb div — may be immediate child of fo or nested
+            const rb = fo.querySelector('.rb') || fo.querySelector('div');
+            if (!rb) return;
+
+            // Font size: from inline style on .rb or first child div
+            const fsMatch = (rb.getAttribute('style') || '').match(/font-size\s*:\s*([\d.]+)px/);
+            const pxFs = parseFloat(fsMatch?.[1] || 16);
+            const pptFs = Math.max(8, Math.min(72, Math.round(pxFs * 0.75)));
+
+            // Background color
+            const bgMatch = (rb.getAttribute('style') || '').match(/background(?:-color)?\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/);
+            const bgHex   = bgMatch ? colorToHex6(bgMatch[1]) : null;
+
+            // Default text color from .rb style
+            const txtColorMatch = (rb.getAttribute('style') || '').match(/(?:^|;)\s*color\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/);
+            const defaultColor  = (txtColorMatch ? colorToHex6(txtColorMatch[1]) : null) || 'FFFFFF';
+
+            // Collect text:
+            // 1. Try [contenteditable] descendants first
+            let allRuns = [];
+            const editables = [...rb.querySelectorAll('[contenteditable]')];
+            // If .rb itself is contenteditable (AI sometimes does this), include it
+            if (rb.hasAttribute('contenteditable')) editables.unshift(rb);
+
+            if (editables.length) {
+                editables.forEach((el, i) => {
+                    if (i > 0) allRuns.push({ text: '\n', color: null });
+                    // Skip .dh and .ctrl children
+                    const elColor = colorFromStyle(el.getAttribute('style') || '') || defaultColor;
+                    allRuns = allRuns.concat(collectText(el, elColor));
+                });
+            } else {
+                // Fallback: collect ALL text from the .rb div
+                allRuns = collectText(rb, defaultColor);
+            }
+
+            // Skip empty boxes
+            if (!allRuns.some(r => r.text && r.text.trim())) return;
+
+            // Remove leading/trailing newlines
+            while (allRuns.length && allRuns[0].text === '\n') allRuns.shift();
+            while (allRuns.length && allRuns[allRuns.length-1].text === '\n') allRuns.pop();
+
+            boxes.push({ pptX:cX, pptY:cY, pptW:cW, pptH:cH, pptFs, bgHex, runs:allRuns });
         });
 
-        if (!allRuns.some(r => r.text.trim())) return; // skip empty
+        // ── Also extract inline SVG <text> elements (AI sometimes uses them) ──
+        svgEl.querySelectorAll('text').forEach(svgText => {
+            const parent = svgText.parentElement;
+            // Skip if inside a .dg group (already handled above)
+            if (parent && parent.classList.contains('dg')) return;
 
-        boxes.push({ pptX, pptY, pptW, pptH, pptFs, bgHex, runs: allRuns });
-    });
+            const x    = parseFloat(svgText.getAttribute('x') || 0);
+            const y    = parseFloat(svgText.getAttribute('y') || 0);
+            const txt  = svgText.textContent.trim();
+            if (!txt) return;
 
-    iframe.remove();
+            const pptX = Math.max(0, (x / 1920) * 10);
+            const pptY = Math.max(0, ((y - 20) / 1080) * 5.625); // y is baseline in SVG
+            const colorAttr = svgText.getAttribute('fill') || svgText.style?.fill || '#FFFFFF';
+            const hex = colorToHex6(colorAttr) || 'FFFFFF';
+            const fsAttr = parseFloat(svgText.getAttribute('font-size') || svgText.style?.fontSize || '16');
+            const pptFs  = Math.max(8, Math.min(72, Math.round(fsAttr * 0.75)));
+
+            boxes.push({
+                pptX, pptY,
+                pptW: Math.min(4, 10 - pptX),
+                pptH: Math.min(0.6, 5.625 - pptY),
+                pptFs, bgHex: null,
+                runs: [{ text: txt, color: hex }]
+            });
+        });
+
+    } catch(e) {
+        console.warn('extractSlideTextBoxes error:', e);
+    }
     return boxes;
 }
 
@@ -3648,36 +3732,54 @@ async function downloadEditablePptx() {
             }
 
             // ── Extract text boxes from HTML DOM ─────────────────────
-            const textBoxes = await extractSlideTextBoxes(s.html);
+            const textBoxes = extractSlideTextBoxes(s.html);
             addLog(`  → 找到 ${textBoxes.length} 個可編輯文字方塊`, 'success');
 
             for (const box of textBoxes) {
-                const pptxRuns = box.runs.map(r => ({
-                    text: r.text || ' ',
-                    options: {
-                        color: r.color || accentHex,
-                        fontSize: box.pptFs,
-                        fontFace: 'Arial',
-                        breakLine: r.text === '\n'
+                // Build PptxGenJS run array — breakLine runs become lineBreak option
+                const pptxRuns = [];
+                for (const r of box.runs) {
+                    if (r.text === '\n') {
+                        // Append a lineBreak run
+                        pptxRuns.push({ text: '', options: { breakLine: true } });
+                    } else {
+                        pptxRuns.push({
+                            text: r.text || ' ',
+                            options: {
+                                color:    (r.color || accentHex).replace('#',''),
+                                fontSize: box.pptFs,
+                                fontFace: 'Arial',
+                                bold:     false,
+                                italic:   false,
+                            }
+                        });
                     }
-                }));
+                }
+                if (!pptxRuns.length) continue;
 
-                // Background shape for the text box
+                // Optional semi-transparent background shape (drawn BEFORE text box)
                 if (box.bgHex) {
                     slide.addShape('rect', {
                         x: box.pptX, y: box.pptY, w: box.pptW, h: box.pptH,
-                        fill: { color: box.bgHex },
-                        line: { color: accentHex, transparency: 70, width: 0.5 },
-                        rectRadius: 0.05
+                        fill: { color: box.bgHex.replace('#',''), transparency: 20 },
+                        line: { type: 'none' },
                     });
                 }
 
-                // Editable text box
-                slide.addText(pptxRuns.filter(r => !r.options.breakLine || r.text.trim()), {
+                // ★ Editable text box — PptxGenJS addText() is always editable in PPTX
+                slide.addText(pptxRuns, {
                     x: box.pptX, y: box.pptY, w: box.pptW, h: box.pptH,
-                    valign: 'top', wrap: true,
-                    inset: 0.1,
-                    fontFace: 'Arial'
+                    valign:   'top',
+                    align:    'left',
+                    wrap:     true,
+                    autoFit:  false,
+                    shrinkText: true,
+                    inset:    0.08,
+                    fontFace: 'Arial',
+                    // No fill on the text box itself (background shape handles it)
+                    fill: { type: 'none' },
+                    // Transparent line so it looks clean
+                    line: { type: 'none' },
                 });
             }
 
@@ -4643,14 +4745,61 @@ function closeEditModal() {
 // Strategy: parse the slide's SVG from the HTML string, serialize it to a
 // Blob URL, draw onto an offscreen canvas, export JPEG. No iframe needed.
 /** Renders slide with all text/interactive elements hidden — used as editable PPTX background */
+/**
+ * Render slide background WITHOUT any text boxes or content images.
+ * Uses string-level HTML surgery (reliable) instead of CSS injection into iframe
+ * (which fails with SVG foreignObject / SVG <text> elements).
+ *
+ * Removes:
+ *   - <g class="dg"> groups that contain <foreignObject> (text boxes)
+ *   - <g class="dg"> groups that contain <image> (content images — added separately as PPTX objects)
+ *   - Bare <text> SVG elements the AI may have generated
+ *   - <foreignObject> elements anywhere
+ *
+ * Keeps:
+ *   - SVG decorative shapes (rect, circle, path, line, polygon)
+ *   - CSS gradients / background colours
+ *   - Background <image> injected as the first SVG child (slide template bg)
+ */
 async function captureSlideBackgroundOnly(html) {
-    const noTextCSS = `<style id="hide-text-for-bg">
-        .dg>foreignObject>div,.rb,[contenteditable],.dh,.ctrl{opacity:0!important;visibility:hidden!important;}
-    </style>`;
-    const bgHtml = html.includes('<head>')
-        ? html.replace('<head>', '<head>' + noTextCSS)
-        : noTextCSS + html;
-    return await captureSlideScreenshot(bgHtml, true);  // high-res for PPTX
+    try {
+        const parser = new DOMParser();
+        const doc    = parser.parseFromString(html, 'text/html');
+        const svgEl  = doc.getElementById('slide-svg') || doc.querySelector('svg');
+
+        if (svgEl) {
+            // 1. Remove all .dg groups (text boxes AND content images)
+            svgEl.querySelectorAll('g.dg').forEach(g => g.remove());
+            // 2. Remove any stray <foreignObject> elements
+            svgEl.querySelectorAll('foreignObject').forEach(fo => fo.remove());
+            // 3. Remove SVG <text> elements (AI sometimes ignores the no-SVG-text rule)
+            svgEl.querySelectorAll('text').forEach(t => t.remove());
+            // 4. Remove any <image> elements that are content images (not the bg template)
+            //    We identify them by NOT being the first child or NOT spanning full 1920×1080
+            const imgEls = svgEl.querySelectorAll('image');
+            imgEls.forEach(img => {
+                const w = parseFloat(img.getAttribute('width')  || 0);
+                const h = parseFloat(img.getAttribute('height') || 0);
+                const x = parseFloat(img.getAttribute('x')      || 0);
+                const y = parseFloat(img.getAttribute('y')      || 0);
+                // Keep only full-bleed background images (width≥1800, height≥1000, x≈0, y≈0)
+                const isFullBg = (w >= 1800 && h >= 1000 && x < 50 && y < 50);
+                if (!isFullBg) img.remove();
+            });
+        } else {
+            // No SVG — hide all text via aggressive CSS
+            const style = doc.createElement('style');
+            style.textContent = '*:not(svg):not(img):not(video):not(canvas){color:transparent!important;opacity:0!important;}';
+            (doc.head || doc.body).appendChild(style);
+        }
+
+        const strippedHtml = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+        return await captureSlideScreenshot(strippedHtml, true);  // high-res for PPTX
+    } catch(e) {
+        console.warn('captureSlideBackgroundOnly fallback:', e);
+        // Last resort: raw capture (may include text)
+        return await captureSlideScreenshot(html, true);
+    }
 }
 
 async function captureSlideScreenshot(html, highRes = false) {
