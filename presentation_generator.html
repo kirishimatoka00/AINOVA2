@@ -1087,9 +1087,15 @@ async function startPureImageGeneration() {
         const context = await buildContextFromSources();
         setProgress(5);
 
+        // Skip web grounding when user has uploaded source files — their content takes priority
+        const hasUploads = AppState.attachedSources.filter(s => s.content).length > 0;
         let groundingContext = '';
-        try { groundingContext = await researchTopicWithGrounding(topic, AppState.abortController.signal); }
-        catch(e) { if (e.name==='AbortError') throw new Error('CanceledByUser'); }
+        if (!hasUploads) {
+            try { groundingContext = await researchTopicWithGrounding(topic, AppState.abortController.signal); }
+            catch(e) { if (e.name==='AbortError') throw new Error('CanceledByUser'); }
+        } else {
+            addLog('📎 偵測到上傳資料，跳過網路搜尋以確保內容保真', 'info');
+        }
         setProgress(10);
 
         addLog('🧠 生成大綱（內容 LLM）...', 'ai');
@@ -1536,7 +1542,7 @@ async function extractFileContent(file) {
 function readAsText(file) {
     return new Promise((res, rej) => {
         const r = new FileReader();
-        r.onload  = e => res(e.target.result.slice(0, 60000));
+        r.onload  = e => res(e.target.result.slice(0, 120000));
         r.onerror = rej;
         r.readAsText(file, 'UTF-8');
     });
@@ -1612,7 +1618,8 @@ async function extractURLContent(url, isYouTube) {
 async function buildContextFromSources() {
     const ready = AppState.attachedSources.filter(s => s.content);
     if (!ready.length) return '';
-    return ready.map(s => `\n\n━━━ 來源: ${s.name} ━━━\n${s.content}`).join('');
+    const sources = ready.map(s => `\n\n━━━ 來源: ${s.name} ━━━\n${s.content}`).join('');
+    return `\n\n【★ 使用者提供的資料（最高優先級）★】\n以下是使用者上傳的原始資料，簡報內容必須嚴格依照這些資料生成，\n不得自行補充或捏造資料中未提及的資訊：${sources}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1861,7 +1868,10 @@ async function callGeminiForOutline(topic, context) {
         serp_mixed:   'SerpAPI + AI 混合模式，有需要配圖時使用 text_and_image'
     }[imageMode] || '';
 
-    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。
+    const uploadFidelityClause = AppState.attachedSources.filter(s => s.content).length > 0
+        ? '【資料保真模式】：使用者已上傳原始資料，你的職責是將該資料轉化為簡報而非創作新內容。所有 title/bullet_points 必須忠實反映原始資料，不得添加原資料中沒有的資訊。'
+        : '';
+    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。${uploadFidelityClause ? '\n\n' + uploadFidelityClause : ''}
 
 視覺風格主題：${themeDesc}
 投影片張數：${slideCount} 張
@@ -1892,7 +1902,11 @@ JSON Schema:
   ]
 }`;
 
-    const userContent = `主題指令：${topic}${context ? '\n\n參考資料：' + context.slice(0, 80000) : ''}`;
+    const hasUploadedSources = AppState.attachedSources.filter(s => s.content).length > 0;
+    const contextSlice = context ? context.slice(0, 120000) : '';
+    const userContent = hasUploadedSources
+        ? `主題指令：${topic}\n\n${contextSlice}\n\n★★★ 內容保真度要求（CRITICAL）★★★\n1. 上述資料是唯一內容來源，每張投影片的標題、要點、數據必須直接來自該資料\n2. 嚴禁捏造資料中未提及的數字、案例、人名、公司名\n3. 若資料有列點，保留原始文字，可精簡但不得改變語義\n4. 投影片張數可根據資料量自動調整，確保覆蓋所有重要段落`
+        : `主題指令：${topic}${contextSlice ? '\n\n參考資料：' + contextSlice : ''}`;
 
     let lastErr = null;
     for (const modelId of uniqueModels) {
@@ -3711,22 +3725,20 @@ async function downloadEditablePptx() {
                 continue;   // ← skip HTML text-box extraction for pure-image slides
             }
 
-            // ── HTML/CSS mode slides (existing logic) ─────────────────
+            // ── HTML/CSS mode slides ──────────────────────────────────
             if (AppState.bgTemplateBase64) {
                 slide.addImage({ data: AppState.bgTemplateBase64, x:0, y:0, w:10, h:5.625 });
             } else {
-                // ── Render slide background WITHOUT text — gives beautiful visual fidelity ──
-                addLog(`  🖼 渲染視覺背景（可編輯文字將疊加於上方）...`, 'info');
-                let bgShot = s.screenshotB64; // reuse review-phase cache if available
-                try {
-                    const bgOnly = await captureSlideBackgroundOnly(s.html);
-                    if (bgOnly) bgShot = bgOnly;
-                } catch(e) { /* fallback to screenshot or flat color */ }
+                // captureSlideBackgroundOnly() returns null on failure (never falls back to
+                // raw screenshot) so we safely use flat fill when stripping fails.
+                addLog(`  🖼 渲染裝飾背景（不含文字）...`, 'info');
+                let bgOnly = null;
+                try { bgOnly = await captureSlideBackgroundOnly(s.html); } catch(e) {}
 
-                if (bgShot) {
-                    slide.addImage({ data: bgShot, x:0, y:0, w:10, h:5.625 });
+                if (bgOnly) {
+                    slide.addImage({ data: bgOnly, x:0, y:0, w:10, h:5.625 });
                 } else {
-                    // last resort: flat fill
+                    // Flat colour — guaranteed to have no text baked in
                     slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
                 }
             }
@@ -3736,50 +3748,50 @@ async function downloadEditablePptx() {
             addLog(`  → 找到 ${textBoxes.length} 個可編輯文字方塊`, 'success');
 
             for (const box of textBoxes) {
-                // Build PptxGenJS run array — breakLine runs become lineBreak option
+                if (!box.runs || !box.runs.length) continue;
+
+                // ── Build PptxGenJS run array ────────────────────────────────────
+                // PptxGenJS run format: { text, options: { color, fontSize, ... } }
+                // Line breaks: use a dedicated run with options.breakLine = true
+                // Color: must be 6-char hex WITHOUT '#'
                 const pptxRuns = [];
                 for (const r of box.runs) {
+                    const raw = (r.color || accentHex || 'FFFFFF').replace('#','').toUpperCase();
+                    const hex6 = /^[0-9A-F]{6}$/.test(raw) ? raw : 'FFFFFF';
                     if (r.text === '\n') {
-                        // Append a lineBreak run
-                        pptxRuns.push({ text: '', options: { breakLine: true } });
+                        pptxRuns.push({ text: '\r', options: { breakLine: true, color: hex6, fontSize: box.pptFs, fontFace: 'Arial' } });
                     } else {
-                        pptxRuns.push({
-                            text: r.text || ' ',
-                            options: {
-                                color:    (r.color || accentHex).replace('#',''),
-                                fontSize: box.pptFs,
-                                fontFace: 'Arial',
-                                bold:     false,
-                                italic:   false,
-                            }
-                        });
+                        pptxRuns.push({ text: r.text || ' ', options: { color: hex6, fontSize: box.pptFs, fontFace: 'Arial' } });
                     }
                 }
                 if (!pptxRuns.length) continue;
 
-                // Optional semi-transparent background shape (drawn BEFORE text box)
+                // ── Semi-transparent background shape (drawn BEFORE text box) ────
                 if (box.bgHex) {
+                    const bg6 = box.bgHex.replace('#','').toUpperCase();
                     slide.addShape('rect', {
                         x: box.pptX, y: box.pptY, w: box.pptW, h: box.pptH,
-                        fill: { color: box.bgHex.replace('#',''), transparency: 20 },
-                        line: { type: 'none' },
+                        fill: { color: bg6, transparency: 15 },
+                        line: { color: bg6, transparency: 100, width: 0 },
                     });
                 }
 
-                // ★ Editable text box — PptxGenJS addText() is always editable in PPTX
+                // ── ★ Editable text box ──────────────────────────────────────────
+                // PptxGenJS addText() always creates an editable TextBox in PPTX.
+                // Valid options reference: https://gitbrent.github.io/PptxGenJS/docs/api-textboxes
                 slide.addText(pptxRuns, {
-                    x: box.pptX, y: box.pptY, w: box.pptW, h: box.pptH,
-                    valign:   'top',
-                    align:    'left',
-                    wrap:     true,
-                    autoFit:  false,
-                    shrinkText: true,
-                    inset:    0.08,
+                    x:       box.pptX,
+                    y:       box.pptY,
+                    w:       box.pptW,
+                    h:       box.pptH,
+                    valign:  'top',
+                    align:   'left',
+                    wrap:    true,
+                    inset:   0.08,
+                    // Transparent fill + no border so background shape shows through
+                    fill:    { color: 'FFFFFF', transparency: 100 },
+                    line:    { color: 'FFFFFF', transparency: 100, width: 0 },
                     fontFace: 'Arial',
-                    // No fill on the text box itself (background shape handles it)
-                    fill: { type: 'none' },
-                    // Transparent line so it looks clean
-                    line: { type: 'none' },
                 });
             }
 
@@ -4796,9 +4808,10 @@ async function captureSlideBackgroundOnly(html) {
         const strippedHtml = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
         return await captureSlideScreenshot(strippedHtml, true);  // high-res for PPTX
     } catch(e) {
-        console.warn('captureSlideBackgroundOnly fallback:', e);
-        // Last resort: raw capture (may include text)
-        return await captureSlideScreenshot(html, true);
+        console.warn('captureSlideBackgroundOnly error — returning null (flat colour will be used):', e);
+        // Do NOT fall back to raw screenshot (would bake text into background).
+        // Return null; caller will use flat colour fill instead.
+        return null;
     }
 }
 
