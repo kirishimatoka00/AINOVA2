@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI HTML 簡報生成器 v26 · NOVA 120 Pro</title>
+    <title>AI HTML 簡報生成器 · NOVA 120 Pro</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -68,7 +68,7 @@
                 <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
             </a>
             <div class="w-px h-5 bg-slate-700"></div>
-            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v26 Pro</h1>
+            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 Pro</h1>
         </div>
         <div class="flex items-center gap-2">
             <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
@@ -807,15 +807,18 @@ function updateHeaderBadge() {
 }
 
 function setProgress(pct) {
-    const bar     = document.getElementById('progress-bar');
-    const pctEl   = document.getElementById('progress-pct');
+    document.getElementById('progress-bar').style.width = pct + '%';
+    document.getElementById('progress-pct').textContent = Math.round(pct) + '%';
     const spinner = document.getElementById('progress-spinner');
-    if (bar)   bar.style.width = pct + '%';
-    if (pctEl) pctEl.textContent = Math.round(pct) + '%';
-    // Auto-stop spinner when generation is fully complete
-    if (pct >= 100 && spinner) {
+    if (!spinner) return;
+    if (pct >= 100) {
+        spinner.classList.add('hidden');         // ← completely hide at 100%
         spinner.classList.remove('animate-spin');
-        spinner.style.cssText = 'width:20px;height:20px;border:2px solid #10b981;border-radius:50%;flex-shrink:0;';
+    } else {
+        spinner.classList.remove('hidden');
+        spinner.classList.add('animate-spin');
+        spinner.style.borderColor = '';
+        spinner.style.borderTopColor = '';
     }
 }
 
@@ -1045,15 +1048,9 @@ Output complete HTML starting with <!DOCTYPE html>:`;
     // Replace content image placeholder
     if (hasContent && contentImgB64) {
         html = html.replace(/REPLACE_CONTENT_SRC/g, contentImgB64);
-        // Force-inject if AI forgot placeholder but image exists
-        if (!html.includes(contentImgB64) && contentImgB64.length > 100) {
-            const injected = `<img src="${contentImgB64}" crossorigin="anonymous" style="position:absolute;right:60px;top:160px;width:820px;height:680px;object-fit:cover;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:2;">`;
-            html = html.replace('</body>', injected + '\n</body>');
-        }
     } else {
-        // Remove any broken placeholders
-        html = html.replace(/<img[^>]*src=["']REPLACE_CONTENT_SRC["'][^>]*>/g, '');
-        html = html.replace(/REPLACE_CONTENT_SRC/g, '');
+        html = html.replace(/src=["']REPLACE_CONTENT_SRC["']/g, 'style="display:none"')
+                   .replace(/href=["']REPLACE_CONTENT_SRC["']/g, '');
     }
     return html;
 }
@@ -1076,6 +1073,9 @@ async function startPureImageGeneration() {
     document.getElementById('log-container').innerHTML = '';
     document.getElementById('btn-generate')?.classList.add('hidden');
     document.getElementById('btn-stop')?.classList.remove('hidden');
+    // Reset spinner to visible/spinning state
+    const _sp = document.getElementById('progress-spinner');
+    if (_sp) { _sp.classList.remove('hidden'); _sp.classList.add('animate-spin'); }
 
     const bgGenModel   = document.getElementById('sel-bg-gen-model')?.value   || 'grok-imagine-image-pro';
     const layoutModel  = document.getElementById('sel-layout-model')?.value   || 'gemini-2.5-pro';
@@ -1087,15 +1087,9 @@ async function startPureImageGeneration() {
         const context = await buildContextFromSources();
         setProgress(5);
 
-        // Skip web grounding when user has uploaded source files — their content takes priority
-        const hasUploads = AppState.attachedSources.filter(s => s.content).length > 0;
         let groundingContext = '';
-        if (!hasUploads) {
-            try { groundingContext = await researchTopicWithGrounding(topic, AppState.abortController.signal); }
-            catch(e) { if (e.name==='AbortError') throw new Error('CanceledByUser'); }
-        } else {
-            addLog('📎 偵測到上傳資料，跳過網路搜尋以確保內容保真', 'info');
-        }
+        try { groundingContext = await researchTopicWithGrounding(topic, AppState.abortController.signal); }
+        catch(e) { if (e.name==='AbortError') throw new Error('CanceledByUser'); }
         setProgress(10);
 
         addLog('🧠 生成大綱（內容 LLM）...', 'ai');
@@ -1154,7 +1148,6 @@ async function startPureImageGeneration() {
             }
 
             // Step 2b: Programmatic contrast pre-scan
-            html = enforceLayoutSafety(html);
             html = programmaticContrastFix(html, theme);
 
             // Step 3: Visual review (same as HTML mode, if enabled)
@@ -1186,14 +1179,11 @@ async function startPureImageGeneration() {
         }
 
         addLog('✅ 純圖 PPT 生成完成！', 'success');
-        setProgress(100);  // ← setProgress(100) now auto-stops spinner
-        ['btn-pptx-group','btn-save-html','btn-preview-html'].forEach(id => {
+        setProgress(100);
+        ['btn-pptx-group','btn-save-html'].forEach(id => {
             const el = document.getElementById(id);
             if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
         });
-        document.getElementById('btn-generate')?.classList.remove('hidden');
-        addLog(`🎉 完成！共 ${AppState.generatedSlides.length} 張投影片。`, 'success');
-        showToast(`✅ ${AppState.generatedSlides.length} 張投影片生成完成！`);
         saveToHistory();
 
     } catch(e) {
@@ -1542,7 +1532,7 @@ async function extractFileContent(file) {
 function readAsText(file) {
     return new Promise((res, rej) => {
         const r = new FileReader();
-        r.onload  = e => res(e.target.result.slice(0, 120000));
+        r.onload  = e => res(e.target.result.slice(0, 60000));
         r.onerror = rej;
         r.readAsText(file, 'UTF-8');
     });
@@ -1618,8 +1608,7 @@ async function extractURLContent(url, isYouTube) {
 async function buildContextFromSources() {
     const ready = AppState.attachedSources.filter(s => s.content);
     if (!ready.length) return '';
-    const sources = ready.map(s => `\n\n━━━ 來源: ${s.name} ━━━\n${s.content}`).join('');
-    return `\n\n【★ 使用者提供的資料（最高優先級）★】\n以下是使用者上傳的原始資料，簡報內容必須嚴格依照這些資料生成，\n不得自行補充或捏造資料中未提及的資訊：${sources}`;
+    return ready.map(s => `\n\n━━━ 來源: ${s.name} ━━━\n${s.content}`).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1868,23 +1857,31 @@ async function callGeminiForOutline(topic, context) {
         serp_mixed:   'SerpAPI + AI 混合模式，有需要配圖時使用 text_and_image'
     }[imageMode] || '';
 
-    const uploadFidelityClause = AppState.attachedSources.filter(s => s.content).length > 0
-        ? '【資料保真模式】：使用者已上傳原始資料，你的職責是將該資料轉化為簡報而非創作新內容。所有 title/bullet_points 必須忠實反映原始資料，不得添加原資料中沒有的資訊。'
+    // ── Build document-grounding instruction when user provides source files ──
+    const hasContext = context && context.trim().length > 10;
+    const groundingRule = hasContext
+        ? `\n\n【⚠ 重要：文件唯一性規則】
+你被提供了以下文件作為資料來源。
+★ 所有投影片內容（標題、要點、數據、案例、結論）必須且只能來自這些文件。
+★ 禁止使用任何訓練資料或外部知識補充，禁止幻覺。
+★ 如果文件沒有提到某個細節，不得自行補充或捏造。
+★ 每個 bullet_point 必須能對應到文件中的具體段落或數據。`
         : '';
-    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。${uploadFidelityClause ? '\n\n' + uploadFidelityClause : ''}
+
+    const systemPrompt = `你是世界頂級的簡報內容策略師與視覺設計顧問。請為以下主題生成一份具備極高知識密度的 HTML 簡報大綱 JSON。
 
 視覺風格主題：${themeDesc}
 投影片張數：${slideCount} 張
 圖片使用策略：${imageModeHint}
 
 【內容品質要求】
-1. 拒絕空泛：必須含具體案例、數據預估、深度邏輯推演
+1. 拒絕空泛：必須含具體案例、數據、深度邏輯推演
 2. 文字密度規則：${densitySpec}
 3. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
 4. diagram_slide 表示需要流程圖、圖表、架構圖的頁面
 5. image_prompt 為具體英文 AI 繪圖提示詞 (text_and_image 時必填)
 6. diagram_description 描述圖解內容 (diagram_slide 時必填)
-7. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
+7. 嚴格輸出純 JSON，禁止包含任何 markdown 標記${groundingRule}
 
 JSON Schema:
 {
@@ -1902,11 +1899,10 @@ JSON Schema:
   ]
 }`;
 
-    const hasUploadedSources = AppState.attachedSources.filter(s => s.content).length > 0;
-    const contextSlice = context ? context.slice(0, 120000) : '';
-    const userContent = hasUploadedSources
-        ? `主題指令：${topic}\n\n${contextSlice}\n\n★★★ 內容保真度要求（CRITICAL）★★★\n1. 上述資料是唯一內容來源，每張投影片的標題、要點、數據必須直接來自該資料\n2. 嚴禁捏造資料中未提及的數字、案例、人名、公司名\n3. 若資料有列點，保留原始文字，可精簡但不得改變語義\n4. 投影片張數可根據資料量自動調整，確保覆蓋所有重要段落`
-        : `主題指令：${topic}${contextSlice ? '\n\n參考資料：' + contextSlice : ''}`;
+    // ── User content: documents FIRST (highest attention weight), then topic ──
+    const userContent = hasContext
+        ? `【以下是唯一資料來源，所有內容必須且只能來自這裡】\n${context.slice(0, 90000)}\n\n【根據以上文件，為下列主題生成投影片大綱】\n主題指令：${topic}`
+        : `主題指令：${topic}`;
 
     let lastErr = null;
     for (const modelId of uniqueModels) {
@@ -1926,8 +1922,15 @@ JSON Schema:
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userContent }] }],
-                        generationConfig: { responseMimeType: 'application/json', temperature: 0.85, maxOutputTokens: 8192 }
+                        system_instruction: { parts: [{ text: systemPrompt }] },  // ← separate, stronger grounding
+                        contents: [{ role: 'user', parts: [{ text: userContent }] }],
+                        generationConfig: {
+                            responseMimeType: 'application/json',
+                            temperature: hasContext ? 0.3 : 0.85,  // ← lower temp when doc-grounded
+                            maxOutputTokens: 8192,
+                            ...(modelId.includes('2.5-pro') || modelId.includes('2.5-flash')
+                                ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+                        }
                     }),
                     signal: AppState.abortController.signal
                 });
@@ -2364,7 +2367,7 @@ async function generateSlideHTML(slideData, theme, imageB64) {
     const hasImage = !!imageB64;
     const imgInstruction = hasImage
         ? `本投影片有一張圖片可使用。請務必在 foreignObject 的 <img> 標籤中使用 src="REPLACE_IMAGE_SRC"，或在 SVG 內使用 <image href="REPLACE_IMAGE_SRC"/> 來放置。圖片元素必須被 <g class="dg" transform="translate(x,y)"> 包裹，讓使用者可以拖曳移動圖片位置。`
-        : `【無圖模式】本投影片無圖片。對於 text_and_image 版型，必須將圖片欄改為「全版文字佈局」——把原本圖片所在的右欄空間也分配給文字卡片，讓所有要點可以橫跨完整畫布寬度（width:1780）。不要留下空白的圖片佔位框。`;
+        : `本投影片無圖片，請以純 SVG 圖形、漸層、幾何裝飾填補視覺。`;
 
     const logoPos = document.getElementById('sel-logo-pos')?.value || 'TR';
     const logoPosMap = {
@@ -2395,9 +2398,15 @@ async function generateSlideHTML(slideData, theme, imageB64) {
       正文：${AppState.customTheme.text}  ← 請嚴格依此配色渲染`
         : '';
 
-    const prompt = `你是世界最頂級的 HTML/SVG 互動式投影片設計師。你的投影片必須完全符合以下架構規範。
+    // ── Document grounding: enforce exact wording when source docs exist ──
+    const hasSourceDocs = AppState.hasSourceDocs && AppState.sourceContext;
+    const docGroundingNote = hasSourceDocs
+        ? `\n【⚠ 嚴格忠實規則】使用者提供了原始文件。投影片中所有文字（標題、要點）必須完全忠實於 slideData 中的內容，禁止改寫、擴充或幻覺。Bullet points 的用詞必須逐字保留，不得意譯或重新措辭。`
+        : '';
 
-【投影片資料】
+    const slideSystemPrompt = `你是世界最頂級的 HTML/SVG 投影片視覺設計師。你的任務是把 slideData 的內容渲染為精美的 1920×1080 投影片，不能改變內容。${docGroundingNote}`;
+
+    const prompt = `【投影片資料（內容已確定，禁止修改）】
 ${JSON.stringify(slideData)}
 
 【圖片】${imgInstruction}
@@ -2407,28 +2416,6 @@ ${JSON.stringify(slideData)}
 ══════════════════════════════════════════════════════
 ★★★ 核心強制規範（違反任何一條都是錯誤輸出）★★★
 ══════════════════════════════════════════════════════
-
-▓▓▓ 三區域佈局系統（MANDATORY ZONE SYSTEM）▓▓▓
-每張投影片畫布 1920×1080px，嚴格分3個不重疊區域，所有元素必須落在對應區域內：
-
-  【ZONE 1 — 標題區 (Title Zone)】  y = 0 ~ 160px
-    · 唯一一個標題 .dg：translate(70,40)，width=1780，height=140
-    · 標準版面 font-size: 46~52px；title_only 版面 font-size: 68~84px
-    · ⛔ 禁止在此區放圖片、要點、圖表
-
-  【ZONE 2 — 主內容區 (Content Zone)】  y = 180px ~ 960px（高度=780px）
-    根據 layout 類型分配：
-    · text_and_image：文字左欄 x=70 w=860，圖片右欄 x=990 w=860
-    · text_only：單欄 x=70 w=1780，最多4個要點卡（每卡高度≤165px）
-    · diagram_slide：圖表容器 x=70 y=180 w=1780 h=760
-    · title_only：裝飾/副標置中，y=220~860 自由設計
-
-  【ZONE 3 — 頁腳區 (Footer Zone, 選用)】  y = 970 ~ 1060px
-    · 頁碼、品牌名等，y ≥ 970，height ≤ 90px
-
-⚠ 安全邊界硬性限制：translate(X,Y) 中 X+width ≤ 1870，Y+height ≤ 1060
-⚠ 所有 .rb div 必須設：overflow:hidden; box-sizing:border-box; word-wrap:break-word
-⚠ 文字超過卡片高度時：縮小 font-size（每增加2個要點縮小2px），禁止撐大容器
 
 A. 【文字架構】 — 所有文字（標題、副標、要點、流程圖標籤、圖表說明、數字）
    ★ 禁止使用 SVG <text> 元素放置任何內容文字
@@ -2440,12 +2427,11 @@ B. 【流程圖/架構圖文字標籤規則】
    - 每個節點的標籤文字必須是獨立的 .dg 元素，可以單獨拖曳、編輯、改色
    - 箭頭（SVG path/line）和裝飾可以繼續用 SVG，但文字標籤絕對不可以
 
-C. 【防重疊/防爆框規範（CRITICAL）】
-   - 每個 .dg 元素的 translate(X,Y) 坐標必須根據三區域系統計算，確保不重疊
+C. 【防重疊規範】
+   - 每個 .dg 元素的 translate(X,Y) 坐標必須根據實際尺寸計算，確保不重疊
    - diagram_slide 的節點佈局：4 節點水平排列間距 ≥ 420px，垂直排列間距 ≥ 200px
-   - text_only/text_and_image：所有文字卡片間距 ≥ 20px，嚴格在 ZONE 2 邊界內
-   - foreignObject 的 width/height 必須 ≤ 相鄰 .dg 間距
-   - ⛔ 兩個 .dg 的座標差值必須 > 各自對應的 width/height，確保零重疊
+   - text_only/text_and_image：所有文字卡片間距 ≥ 20px，不得超出 1920×1080 範圍
+   - foreignObject 的 width/height 必須小於兩個相鄰 .dg 之間的間距
 
 D. 【標準文字卡 HTML 模板】（所有文字卡必須使用此結構）：
 <g class="dg" transform="translate(X,Y)">
@@ -2498,120 +2484,72 @@ F. 【技術規範】
    ⛔ 禁止在 diagram_slide 中使用 position:fixed 或讓元素超出 1920×1080 範圍
    ⛔ 圖表容器必須放在 <foreignObject> 或 SVG 內部，禁止頁面級 fixed 彈窗
 
-G. 【版型佈局規範（僅本頁適用：${slideData.layout}）】
+G. 【Zone-Based 版型規範（僅本頁適用：${slideData.layout}）】
+
+★ 全局網格基準（所有版型必須遵守）：
+  - 畫布：1920×1080px，body/SVG 均 overflow:hidden
+  - 安全區：左右各 70px，上下各 40px → 內容寬 1780，高 1000
+  - 元素間距：每個 Zone 之間至少 40px
+  - 字體：標題 42px/bold，正文 18px，行高 1.5；禁止小於 15px
+  - 邊界約束：任何 .dg 的 x ≥ 70，x+width ≤ 1850；y ≥ 40，y+height ≤ 1050
+
+★ 三層 Zone 架構（絕對不允許跨層重疊）：
+
+  【Zone-A 標題層：y=40, h=120】
+  translate(70,40)，width:1780，height:120
+  - 主標題 font-size:42px，單行優先；若標題超 25 字改 34px 允許換行但 height ≤ 130
+  - width 永遠是 1780，絕不縮減
+
+  【Zone-B 主內容層：y=200, h=800】
 
 ${(()=>{
   const L = slideData.layout;
-  if (L === 'title_only') return `  ★ title_only（精美封面）— 務必用豐富的 SVG 背景藝術：
-    【背景層（必須做，不可省略）】
-    1. 主背景：<rect width="1920" height="1080" fill="url(#bgGrad)"/> 使用 2~3 色深色漸層
-       linearGradient 範例：from ${theme.bg} → 更深的同色系 → 加一個對比accent色
-    2. 幾何裝飾（至少 4 個大型形狀）：
-       a) 右上角大圓：<circle cx="1650" cy="-100" r="550" fill="rgba(99,102,241,0.15)"/>
-       b) 左下角弧：<ellipse cx="100" cy="1100" rx="600" ry="400" fill="rgba(139,92,246,0.1)"/>
-       c) 斜線裝飾帶：<polygon points="0,800 400,1080 0,1080" fill="rgba(255,255,255,0.03)"/>
-       d) 右側豎條：<rect x="1700" y="0" width="8" height="1080" fill="rgba(99,102,241,0.5)" rx="4"/>
-    3. 光暈效果：<circle cx="960" cy="540" r="700" fill="url(#glowGrad)" opacity="0.15"/>
-    4. 小點綴（4~8 個）：小圓點 r="3"~"8"，散落角落，fill="rgba(255,255,255,0.2)"
-    5. 必須在 <defs> 定義 2 個 linearGradient（bgGrad + glowGrad）和至少 1 個 radialGradient
-    【文字層】
-    - 主標題：.dg foreignObject translate(120,360) width:1340 height:280
-      font-size:72~90px font-weight:900 letter-spacing:-1px line-height:1.1
-      加 text-shadow: 0 4px 40px rgba(0,0,0,0.5)
-    - 副標題：.dg foreignObject translate(120,660) width:1000 height:120
-      font-size:28~34px font-weight:400 opacity:0.85 letter-spacing:1px
-    - 裝飾線條：<line x1="120" y1="340" x2="500" y2="340" stroke="accent色" stroke-width="3"/>
-    【設計原則】色彩不超過 3 種主色系，但透過不同 opacity 創造層次感`;
-  if (L === 'text_only') return `  ★ text_only（純文字）：
-    - 標題卡：translate(80,60)，width:1760，height:140，font-size:52px，bold
-    - 要點卡片（每個要點獨立 .dg）：
-      要點1：translate(80,240)，width:830，height:170
-      要點2：translate(80,430)，width:830，height:170
-      要點3：translate(80,620)，width:830，height:170
-      要點4：translate(80,810)，width:830，height:170（最多4個）
-    - 右側裝飾：translate(960,200) 放 SVG 視覺元素`;
+  const isReading = densityHint.includes('詳盡');
+  const imgW = isReading ? 570 : 710;
+  const txtW = 1780 - imgW - 40;
+
+  if (L === 'title_only') return `  封面：Zone-B 自由設計
+  - 副標題：translate(70,320)，width:1200，height:160，font-size:32px
+  - 豐富 SVG 背景：大圓、漸層、幾何，填充右側空間
+  - defs 必須定義 bgGrad（2色漸層）和 glowGrad`;
+
+  if (L === 'text_only') return `  純文字：Zone-B 左右兩欄
+  左欄(60%) = translate(70,180), width:1048
+    - ${isReading?'6~8':'3~4'} 個要點，各自獨立 .dg，height:${isReading?Math.min(115,Math.floor(820/(slideData.bullet_points?.length||4))):'180'}px，font-size:${isReading?'15':'18'}px
+    - 每個要點 width 固定 1048（確保不超出 x=1118）
+    - ⚠ 所有要點 .dg 高度合計不超過 820px（y 從 180 到 1000）
+  右欄(40%) = translate(1158,180), width:622
+    - SVG 裝飾圖形或留白，禁止放文字`;
+
   if (L === 'text_and_image') {
-    const isReading = densityHint.includes('詳盡');
-
-    // ── No-image path: expand text to full canvas width ──────────────
-    if (!hasImage) {
-      const bulletCount = (slideData.bullet_points || []).length;
-      const cardH  = bulletCount <= 3 ? 200 : bulletCount <= 4 ? 160 : 125;
-      const cardGap = bulletCount <= 3 ? 20  : bulletCount <= 4 ? 16  : 10;
-      const fontSize = bulletCount <= 3 ? 20  : bulletCount <= 4 ? 17  : 14;
-      let bulletLayout = '';
-      for (let bi = 0; bi < Math.min(bulletCount || 3, 6); bi++) {
-        const yPos = 200 + bi * (cardH + cardGap);
-        bulletLayout += `
-      要點${bi+1}：translate(70,${yPos})，width:1780，height:${cardH}，font-size:${fontSize}px`;
-      }
-      return `  ★ text_and_image【無圖全版文字模式】— 本頁沒有圖片，請將文字佈滿整張投影片：
-
-    【ZONE 1 標題】translate(70,40)，width=1780，height=140，font-size:48px，bold
-
-    【ZONE 2 要點卡（全寬，每張獨立 .dg）】${bulletLayout}
-      · 每卡 width 固定 1780（從 x=70 到 x=1850），禁止縮窄為 880 或留空白
-      · 右側空間（原圖片欄）完全讓給文字，不要留佔位框
-      · 卡片設 overflow:hidden; box-sizing:border-box; word-wrap:break-word
-
-    【ZONE 2 裝飾（可選）】在 SVG 層加入右側細線或色塊做點綴，y=200~960，x>1820`;
-    }
-
-    return isReading
-    ? `  ★ text_and_image（閱讀密度）— 三層獨立結構，從上到下依序：
-
-    【第 1 層：全寬標題（必須橫跨整個投影片寬度 1920px）】
-    ⚠ 標題 .dg 的 width 必須是 1800（translate(60,30) width:1800），絕對不能是 880 或其他小值
-    height:130，font-size:38~44px，bold，禁止在此層放圖片
-
-    【第 2 層：主內容區（標題下方，y 從 190 開始）】
-    左側文字欄：translate(60,190)，width:1200（不得超過 1200）
-      - 要點1~8 各自獨立 .dg，font-size:15px，height:90~100px
-      - 文字嚴格在 width:1200 範圍內，超過換行不超出邊界
-    右側圖片：translate(1310,190)，width:570，height:830
-      - 使用 E 模板圖片；圖片必須在 Zone 2 右欄，不可超出 y=960
-
-    【第 3 層：裝飾/頁腳（選用，y > 960）】`
-    : `  ★ text_and_image（圖文並排，有圖片）：
-    【ZONE 1 標題】translate(70,40)，width:1780，height:140，font-size:48px，bold
-    【ZONE 2 左欄：文字】x=70，y=200~960
-      - 要點卡各自獨立 .dg，width:860，間距 16px
-      - 3 點：height:220px；4 點：height:160px；5+ 點：height:125px，font-size縮小
-    【ZONE 2 右欄：圖片】translate(990,200)，width:860，height:760（E 模板）
-      · preserveAspectRatio="xMidYMid slice"`;
+    const bpCount = slideData.bullet_points?.length || 4;
+    const bpH = isReading ? Math.min(120, Math.floor(800/bpCount)) : Math.min(180, Math.floor(800/bpCount));
+    const totalTextH = bpH * bpCount;
+    // Vertically center image in Zone-B (offset from top to balance)
+    const imgTopOffset = Math.max(0, Math.floor((800 - Math.min(800, imgW * 1.2)) / 2));
+    return `  圖文並排：Zone-B 文字欄＋圖片欄
+  ★ 文字欄：translate(70,180)，width:${txtW}，height:840
+    每個要點 .dg：height:${bpH}px，font-size:${isReading?'15':'18'}px
+    ⚠ 嚴格：文字欄 x+width = ${70+txtW}（不超出）；每個 .dg height=${bpH}，不得超出 y+height=1020
+  ★ 圖片欄：translate(${70+txtW+40},180)，width:${imgW}，height:840
+    - 圖片容器設 display:flex;align-items:center;height:840px
+    - 圖片本體：width:${imgW}px，max-height:840px，object-fit:contain，自動垂直置中
+  ★ hasImage=false 時：文字欄擴至 width:1780，省略圖片欄
+  ★ Zone-A 標題：translate(70,40)，width:1780，height:130（此規則必須在圖文版型中同樣遵守）`;
   }
-  if (L === 'diagram_slide') return `  ★ diagram_slide（流程圖/架構圖/圖表）：
-    ⚠ 所有內容必須嚴格在 1920×1080px 範圍內，禁止任何溢出：
-    - body 和 SVG 都設 overflow:hidden
-    - 禁止使用 position:fixed 或讓 div 出現在 SVG 外部
-    - 圖表（Chart.js/D3/Canvas）必須包在 <foreignObject> 內，foreignObject 有明確 width/height
 
-    【標題】translate(60,30)，width:1800，height:110，font-size:44px
+  if (L === 'diagram_slide') return `  圖表：Zone-B 完整使用
+  translate(70,200)，width:1780，height:800
+  - 流程節點/Chart.js canvas 包在 foreignObject width="1780" height="800"
+  - Chart options: responsive:false，canvas w≤1750，h≤760
+  - 禁止 position:fixed`;
 
-    【佈局方案 A — 流程節點（適合流程/架構）】
-    4節點水平排列，所有元素不超出 y=880：
-      框1：x=60,y=200,w=380,h=220  → 文字：translate(70,210),width:360,height:200
-      框2：x=520,y=200,w=380,h=220 → 文字：translate(530,210),width:360,height:200
-      框3：x=980,y=200,w=380,h=220 → 文字：translate(990,210),width:360,height:200
-      框4：x=1440,y=200,w=380,h=220→ 文字：translate(1450,210),width:360,height:200
-      箭頭：SVG path + marker-end
-    說明卡（選用）：translate(60,470)，width:1800，height:380（不得超出 y=880）
-
-    【佈局方案 B — 內嵌圖表（適合折線圖/柱狀圖）】
-    如需渲染 Chart.js 圖表，使用以下結構：
-    <g class="dg" transform="translate(60,150)">
-      <foreignObject x="0" y="0" width="1800" height="780">
-        <div xmlns="http://www.w3.org/1999/xhtml"
-             style="width:1800px;height:780px;overflow:hidden;background:rgba(255,255,255,0.08);border-radius:12px;padding:20px;box-sizing:border-box;">
-          <canvas id="myChart" style="max-width:100%;max-height:100%;display:block;"></canvas>
-        </div>
-      </foreignObject>
-    </g>
-    Chart.js 腳本放在 </svg> 後、<!--SLIDE_INTERACTION_SCRIPT--> 前，
-    用 document.getElementById('myChart') 取得 canvas，
-    設 options.responsive:false，width/height 明確指定（≤1760,≤740）`;
-  return `  ★ 使用 text_only 佈局作為預設（layout="${L}" 未定義，自動 fallback）`;
+  return `  預設 text_only 佈局`;
 })()}
+
+  【Zone-C 頁尾層：y=960, h=80（選用）】
+  translate(70,960)，width:1780，height:80
+  - 頁碼、來源標注等小字（font-size ≤ 14px）
 
 H. 【對比度規範】
    - 深色背景→文字用淺色（#f8fafc/#ffffff）；淺色背景→文字用深色（#111827/#0f172a）
@@ -2641,8 +2579,14 @@ I. 只輸出純 HTML，不含任何 markdown 標記。
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
+                        system_instruction: { parts: [{ text: slideSystemPrompt }] },
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                        generationConfig: { temperature: 0.75, maxOutputTokens: 10240 }
+                        generationConfig: {
+                            temperature: hasSourceDocs ? 0.4 : 0.75,  // lower when doc-grounded
+                            maxOutputTokens: 10240,
+                            ...(modelId.includes('2.5-pro') || modelId.includes('2.5-flash')
+                                ? { thinkingConfig: { thinkingBudget: 0 } } : {})
+                        }
                     }),
                     signal: AppState.abortController.signal
                 });
@@ -2677,28 +2621,11 @@ width:1920px!important;height:1080px!important;box-sizing:border-box!important;}
                 html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', '');
             }
 
-            // 【修改點 v27】 Image injection with SVG <image href> support + cleanup for no-image slides
-            if (hasImage && imageB64) {
-                // Replace placeholder in both <img src=""> and SVG <image href="">
+            // 【修改點】：無論是 Base64 還是 URL，統一將 REPLACE_IMAGE_SRC 替換為實際圖片。
+            // 並且加上 crossorigin="anonymous" 有助於後續 PPTX 的 html2canvas 截圖。
+            if (hasImage) {
                 html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
-                // Add crossorigin to HTML img tags for html2canvas compatibility
                 html = html.replace(/<img([^>]*)src=["']([^"']+)["']([^>]*)>/g, '<img$1src="$2" crossorigin="anonymous"$3>');
-                // If AI forgot placeholder entirely but slide is text_and_image, force-inject image
-                if (!html.includes(imageB64) && imageB64.length > 100) {
-                    const svgImgTag = `<image href="${imageB64}" x="990" y="200" width="860" height="760" preserveAspectRatio="xMidYMid slice" style="cursor:move"/>`;
-                    const dgWrap   = `<g class="dg" transform="translate(990,200)">${svgImgTag}</g>`;
-                    if (html.includes('id="slide-svg"')) {
-                        html = html.replace(/(id="slide-svg"[^>]*>)/, `$1
-${dgWrap}`);
-                        addLog(`  ⚠ AI 未插入圖片，已強制注入`, 'warning');
-                    }
-                }
-            } else {
-                // No image — remove any stray REPLACE_IMAGE_SRC placeholders so no broken box appears
-                html = html.replace(/<g[^>]*class="dg"[^>]*>[^<]*<image[^>]*href=["']REPLACE_IMAGE_SRC["'][^>]*\/?>[^<]*<\/g>/g, '');
-                html = html.replace(/<image[^>]*href=["']REPLACE_IMAGE_SRC["'][^>]*\/?>/g, '');
-                html = html.replace(/<img[^>]*src=["']REPLACE_IMAGE_SRC["'][^>]*\/?>/g, '');
-                html = html.replace(/REPLACE_IMAGE_SRC/g, '');
             }
 
             // Inject background template
@@ -3484,159 +3411,68 @@ function runsToPptxText(runs, fontSize, baseBold, baseItalic) {
 }
 
 // Extract all text boxes from a slide's HTML by rendering it in a hidden iframe
-/**
- * Extract all editable text boxes from a slide HTML string.
- * Uses DOMParser (synchronous, reliable) instead of iframe rendering.
- * Handles: .dg groups with foreignObject, inline SVG <text> elements,
- *   .rb being itself contenteditable, nested bold/italic spans.
- */
-function extractSlideTextBoxes(slideHtml) {
+async function extractSlideTextBoxes(slideHtml) {
+    const { iframe, doc } = await loadSlideInHiddenIframe(slideHtml);
     const boxes = [];
-    try {
-        const parser = new DOMParser();
-        const doc    = parser.parseFromString(slideHtml, 'text/html');
-        const svgEl  = doc.getElementById('slide-svg') || doc.querySelector('svg');
-        if (!svgEl) return boxes;
 
-        // ── Helper: parse transform="translate(X,Y)" attribute ──────────
-        function parseTx(el) {
-            const tAttr = el.getAttribute('transform') || '';
-            const m = tAttr.match(/translate\(\s*([\d.+\-]+)\s*[, ]\s*([\d.+\-]+)\s*\)/);
-            return m ? [parseFloat(m[1])||0, parseFloat(m[2])||0] : [0,0];
+    if (!doc) { iframe.remove(); return boxes; }
+
+    const svgEl = doc.getElementById('slide-svg');
+    if (!svgEl) { iframe.remove(); return boxes; }
+
+    // Find all .dg groups containing foreignObjects
+    svgEl.querySelectorAll('g.dg').forEach(g => {
+        // Get transform (position)
+        let tx = 0, ty = 0;
+        const tl = g.transform?.baseVal;
+        if (tl && tl.length > 0) {
+            tx = tl.getItem(0).matrix.e;
+            ty = tl.getItem(0).matrix.f;
         }
 
-        // ── Helper: first matching inline color from style string ────────
-        function colorFromStyle(styleStr) {
-            if (!styleStr) return null;
-            const m = styleStr.match(/color\s*:\s*(#[0-9a-fA-F]{3,8}|rgb\([^)]+\))/);
-            return m ? colorToHex6(m[1]) : null;
-        }
+        const fo = g.querySelector('foreignObject');
+        if (!fo) return; // skip image-only groups
 
-        // ── Helper: collect all text from a DOM node recursively ─────────
-        function collectText(node, defaultColor) {
-            const runs = [];
-            function walk(n, color) {
-                if (n.nodeType === 3) {
-                    const t = n.textContent;
-                    if (t) runs.push({ text: t, color });
-                    return;
-                }
-                if (n.nodeType !== 1) return;
-                // Skip control chrome elements
-                if (n.className && /dh|ctrl/.test(n.className)) return;
-                const tag = n.tagName.toUpperCase();
-                // Line breaks
-                if (tag === 'BR') { runs.push({ text: '\n', color }); return; }
-                // Block-level → trailing newline after
-                const isBlock = /^(P|DIV|LI|H[1-6]|TR|TD|TH|SECTION|ARTICLE|BLOCKQUOTE)$/.test(tag);
-                const inlineColor = colorFromStyle(n.getAttribute('style') || '') || color;
-                for (const child of n.childNodes) walk(child, inlineColor);
-                if (isBlock && runs.length && runs[runs.length-1].text !== '\n')
-                    runs.push({ text: '\n', color: inlineColor });
-            }
-            walk(node, defaultColor);
-            return runs;
-        }
+        const rb = fo.querySelector('.rb, div');
+        if (!rb) return;
 
-        // ── Process each .dg group ───────────────────────────────────────
-        svgEl.querySelectorAll('g.dg').forEach(g => {
-            const fo = g.querySelector('foreignObject');
-            if (!fo) return;  // image-only group
+        // Get size
+        const foW = parseFloat(fo.getAttribute('width') || 300);
+        const foH = parseFloat(fo.getAttribute('height') || 200);
 
-            const [tx, ty] = parseTx(g);
+        // Convert 1920×1080 coordinates to PPTX inches (10"×5.625")
+        const pptX = (tx / 1920) * 10;
+        const pptY = (ty / 1080) * 5.625;
+        const pptW = Math.max(0.5, (foW / 1920) * 10);
+        const pptH = Math.max(0.3, (foH / 1080) * 5.625);
 
-            // Size from foreignObject attributes
-            const foW = parseFloat(fo.getAttribute('width')  || 300);
-            const foH = parseFloat(fo.getAttribute('height') || 200);
+        // Get font size
+        const fs = parseFloat(rb.style.fontSize || '16');
+        const pptFs = Math.max(8, Math.min(72, Math.round(fs * 0.75))); // px → pt approx
 
-            // Convert 1920×1080 px → PPTX inches (10"×5.625")
-            const pptX = (tx  / 1920) * 10;
-            const pptY = (ty  / 1080) * 5.625;
-            const pptW = Math.max(0.5, (foW / 1920) * 10);
-            const pptH = Math.max(0.3, (foH / 1080) * 5.625);
+        // Get background
+        const bgCss = rb.style.backgroundColor || rb.style.background || '';
+        const bgHex = colorToHex6(bgCss);
 
-            // Clamp to slide boundaries
-            const cX = Math.max(0, Math.min(pptX, 9.5));
-            const cY = Math.max(0, Math.min(pptY, 5.3));
-            const cW = Math.min(pptW, 10 - cX);
-            const cH = Math.min(pptH, 5.625 - cY);
+        // Gather all contenteditable elements (skip .dh handle and .ctrl)
+        const editables = rb.querySelectorAll('[contenteditable]');
+        if (!editables.length) return;
 
-            // The .rb div — may be immediate child of fo or nested
-            const rb = fo.querySelector('.rb') || fo.querySelector('div');
-            if (!rb) return;
-
-            // Font size: from inline style on .rb or first child div
-            const fsMatch = (rb.getAttribute('style') || '').match(/font-size\s*:\s*([\d.]+)px/);
-            const pxFs = parseFloat(fsMatch?.[1] || 16);
-            const pptFs = Math.max(8, Math.min(72, Math.round(pxFs * 0.75)));
-
-            // Background color
-            const bgMatch = (rb.getAttribute('style') || '').match(/background(?:-color)?\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/);
-            const bgHex   = bgMatch ? colorToHex6(bgMatch[1]) : null;
-
-            // Default text color from .rb style
-            const txtColorMatch = (rb.getAttribute('style') || '').match(/(?:^|;)\s*color\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))/);
-            const defaultColor  = (txtColorMatch ? colorToHex6(txtColorMatch[1]) : null) || 'FFFFFF';
-
-            // Collect text:
-            // 1. Try [contenteditable] descendants first
-            let allRuns = [];
-            const editables = [...rb.querySelectorAll('[contenteditable]')];
-            // If .rb itself is contenteditable (AI sometimes does this), include it
-            if (rb.hasAttribute('contenteditable')) editables.unshift(rb);
-
-            if (editables.length) {
-                editables.forEach((el, i) => {
-                    if (i > 0) allRuns.push({ text: '\n', color: null });
-                    // Skip .dh and .ctrl children
-                    const elColor = colorFromStyle(el.getAttribute('style') || '') || defaultColor;
-                    allRuns = allRuns.concat(collectText(el, elColor));
-                });
-            } else {
-                // Fallback: collect ALL text from the .rb div
-                allRuns = collectText(rb, defaultColor);
-            }
-
-            // Skip empty boxes
-            if (!allRuns.some(r => r.text && r.text.trim())) return;
-
-            // Remove leading/trailing newlines
-            while (allRuns.length && allRuns[0].text === '\n') allRuns.shift();
-            while (allRuns.length && allRuns[allRuns.length-1].text === '\n') allRuns.pop();
-
-            boxes.push({ pptX:cX, pptY:cY, pptW:cW, pptH:cH, pptFs, bgHex, runs:allRuns });
+        // Collect all text with colors
+        let allRuns = [];
+        editables.forEach((el, idx) => {
+            if (idx > 0) allRuns.push({ text: '\n', color: null });
+            const elColor = colorToHex6(el.style.color || '') || 'FFFFFF';
+            const runs = extractTextRuns(el, elColor);
+            allRuns = allRuns.concat(runs);
         });
 
-        // ── Also extract inline SVG <text> elements (AI sometimes uses them) ──
-        svgEl.querySelectorAll('text').forEach(svgText => {
-            const parent = svgText.parentElement;
-            // Skip if inside a .dg group (already handled above)
-            if (parent && parent.classList.contains('dg')) return;
+        if (!allRuns.some(r => r.text.trim())) return; // skip empty
 
-            const x    = parseFloat(svgText.getAttribute('x') || 0);
-            const y    = parseFloat(svgText.getAttribute('y') || 0);
-            const txt  = svgText.textContent.trim();
-            if (!txt) return;
+        boxes.push({ pptX, pptY, pptW, pptH, pptFs, bgHex, runs: allRuns });
+    });
 
-            const pptX = Math.max(0, (x / 1920) * 10);
-            const pptY = Math.max(0, ((y - 20) / 1080) * 5.625); // y is baseline in SVG
-            const colorAttr = svgText.getAttribute('fill') || svgText.style?.fill || '#FFFFFF';
-            const hex = colorToHex6(colorAttr) || 'FFFFFF';
-            const fsAttr = parseFloat(svgText.getAttribute('font-size') || svgText.style?.fontSize || '16');
-            const pptFs  = Math.max(8, Math.min(72, Math.round(fsAttr * 0.75)));
-
-            boxes.push({
-                pptX, pptY,
-                pptW: Math.min(4, 10 - pptX),
-                pptH: Math.min(0.6, 5.625 - pptY),
-                pptFs, bgHex: null,
-                runs: [{ text: txt, color: hex }]
-            });
-        });
-
-    } catch(e) {
-        console.warn('extractSlideTextBoxes error:', e);
-    }
+    iframe.remove();
     return boxes;
 }
 
@@ -3665,164 +3501,81 @@ async function downloadEditablePptx() {
             const slide = pres.addSlide();
             addLog(`📝 解析第 ${s.slideNumber} 頁文字方塊...`, 'info');
 
-            // ── Pure-image mode slide: screenshot bg + text boxes from slideData ──
-            if (s.isPureImage) {
-                // Check if we have the full composite HTML (current session slide, not history wrapper)
-                const hasFullHtml = s.html && (s.html.includes('class="dg"') || s.html.includes('slide-svg'));
+            // ── Unified editable PPTX: bg-only screenshot + text boxes from slideData ──
+            // This works for BOTH HTML/CSS and pure-image slides
+            const hasRichHtml = s.html && (s.html.includes('slide-svg') || s.html.includes('class="dg"'));
+            const isScreenshotWrapper = s.html && s.html.includes('__SLIDE_SHOT_B64__');
 
-                // Background: render slide WITHOUT text if possible, else use screenshot
-                let bgImg = s.screenshotB64;
-                if (hasFullHtml) {
-                    addLog(`  🖼 渲染無文字背景圖（防止可編輯文字重疊）...`, 'info');
-                    const bgOnly = await captureSlideBackgroundOnly(s.html);
-                    if (bgOnly) bgImg = bgOnly;
-                }
-
+            // Step 1: Background (visual design without text)
+            let bgImg = s.screenshotB64 || null;
+            if (hasRichHtml && !isScreenshotWrapper) {
+                addLog(`  🖼 渲染無文字背景（第 ${s.slideNumber} 頁）...`, 'info');
+                const bgOnly = await captureSlideBackgroundOnly(s.html);
+                if (bgOnly) bgImg = bgOnly;
+            }
+            if (bgImg) {
                 slide.addImage({ data: bgImg, x:0, y:0, w:10, h:5.625 });
-
-                // Overlay editable text boxes from slideData
-                // Only when we have a text-free background (hasFullHtml=true means bg was rendered without text)
-                // For history slides (hasFullHtml=false), screenshot already contains all text — skip boxes
-                const titleText  = sd.title || '';
-                const bullets    = sd.bullet_points || [];
-
-                if (hasFullHtml) {
-                // Title box
-                if (titleText) {
-                    slide.addShape('rect', { x:0.4, y:0.15, w:9.2, h:0.8,
-                        fill:{ color:'000000', transparency:55 }, rectRadius:0.06 });
-                    slide.addText(titleText, {
-                        x:0.4, y:0.15, w:9.2, h:0.8,
-                        fontSize:28, bold:true, color:'FFFFFF', fontFace:'Arial',
-                        valign:'middle', align:'left', inset:0.15, wrap:true
-                    });
-                }
-                // Bullet text boxes
-                if (bullets.length) {
-                    const bY = 1.1, bH = (5.625 - 1.1 - 0.3) / Math.max(bullets.length, 1);
-                    bullets.forEach((bp, bi) => {
-                        const txt = typeof bp === 'string' ? bp : (bp.text || bp.content || String(bp));
-                        slide.addShape('rect', { x:0.4, y:bY + bi*bH, w:9.2, h:bH - 0.06,
-                            fill:{ color:'000000', transparency:65 }, rectRadius:0.05 });
-                        slide.addText(`• ${txt}`, {
-                            x:0.4, y:bY + bi*bH, w:9.2, h:bH - 0.06,
-                            fontSize:14, color:'F8FAFC', fontFace:'Arial',
-                            valign:'middle', align:'left', inset:0.12, wrap:true
-                        });
-                    });
-                }
-                } // end hasFullHtml
-
-                // Page number + logo (same as HTML mode)
-                slide.addText(`${s.slideNumber}`, {
-                    x:9.2, y:5.3, w:0.6, h:0.25,
-                    fontSize:10, color:accentHex, align:'right', fontFace:'Arial'
-                });
-                if (AppState.logoBase64) {
-                    slide.addImage({ data:AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
-                        sizing:{ type:'contain', w:1.0, h:0.5 } });
-                }
-                continue;   // ← skip HTML text-box extraction for pure-image slides
-            }
-
-            // ── HTML/CSS mode slides ──────────────────────────────────
-            if (AppState.bgTemplateBase64) {
-                slide.addImage({ data: AppState.bgTemplateBase64, x:0, y:0, w:10, h:5.625 });
             } else {
-                // captureSlideBackgroundOnly() returns null on failure (never falls back to
-                // raw screenshot) so we safely use flat fill when stripping fails.
-                addLog(`  🖼 渲染裝飾背景（不含文字）...`, 'info');
-                let bgOnly = null;
-                try { bgOnly = await captureSlideBackgroundOnly(s.html); } catch(e) {}
-
-                if (bgOnly) {
-                    slide.addImage({ data: bgOnly, x:0, y:0, w:10, h:5.625 });
-                } else {
-                    // Flat colour — guaranteed to have no text baked in
-                    slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
-                }
+                slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
             }
 
-            // ── Extract text boxes from HTML DOM ─────────────────────
-            const textBoxes = extractSlideTextBoxes(s.html);
-            addLog(`  → 找到 ${textBoxes.length} 個可編輯文字方塊`, 'success');
+            // Step 2: Editable text boxes from slideData
+            const sd2   = s.slideData || {};
+            const title = sd2.title || '';
+            const subs  = sd2.subtitle || sd2.sub_title || '';
+            const bps   = sd2.bullet_points || [];
+            const layout = sd2.layout || 'text_only';
+            const hasImg  = !!s.imageB64 || !!s.screenshotB64;
+            // Text column width depends on layout
+            const txtW = (layout === 'text_and_image' && hasImg) ? 5.2 : 9.2;
 
-            for (const box of textBoxes) {
-                if (!box.runs || !box.runs.length) continue;
-
-                // ── Build PptxGenJS run array ────────────────────────────────────
-                // PptxGenJS run format: { text, options: { color, fontSize, ... } }
-                // Line breaks: use a dedicated run with options.breakLine = true
-                // Color: must be 6-char hex WITHOUT '#'
-                const pptxRuns = [];
-                for (const r of box.runs) {
-                    const raw = (r.color || accentHex || 'FFFFFF').replace('#','').toUpperCase();
-                    const hex6 = /^[0-9A-F]{6}$/.test(raw) ? raw : 'FFFFFF';
-                    if (r.text === '\n') {
-                        pptxRuns.push({ text: '\r', options: { breakLine: true, color: hex6, fontSize: box.pptFs, fontFace: 'Arial' } });
-                    } else {
-                        pptxRuns.push({ text: r.text || ' ', options: { color: hex6, fontSize: box.pptFs, fontFace: 'Arial' } });
-                    }
-                }
-                if (!pptxRuns.length) continue;
-
-                // ── Semi-transparent background shape (drawn BEFORE text box) ────
-                if (box.bgHex) {
-                    const bg6 = box.bgHex.replace('#','').toUpperCase();
-                    slide.addShape('rect', {
-                        x: box.pptX, y: box.pptY, w: box.pptW, h: box.pptH,
-                        fill: { color: bg6, transparency: 15 },
-                        line: { color: bg6, transparency: 100, width: 0 },
+            // Title
+            if (title) {
+                slide.addText(title, {
+                    x:0.42, y:0.12, w: txtW, h:0.75,
+                    fontSize:24, bold:true, color:'FFFFFF', fontFace:'Arial',
+                    valign:'middle', wrap:true, inset:0.12
+                });
+            }
+            // Subtitle (title_only or text_only)
+            if (subs && bps.length === 0) {
+                slide.addText(subs, {
+                    x:0.42, y:0.9, w:9.2, h:0.45,
+                    fontSize:14, color:'CBD5E1', fontFace:'Arial',
+                    valign:'middle', wrap:true, inset:0.1
+                });
+            }
+            // Bullet points
+            if (bps.length) {
+                const startY = title ? 1.0 : 0.15;
+                const avail  = 5.625 - startY - 0.3;
+                const rowH   = Math.max(0.45, Math.min(0.9, avail / bps.length));
+                bps.forEach((bp, bi) => {
+                    const txt = typeof bp === 'string' ? bp : (bp.text || bp.content || String(bp));
+                    slide.addText(`• ${txt}`, {
+                        x:0.42, y: startY + bi * rowH, w: txtW, h: rowH - 0.04,
+                        fontSize:Math.max(9, Math.min(14, Math.round(72 / bps.length))),
+                        color:'F1F5F9', fontFace:'Arial',
+                        valign:'top', wrap:true, inset:0.1
                     });
-                }
-
-                // ── ★ Editable text box ──────────────────────────────────────────
-                // PptxGenJS addText() always creates an editable TextBox in PPTX.
-                // Valid options reference: https://gitbrent.github.io/PptxGenJS/docs/api-textboxes
-                slide.addText(pptxRuns, {
-                    x:       box.pptX,
-                    y:       box.pptY,
-                    w:       box.pptW,
-                    h:       box.pptH,
-                    valign:  'top',
-                    align:   'left',
-                    wrap:    true,
-                    inset:   0.08,
-                    // Transparent fill + no border so background shape shows through
-                    fill:    { color: 'FFFFFF', transparency: 100 },
-                    line:    { color: 'FFFFFF', transparency: 100, width: 0 },
-                    fontFace: 'Arial',
                 });
             }
 
-            // ── Images (picture objects, not screenshots) ─────────────
-            if (s.imageB64) {
+            // Step 3: Content image (if any, on right side)
+            if (s.imageB64 && layout === 'text_and_image') {
                 const imgSrc = s.imageB64;
-                // Use 4.7×4.0 area on right side; sizing:contain preserves aspect ratio
-                const imgOpts = { x:5.1, y:0.85, w:4.7, h:4.0, sizing:{ type:'contain', w:4.7, h:4.0 } };
+                const imgOpts = { x:5.5, y:0.8, w:4.3, h:4.5, sizing:{ type:'contain', w:4.3, h:4.5 } };
                 try {
                     if (imgSrc.startsWith('data:')) slide.addImage({ data: imgSrc, ...imgOpts });
                     else if (imgSrc.startsWith('http')) slide.addImage({ path: imgSrc, ...imgOpts });
-                } catch(e) { addLog(`⚠ 圖片物件插入失敗: ${e.message}`, 'warning'); }
+                } catch(e) { addLog(`⚠ 圖片插入: ${e.message}`, 'warning'); }
             }
 
-            // ── Diagram slides: add screenshot as picture object ──────
-            if (sd.layout === 'diagram_slide') {
-                addLog(`📸 截圖流程圖頁 ${s.slideNumber}...`, 'info');
-                const diagImg = await slideHTMLToBase64(s.html, s.slideNumber);
-                if (diagImg) {
-                    // Place diagram screenshot as a selectable picture (behind text boxes)
-                    slide.addImage({ data: diagImg, x:0, y:0, w:10, h:5.625 });
-                }
-            }
-
-            // ── Page number ──────────────────────────────────────────
+            // Page number + logo
             slide.addText(`${s.slideNumber}`, {
                 x:9.2, y:5.3, w:0.6, h:0.25,
                 fontSize:10, color:accentHex, align:'right', fontFace:'Arial'
             });
-
-            // ── Logo ─────────────────────────────────────────────────
             if (AppState.logoBase64) {
                 slide.addImage({ data: AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
                     sizing:{ type:'contain', w:1.0, h:0.5 } });
@@ -3851,123 +3604,77 @@ const HISTORY_KEY   = 'nova_ppt_history';
 const HISTORY_LIMIT = 20;  // max sessions stored
 const SLIDE_HTML_SIZE_LIMIT = 150000; // per-slide HTML chars for storage
 
-// ── IndexedDB helpers for large slide HTML storage ──────────────────
-const IDB_NAME = 'PresentationGenDB';
-const IDB_STORE = 'slideHTMLs';
-let _idb = null;
-
-function openIDB() {
-    if (_idb) return Promise.resolve(_idb);
-    return new Promise((resolve, reject) => {
-        const req = indexedDB.open(IDB_NAME, 1);
-        req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
-        req.onsuccess = e => { _idb = e.target.result; resolve(_idb); };
-        req.onerror   = () => reject(req.error);
-    });
-}
-
-async function idbSet(key, value) {
-    const db = await openIDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(IDB_STORE, 'readwrite');
-        const req = tx.objectStore(IDB_STORE).put(value, key);
-        req.onsuccess = () => resolve();
-        req.onerror   = () => reject(req.error);
-    });
-}
-
-async function idbGet(key) {
-    const db = await openIDB();
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(IDB_STORE, 'readonly');
-        const req = tx.objectStore(IDB_STORE).get(key);
-        req.onsuccess = () => resolve(req.result ?? null);
-        req.onerror   = () => reject(req.error);
-    });
-}
-
-async function idbDeleteOld(keepIds) {
-    try {
-        const db = await openIDB();
-        const tx  = db.transaction(IDB_STORE, 'readwrite');
-        const store = tx.objectStore(IDB_STORE);
-        const req = store.getAllKeys();
-        req.onsuccess = () => {
-            req.result.forEach(k => { if (!keepIds.some(id => k.startsWith(id))) store.delete(k); });
-        };
-    } catch(e) { /* non-critical */ }
-}
-
-async function saveToHistory() {
+function saveToHistory() {
     if (!AppState.generatedSlides.length || !AppState.presentationData) return;
     try {
-        const id   = 'h_' + Date.now();
-        const date = new Date().toLocaleString('zh-TW');
+        const history = loadRawHistory();
+        const id = 'h_' + Date.now();
 
-        // ── Build lightweight metadata (no big base64) ──────────────────
-        const slidesMeta = AppState.generatedSlides.map(s => ({
-            slideNumber:  s.slideNumber,
-            title:        s.title,
-            layout:       s.layout,
-            slideData:    s.slideData,
-            isPureImage:  s.isPureImage || false,
-            // Tiny thumbnail: first 50 chars of screenshotB64 as existence flag
-            hasScreenshot: !!s.screenshotB64,
-            hasImage:      !!s.imageB64,
-        }));
+        const slidesForStorage = AppState.generatedSlides.map(s => {
+            const imgB64  = s.imageB64     || null;
+            const shotB64 = s.screenshotB64 || null;
+            let html      = s.html || '';
+
+            if (shotB64) {
+                // ── Pure-image mode slide ──────────────────────────────
+                // The composite HTML contains large background base64 (500KB+).
+                // Replace it entirely with a tiny screenshot wrapper.
+                // screenshotB64 IS the final slide — it's all we need for preview + PPTX.
+                html = `<!DOCTYPE html><html><body style="margin:0;padding:0;width:1920px;height:1080px;overflow:hidden;background:#0f172a"><img src="__SLIDE_SHOT_B64__" style="width:100%;height:100%;object-fit:cover;display:block"></body></html>`;
+            } else {
+                // ── HTML/CSS mode slide ────────────────────────────────
+                // Strip inline imageB64 so HTML stays small enough for localStorage
+                if (imgB64) html = html.split(imgB64).join('__SLIDE_IMG_B64__');
+            }
+
+            return {
+                slideNumber:   s.slideNumber,
+                title:         s.title,
+                layout:        s.layout,
+                slideData:     s.slideData,
+                imageB64:      imgB64,
+                screenshotB64: shotB64,
+                isPureImage:   s.isPureImage || false,
+                html:          html.slice(0, 300000)
+            };
+        });
 
         const entry = {
             id,
-            date,
-            title:       AppState.presentationData.presentation_title || '未命名簡報',
-            slideCount:  AppState.generatedSlides.length,
+            date: new Date().toLocaleString('zh-TW'),
+            title: AppState.presentationData.presentation_title || '未命名簡報',
+            slideCount: AppState.generatedSlides.length,
             templateKey: document.getElementById('sel-template').value,
-            slides:      slidesMeta,   // ← no base64, tiny!
+            slides: slidesForStorage
         };
 
-        // ── Save each slide's full HTML to IndexedDB ─────────────────────
-        try {
-            for (let i = 0; i < AppState.generatedSlides.length; i++) {
-                const s = AppState.generatedSlides[i];
-                const idbKey = `${id}_slide_${i}`;
-                await idbSet(idbKey, {
-                    html:          s.html          || '',
-                    imageB64:      s.imageB64      || null,
-                    screenshotB64: s.screenshotB64 || null,
-                });
-            }
-        } catch(idbErr) {
-            console.warn('IndexedDB write failed:', idbErr);
-            // Still try to save metadata — preview cards won't restore images but titles/outlines will
-        }
-
-        // ── Save metadata to localStorage (tiny, < 5KB per entry) ────────
-        let history = loadRawHistory();
         history.unshift(entry);
-        if (history.length > HISTORY_LIMIT) {
-            const removed = history.splice(HISTORY_LIMIT);
-            // Purge orphaned IDB entries for removed history items
-            idbDeleteOld(history.map(e => e.id));
-        }
+        if (history.length > HISTORY_LIMIT) history.splice(HISTORY_LIMIT);
 
         try {
             localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
             addLog(`📁 已儲存至歷史記錄（共 ${history.length} 筆）`, 'success');
-        } catch(lsErr) {
-            // localStorage full even for tiny metadata — purge oldest half
-            history = history.slice(0, Math.ceil(HISTORY_LIMIT / 2));
+        } catch(storageErr) {
+            // First try: strip imageB64 from older entries (keep newest 10 with images)
+            const slim = history.map((e, ei) => ({
+                ...e,
+                slides: e.slides.map(s => ({
+                    ...s,
+                    imageB64: ei < 3 ? s.imageB64 : null,   // keep images only in newest 3
+                    html: ei < 10 ? s.html : ''             // keep html only in newest 10
+                }))
+            }));
             try {
-                localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-                addLog(`⚠ 儲存空間緊張，保留最近 ${history.length} 筆記錄`, 'warning');
+                localStorage.setItem(HISTORY_KEY, JSON.stringify(slim));
+                addLog(`⚠ 儲存空間不足，部分歷史圖片已清除`, 'warning');
             } catch(e2) {
-                addLog(`⚠ 歷史記錄儲存失敗（localStorage 已滿）`, 'warning');
+                addLog(`⚠ 歷史記錄儲存失敗`, 'warning');
             }
         }
 
         renderHistoryPanels();
     } catch(e) {
         console.warn('History save failed:', e);
-        addLog(`⚠ 歷史記錄儲存時發生錯誤: ${e.message}`, 'warning');
     }
 }
 
@@ -3976,30 +3683,7 @@ function loadRawHistory() {
     catch { return []; }
 }
 
-/** Hydrate slide HTML from IndexedDB (async) — returns full slide object */
-async function hydrateSlideFromIDB(historyId, slideIndex, slideMeta) {
-    try {
-        const key  = `${historyId}_slide_${slideIndex}`;
-        const data = await idbGet(key);
-        if (data) {
-            return {
-                ...slideMeta,
-                html:          data.html          || '',
-                imageB64:      data.imageB64      || null,
-                screenshotB64: data.screenshotB64 || null,
-            };
-        }
-    } catch(e) { console.warn('IDB read failed:', e); }
-    // Fallback: return meta only (no images, no HTML — show placeholder)
-    return {
-        ...slideMeta,
-        html: `<!DOCTYPE html><html><body style="margin:0;padding:0;width:1920px;height:1080px;background:#1e293b;display:flex;align-items:center;justify-content:center;font-family:sans-serif;color:#94a3b8;font-size:32px;">[投影片資料無法還原]</body></html>`,
-        imageB64:      null,
-        screenshotB64: null,
-    };
-}
-
-/** Sync fallback (legacy / old history entries) */
+/** Re-inject imageB64 / screenshotB64 into slide HTML that was stripped for storage */
 function hydrateSlideHTML(slide) {
     let html = slide.html || '';
     if (slide.imageB64 && html.includes('__SLIDE_IMG_B64__'))
@@ -4070,37 +3754,23 @@ function buildHistoryCard(entry, mode) {
     return card;
 }
 
-async function loadFromHistory(id) {
+function loadFromHistory(id) {
     const history = loadRawHistory();
     const entry   = history.find(e => e.id === id);
     if (!entry) { showToast('❌ 找不到此記錄'); return; }
 
-    showToast('⏳ 載入中...');
-    closeHistoryModal();
-
-    // Hydrate slides from IndexedDB (new format) or inline data (legacy)
-    const hydratedSlides = await Promise.all(
-        (entry.slides || []).map((s, i) => {
-            // New format: meta-only, data in IDB
-            if (!s.html && (s.hasScreenshot || s.hasImage)) {
-                return hydrateSlideFromIDB(id, i, s);
-            }
-            // Legacy format: data inline
-            return Promise.resolve({ ...s, html: hydrateSlideHTML(s), screenshotB64: s.screenshotB64 || null });
-        })
-    );
-
-    AppState.generatedSlides  = hydratedSlides;
-    AppState.presentationData = { presentation_title: entry.title, slides: entry.slides?.map(s => s.slideData) };
+    AppState.generatedSlides   = entry.slides?.map(s => ({
+        ...s,
+        html:         hydrateSlideHTML(s),
+        screenshotB64: s.screenshotB64 || null   // ← keep for pure-image PPTX export
+    })) || [];
+    AppState.presentationData  = { presentation_title: entry.title, slides: entry.slides?.map(s => s.slideData) };
 
     document.getElementById('section-empty').classList.add('hidden');
     document.getElementById('section-preview').classList.remove('hidden');
     const grid = document.getElementById('slides-preview-grid');
     grid.innerHTML = '';
-    hydratedSlides.forEach((s, i) => renderSlidePreviewCard(
-        s.slideData || { slide_number: s.slideNumber, title: s.title, layout: s.layout },
-        s.html, i
-    ));
+    entry.slides?.forEach((s, i) => renderSlidePreviewCard(s.slideData || { slide_number: s.slideNumber, title: s.title, layout: s.layout }, hydrateSlideHTML(s), i));
 
     document.getElementById('preview-slide-count').textContent = `${entry.slides?.length || 0} 張`;
     document.getElementById('btn-pptx-group').classList.remove('hidden');
@@ -4110,6 +3780,7 @@ async function loadFromHistory(id) {
     document.getElementById('btn-preview-html').classList.remove('hidden');
     document.getElementById('btn-preview-html').classList.add('flex');
 
+    closeHistoryModal();
     showToast(`✅ 已載入「${entry.title}」`);
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
@@ -4757,61 +4428,43 @@ function closeEditModal() {
 // Strategy: parse the slide's SVG from the HTML string, serialize it to a
 // Blob URL, draw onto an offscreen canvas, export JPEG. No iframe needed.
 /** Renders slide with all text/interactive elements hidden — used as editable PPTX background */
-/**
- * Render slide background WITHOUT any text boxes or content images.
- * Uses string-level HTML surgery (reliable) instead of CSS injection into iframe
- * (which fails with SVG foreignObject / SVG <text> elements).
- *
- * Removes:
- *   - <g class="dg"> groups that contain <foreignObject> (text boxes)
- *   - <g class="dg"> groups that contain <image> (content images — added separately as PPTX objects)
- *   - Bare <text> SVG elements the AI may have generated
- *   - <foreignObject> elements anywhere
- *
- * Keeps:
- *   - SVG decorative shapes (rect, circle, path, line, polygon)
- *   - CSS gradients / background colours
- *   - Background <image> injected as the first SVG child (slide template bg)
- */
 async function captureSlideBackgroundOnly(html) {
+    // DOM approach: actually REMOVE text elements (CSS opacity fails in sandboxed iframes)
     try {
-        const parser = new DOMParser();
-        const doc    = parser.parseFromString(html, 'text/html');
-        const svgEl  = doc.getElementById('slide-svg') || doc.querySelector('svg');
+        const doc = new DOMParser().parseFromString(html, 'text/html');
 
-        if (svgEl) {
-            // 1. Remove all .dg groups (text boxes AND content images)
-            svgEl.querySelectorAll('g.dg').forEach(g => g.remove());
-            // 2. Remove any stray <foreignObject> elements
-            svgEl.querySelectorAll('foreignObject').forEach(fo => fo.remove());
-            // 3. Remove SVG <text> elements (AI sometimes ignores the no-SVG-text rule)
-            svgEl.querySelectorAll('text').forEach(t => t.remove());
-            // 4. Remove any <image> elements that are content images (not the bg template)
-            //    We identify them by NOT being the first child or NOT spanning full 1920×1080
-            const imgEls = svgEl.querySelectorAll('image');
-            imgEls.forEach(img => {
-                const w = parseFloat(img.getAttribute('width')  || 0);
-                const h = parseFloat(img.getAttribute('height') || 0);
-                const x = parseFloat(img.getAttribute('x')      || 0);
-                const y = parseFloat(img.getAttribute('y')      || 0);
-                // Keep only full-bleed background images (width≥1800, height≥1000, x≈0, y≈0)
-                const isFullBg = (w >= 1800 && h >= 1000 && x < 50 && y < 50);
-                if (!isFullBg) img.remove();
-            });
-        } else {
-            // No SVG — hide all text via aggressive CSS
-            const style = doc.createElement('style');
-            style.textContent = '*:not(svg):not(img):not(video):not(canvas){color:transparent!important;opacity:0!important;}';
-            (doc.head || doc.body).appendChild(style);
-        }
+        // Remove all .dg foreignObject divs (text boxes, but keep image containers)
+        doc.querySelectorAll('.dg > foreignObject').forEach(fo => {
+            const hasImage = fo.querySelector('img[src]:not([src=""])');
+            if (!hasImage) fo.remove();    // remove text-only foreignObjects
+        });
 
-        const strippedHtml = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
-        return await captureSlideScreenshot(strippedHtml, true);  // high-res for PPTX
+        // Remove drag handles, control bars, minibar anchors
+        doc.querySelectorAll('.dh, .ctrl, #minibar-anchor').forEach(el => el.remove());
+
+        // Remove inline contenteditable marks (edge case: SVG text with contenteditable attr)
+        doc.querySelectorAll('[contenteditable]').forEach(el => {
+            el.removeAttribute('contenteditable');
+            el.textContent = '';   // blank text, keep the container for bg shape
+        });
+
+        // Remove SLIDE_INTERACTION_SCRIPT placeholder and any injected scripts
+        // (prevents interaction JS from running in background-only capture)
+        doc.querySelectorAll('script').forEach(s => s.remove());
+
+        const cleanHtml = '<!DOCTYPE html>' + doc.documentElement.outerHTML;
+        return await captureSlideScreenshot(cleanHtml, true);
     } catch(e) {
-        console.warn('captureSlideBackgroundOnly error — returning null (flat colour will be used):', e);
-        // Do NOT fall back to raw screenshot (would bake text into background).
-        // Return null; caller will use flat colour fill instead.
-        return null;
+        console.warn('captureSlideBackgroundOnly fallback:', e);
+        // Fallback: inject aggressive CSS (better than nothing)
+        const noTextCSS = `<style id="hide-text-for-bg">
+            .dg>foreignObject>div,.rb,[contenteditable]{display:none!important;}
+            .dh,.ctrl{display:none!important;}
+        </style>`;
+        const bgHtml = html.includes('<head>')
+            ? html.replace('<head>', '<head>' + noTextCSS)
+            : noTextCSS + html;
+        return await captureSlideScreenshot(bgHtml, true);
     }
 }
 
@@ -5149,57 +4802,6 @@ function detectOverlaps(html) {
 }
 
 /** Remove AI hallucinations: hex color codes and technical labels in text nodes */
-// ═══════════════════════════════════════════════════════════════════
-// LAYOUT SAFETY ENFORCEMENT
-// Injects overflow:hidden + box-sizing on all containers so AI-
-// generated HTML can never overflow the 1920×1080 canvas.
-// ═══════════════════════════════════════════════════════════════════
-function enforceLayoutSafety(html) {
-    const safeCss = `<style id="layout-safety">
-/* ── Zone-level overflow guard ── */
-html, body {
-    overflow: hidden !important;
-    width: 1920px !important; height: 1080px !important;
-    max-width: 1920px !important; max-height: 1080px !important;
-    box-sizing: border-box !important;
-}
-/* ── All draggable / resizable boxes ── */
-.rb, g.dg > foreignObject > div {
-    overflow: hidden !important;
-    box-sizing: border-box !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    white-space: normal !important;
-}
-/* ── Everything inside a box ── */
-.rb *, g.dg > foreignObject > div * {
-    max-width: 100% !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    white-space: normal !important;
-    box-sizing: border-box !important;
-}
-/* ── Prevent inner images from stretching container ── */
-.rb img, g.dg > foreignObject > div img {
-    max-width: 100% !important;
-    max-height: 100% !important;
-    object-fit: contain !important;
-}
-/* ── Prevent canvas/chart overflow ── */
-canvas { max-width: 100% !important; max-height: 100% !important; display: block; }
-/* ── Clip text that truly overflows ── */
-[contenteditable] {
-    overflow: hidden !important;
-    word-break: break-word !important;
-}
-</style>`;
-    try {
-        if (html.includes('<head>')) return html.replace('<head>', '<head>' + safeCss);
-        if (html.includes('<html>'))  return html.replace('<html>',  '<html>'  + safeCss);
-    } catch(e) {}
-    return html;
-}
-
 function cleanSlideArtifacts(html) {
     try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -5435,6 +5037,11 @@ async function startGeneration() {
         const context = await buildContextFromSources();
         const srcCount = AppState.attachedSources.filter(s => s.content).length;
         if (srcCount > 0) addLog(`✓ 已整合 ${srcCount} 個資料來源（${context.length.toLocaleString()} 字元）`, 'success');
+
+        // ── Store context globally so generateSlideHTML can enforce grounding ──
+        AppState.sourceContext   = context || '';
+        AppState.hasSourceDocs   = srcCount > 0;
+
         setProgress(8);
 
         // ── Google Grounding research (if enabled) ────────────────────
@@ -5483,8 +5090,6 @@ async function startGeneration() {
                 html = buildFallbackSlideHTML(sData, theme);
             }
 
-            // ── Phase 4a: Layout safety — inject overflow:hidden on all containers ──
-            html = enforceLayoutSafety(html);
             // ── Phase 4b: Programmatic contrast pre-scan (fast, no API) ─
             html = programmaticContrastFix(html, theme);
             // ── Phase 4c: Strip AI hallucinations (hex codes, tech labels) ─
