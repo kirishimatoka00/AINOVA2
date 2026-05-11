@@ -1877,14 +1877,18 @@ async function callGeminiForOutline(topic, context) {
 投影片張數：${slideCount} 張
 圖片使用策略：${imageModeHint}
 
-【內容品質要求】
+${AppState.attachedSources.filter(s=>s.content).length > 0 ? `【★ 資料保真模式已啟動 — 以下規則優先於一切 ★】
+1. 你的唯一任務：把使用者上傳的資料「忠實轉化」為簡報，絕對不是「創作新內容」
+2. 每個數字、名稱、百分比、單位必須與上傳資料完全一致，禁止估算或四捨五入猜測
+3. 若資料有表格，在對應 slide 的 table_data 欄位填入完整表格（headers+rows 必須完整）
+4. 文字密度規則：${densitySpec}` : `【內容品質要求】
 1. 拒絕空泛：必須含具體案例、數據預估、深度邏輯推演
-2. 文字密度規則：${densitySpec}
-3. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
-4. diagram_slide 表示需要流程圖、圖表、架構圖的頁面
-5. image_prompt 為具體英文 AI 繪圖提示詞 (text_and_image 時必填)
-6. diagram_description 描述圖解內容 (diagram_slide 時必填)
-7. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
+2. 文字密度規則：${densitySpec}`}
+5. layout 只能是: "title_only", "text_only", "text_and_image", "diagram_slide"
+6. diagram_slide 表示需要流程圖、圖表、架構圖的頁面
+7. image_prompt 為具體英文 AI 繪圖提示詞 (text_and_image 時必填)
+8. diagram_description 描述圖解內容 (diagram_slide 時必填)
+9. 嚴格輸出純 JSON，禁止包含任何 markdown 標記
 
 JSON Schema:
 {
@@ -1897,15 +1901,31 @@ JSON Schema:
       "subtitle": "string or null",
       "bullet_points": ["string"],
       "image_prompt": "English prompt or null",
-      "diagram_description": "描述要畫什麼圖 or null"
+      "diagram_description": "描述要畫什麼圖 or null",
+      "table_data": {
+        "headers": ["欄位1","欄位2"],
+        "rows": [["值A","值B"],["值C","值D"]]
+      }
     }
   ]
-}`;
+}
+重要：若投影片內容含有表格數據，請在 table_data 欄位填入表格結構（headers + rows），同時在 bullet_points 保留重點說明。`;
 
     const hasUploadedSources = AppState.attachedSources.filter(s => s.content).length > 0;
     const contextSlice = context ? context.slice(0, 120000) : '';
     const userContent = hasUploadedSources
-        ? `主題指令：${topic}\n\n${contextSlice}\n\n★★★ 內容保真度要求（CRITICAL）★★★\n1. 上述資料是唯一內容來源，每張投影片的標題、要點、數據必須直接來自該資料\n2. 嚴禁捏造資料中未提及的數字、案例、人名、公司名\n3. 若資料有列點，保留原始文字，可精簡但不得改變語義\n4. 投影片張數可根據資料量自動調整，確保覆蓋所有重要段落`
+        ? `以下是使用者上傳的原始資料，請完全依照此資料生成簡報：
+
+${contextSlice}
+
+═══ 主題指令 ═══
+${topic}
+
+═══ 嚴格規定（違反即為錯誤輸出）═══
+1. 每個數字、名稱、百分比必須與上方原始資料完全一致，禁止估算捏造
+2. 若資料有表格，對應投影片的 table_data 欄位必須填入完整表格結構
+3. 若原始資料某欄位標示「N/A」「*N/A*」或無數據，bullet_points/table_data 也必須寫 N/A
+4. 投影片張數根據資料量自動調整，必須覆蓋所有重要段落`
         : `主題指令：${topic}${contextSlice ? '\n\n參考資料：' + contextSlice : ''}`;
 
     let lastErr = null;
@@ -2399,6 +2419,12 @@ async function generateSlideHTML(slideData, theme, imageB64) {
 
 【投影片資料】
 ${JSON.stringify(slideData)}
+${slideData.table_data ? `
+【★ 此投影片含有表格資料，必須在 SVG 的 foreignObject 中渲染為 HTML <table> ★】
+表格標頭: ${JSON.stringify(slideData.table_data.headers)}
+表格列數: ${slideData.table_data.rows.length}
+請在文字卡片中以 <table> 元素呈現完整表格，所有數據必須與 table_data 完全一致，
+禁止用 bullet_points 替代表格，禁止省略任何列或欄。` : ''}
 
 【圖片】${imgInstruction}
 【Logo】${logoInstruction || '無 Logo。'}
@@ -3490,6 +3516,64 @@ function runsToPptxText(runs, fontSize, baseBold, baseItalic) {
  * Handles: .dg groups with foreignObject, inline SVG <text> elements,
  *   .rb being itself contenteditable, nested bold/italic spans.
  */
+/**
+ * Extract HTML tables from a slide's SVG foreignObject containers.
+ * Returns array of { pptX, pptY, pptW, pptH, headers, rows } objects.
+ */
+function extractSlideTables(slideHtml) {
+    const tables = [];
+    try {
+        const parser = new DOMParser();
+        const doc    = parser.parseFromString(slideHtml, 'text/html');
+        const svgEl  = doc.getElementById('slide-svg') || doc.querySelector('svg');
+        if (!svgEl) return tables;
+
+        function parseTx(el) {
+            const m = (el.getAttribute('transform') || '').match(/translate\(\s*([\d.+\-]+)\s*[, ]\s*([\d.+\-]+)\s*\)/);
+            return m ? [parseFloat(m[1])||0, parseFloat(m[2])||0] : [0,0];
+        }
+
+        svgEl.querySelectorAll('g.dg').forEach(g => {
+            const fo = g.querySelector('foreignObject');
+            if (!fo) return;
+
+            // Look for <table> anywhere inside the foreignObject
+            const tableEl = fo.querySelector('table');
+            if (!tableEl) return;
+
+            const [tx, ty] = parseTx(g);
+            const foW = parseFloat(fo.getAttribute('width')  || 1700);
+            const foH = parseFloat(fo.getAttribute('height') || 600);
+
+            const pptX = Math.max(0, (tx  / 1920) * 10);
+            const pptY = Math.max(0, (ty  / 1080) * 5.625);
+            const pptW = Math.min((foW / 1920) * 10, 10 - pptX);
+            const pptH = Math.min((foH / 1080) * 5.625, 5.625 - pptY);
+
+            // Extract header row and data rows
+            const allRows = [];
+            tableEl.querySelectorAll('tr').forEach(tr => {
+                const cells = [];
+                tr.querySelectorAll('th, td').forEach(cell => {
+                    cells.push(cell.textContent.trim().replace(/\s+/g, ' ') || '');
+                });
+                if (cells.some(t => t.length > 0)) allRows.push(cells);
+            });
+
+            if (allRows.length === 0) return;
+
+            // First row = headers, rest = data rows
+            const headers = allRows[0] || [];
+            const rows    = allRows.slice(1);
+
+            tables.push({ pptX, pptY, pptW, pptH, headers, rows });
+        });
+    } catch(e) {
+        console.warn('extractSlideTables error:', e);
+    }
+    return tables;
+}
+
 function extractSlideTextBoxes(slideHtml) {
     const boxes = [];
     try {
@@ -3810,6 +3894,80 @@ async function downloadEditablePptx() {
                 fill: { color:'FFFFFF', transparency:100 },
                 line: { color:'FFFFFF', transparency:100 },
             });
+
+            // ══════ TABLE (from slideData.table_data JSON or HTML extraction) ══
+            const tblData = sd.table_data;
+            // Source 1: JSON schema table_data (highest fidelity)
+            // Source 2: HTML table extraction fallback
+            let tableSpecs = [];
+            if (tblData && tblData.headers && tblData.rows) {
+                // Place table below title, spanning most of slide
+                const hasImg = !!s.imageB64 && layout === 'text_and_image';
+                const tW = hasImg ? 4.55 : 9.28;
+                tableSpecs.push({
+                    pptX: 0.36, pptY: 1.0, pptW: tW,
+                    pptH: Math.min(4.3, (tblData.rows.length + 1) * 0.42 + 0.1),
+                    headers: tblData.headers,
+                    rows: tblData.rows
+                });
+            } else if (s.html) {
+                // Fallback: extract tables from generated HTML
+                try { tableSpecs = extractSlideTables(s.html); } catch(e) {}
+            }
+
+            for (const tbl of tableSpecs) {
+                if (!tbl.headers || !tbl.headers.length) continue;
+                const colW = tbl.pptW / tbl.headers.length;
+
+                // Build PptxGenJS table rows
+                const pptxTableRows = [];
+
+                // Header row
+                pptxTableRows.push(tbl.headers.map(h => ({
+                    text: h,
+                    options: {
+                        bold: true,
+                        color: 'FFFFFF',
+                        fill: { color: accentHex },
+                        align: 'center',
+                        valign: 'middle',
+                        fontSize: 11,
+                        fontFace: 'Arial',
+                    }
+                })));
+
+                // Data rows (alternating shading)
+                tbl.rows.forEach((row, ri) => {
+                    const paddedRow = [...row];
+                    // Pad short rows to match header count
+                    while (paddedRow.length < tbl.headers.length) paddedRow.push('');
+                    pptxTableRows.push(paddedRow.map(cell => ({
+                        text: String(cell),
+                        options: {
+                            bold: false,
+                            color: 'E2E8F0',
+                            fill: { color: ri % 2 === 0 ? '1E293B' : '0F172A' },
+                            align: 'center',
+                            valign: 'middle',
+                            fontSize: 10,
+                            fontFace: 'Arial',
+                        }
+                    })));
+                });
+
+                try {
+                    slide.addTable(pptxTableRows, {
+                        x: tbl.pptX, y: tbl.pptY,
+                        w: tbl.pptW, h: tbl.pptH,
+                        colW: Array(tbl.headers.length).fill(colW),
+                        border: { type: 'solid', color: '334155', pt: 0.5 },
+                        autoPage: false,
+                    });
+                    addLog('  → 已插入 ' + tbl.headers.length + ' 欄 × ' + (tbl.rows.length + 1) + ' 列表格', 'success');
+                } catch(tableErr) {
+                    addLog('⚠ 表格插入失敗: ' + tableErr.message, 'warning');
+                }
+            }
 
             // ══════ LOGO ════════════════════════════════════════════════
             if (AppState.logoBase64) {
