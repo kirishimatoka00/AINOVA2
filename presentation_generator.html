@@ -3640,6 +3640,15 @@ function extractSlideTextBoxes(slideHtml) {
     return boxes;
 }
 
+// ───────────────────────────────────────────────────────────────────
+// EDITABLE PPTX GENERATOR v3
+// Strategy:
+//   Background = flat theme color (no screenshots → no baked-in text)
+//   Text       = from slideData JSON (always accurate, no HTML parsing)
+//   Images     = from s.imageB64 (proper picture objects)
+//   Diagrams   = description text box (diagrams are complex SVG; 
+//                a text summary is always editable)
+// ───────────────────────────────────────────────────────────────────
 async function downloadEditablePptx() {
     if (!AppState.generatedSlides.length) { showToast('❌ 尚未生成投影片'); return; }
 
@@ -3652,192 +3661,174 @@ async function downloadEditablePptx() {
         const pres = new PptxGenJS();
         pres.layout = 'LAYOUT_16x9';
 
-        const templateKey = document.getElementById('sel-template').value;
-        const theme = resolveActiveTheme();
-        const accentHex = (theme.accent.match(/#([0-9a-fA-F]{6})/)?.[1] || '818cf8');
-        const bgHex     = AppState.bgTemplateBase64 ? 'FFFFFF' : (theme.bg.match(/#([0-9a-fA-F]{6})/)?.[1] || '0f172a').toUpperCase();
-        const logoPos    = document.getElementById('sel-logo-pos').value;
-        const logoPosMap = { TR:[8.5,0.2], BR:[8.5,5.0], TL:[0.2,0.2], BL:[0.2,5.0] };
-        const [lx, ly]   = logoPosMap[logoPos] || [8.5, 0.2];
+        const theme     = resolveActiveTheme();
+        const accentHex = ((theme.accent || '#818cf8').replace(/^#/,'').slice(0,6).toUpperCase()) || '818CF8';
+        const bgHex     = AppState.bgTemplateBase64
+            ? '0F172A'
+            : (((theme.bg || '#0f172a').replace(/^#/,'').slice(0,6).toUpperCase()) || '0F172A');
+
+        const logoPos    = document.getElementById('sel-logo-pos')?.value || 'TR';
+        const logoPosMap = { TR:[8.5,0.1], BR:[8.5,5.0], TL:[0.2,0.1], BL:[0.2,5.0] };
+        const [lx, ly]   = logoPosMap[logoPos] || [8.5, 0.1];
 
         for (const s of AppState.generatedSlides) {
-            const sd    = s.slideData || {};
-            const slide = pres.addSlide();
-            addLog(`📝 解析第 ${s.slideNumber} 頁文字方塊...`, 'info');
+            const sd     = s.slideData || {};
+            const slide  = pres.addSlide();
+            const layout = sd.layout || 'text_only';
+            const title   = (sd.title || '').trim();
+            const bullets = (sd.bullet_points || []).map(b =>
+                (typeof b === 'string' ? b : (b.text || b.content || String(b))).trim()
+            ).filter(Boolean);
+            const subtitle = (sd.subtitle || '').trim();
 
-            // ── Pure-image mode slide: screenshot bg + text boxes from slideData ──
-            if (s.isPureImage) {
-                // Check if we have the full composite HTML (current session slide, not history wrapper)
-                const hasFullHtml = s.html && (s.html.includes('class="dg"') || s.html.includes('slide-svg'));
+            addLog('📝 第 ' + s.slideNumber + ' 頁 (' + layout + ')...', 'info');
 
-                // Background: render slide WITHOUT text if possible, else use screenshot
-                let bgImg = s.screenshotB64;
-                if (hasFullHtml) {
-                    addLog(`  🖼 渲染無文字背景圖（防止可編輯文字重疊）...`, 'info');
-                    const bgOnly = await captureSlideBackgroundOnly(s.html);
-                    if (bgOnly) bgImg = bgOnly;
-                }
-
-                slide.addImage({ data: bgImg, x:0, y:0, w:10, h:5.625 });
-
-                // Overlay editable text boxes from slideData
-                // Only when we have a text-free background (hasFullHtml=true means bg was rendered without text)
-                // For history slides (hasFullHtml=false), screenshot already contains all text — skip boxes
-                const titleText  = sd.title || '';
-                const bullets    = sd.bullet_points || [];
-
-                if (hasFullHtml) {
-                // Title box
-                if (titleText) {
-                    slide.addShape('rect', { x:0.4, y:0.15, w:9.2, h:0.8,
-                        fill:{ color:'000000', transparency:55 }, rectRadius:0.06 });
-                    slide.addText(titleText, {
-                        x:0.4, y:0.15, w:9.2, h:0.8,
-                        fontSize:28, bold:true, color:'FFFFFF', fontFace:'Arial',
-                        valign:'middle', align:'left', inset:0.15, wrap:true
-                    });
-                }
-                // Bullet text boxes
-                if (bullets.length) {
-                    const bY = 1.1, bH = (5.625 - 1.1 - 0.3) / Math.max(bullets.length, 1);
-                    bullets.forEach((bp, bi) => {
-                        const txt = typeof bp === 'string' ? bp : (bp.text || bp.content || String(bp));
-                        slide.addShape('rect', { x:0.4, y:bY + bi*bH, w:9.2, h:bH - 0.06,
-                            fill:{ color:'000000', transparency:65 }, rectRadius:0.05 });
-                        slide.addText(`• ${txt}`, {
-                            x:0.4, y:bY + bi*bH, w:9.2, h:bH - 0.06,
-                            fontSize:14, color:'F8FAFC', fontFace:'Arial',
-                            valign:'middle', align:'left', inset:0.12, wrap:true
-                        });
-                    });
-                }
-                } // end hasFullHtml
-
-                // Page number + logo (same as HTML mode)
-                slide.addText(`${s.slideNumber}`, {
-                    x:9.2, y:5.3, w:0.6, h:0.25,
-                    fontSize:10, color:accentHex, align:'right', fontFace:'Arial'
-                });
-                if (AppState.logoBase64) {
-                    slide.addImage({ data:AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
-                        sizing:{ type:'contain', w:1.0, h:0.5 } });
-                }
-                continue;   // ← skip HTML text-box extraction for pure-image slides
-            }
-
-            // ── HTML/CSS mode slides ──────────────────────────────────
+            // ══════ BACKGROUND ══════════════════════════════════════════
+            // Strategy: always try decoration-only render; fall back to flat color.
+            // NEVER use a full slide screenshot (would bake in text).
             if (AppState.bgTemplateBase64) {
                 slide.addImage({ data: AppState.bgTemplateBase64, x:0, y:0, w:10, h:5.625 });
             } else {
-                // captureSlideBackgroundOnly() returns null on failure (never falls back to
-                // raw screenshot) so we safely use flat fill when stripping fails.
-                addLog(`  🖼 渲染裝飾背景（不含文字）...`, 'info');
-                let bgOnly = null;
-                try { bgOnly = await captureSlideBackgroundOnly(s.html); } catch(e) {}
-
-                if (bgOnly) {
-                    slide.addImage({ data: bgOnly, x:0, y:0, w:10, h:5.625 });
+                let bgShot = null;
+                if (s.html) {
+                    try { bgShot = await captureSlideBackgroundOnly(s.html); } catch(e) {}
+                }
+                if (bgShot) {
+                    slide.addImage({ data: bgShot, x:0, y:0, w:10, h:5.625 });
                 } else {
-                    // Flat colour — guaranteed to have no text baked in
-                    slide.addShape('rect', { x:0, y:0, w:10, h:5.625, fill:{ color: bgHex } });
+                    slide.addShape('rect', { x:0, y:0, w:10, h:5.625,
+                        fill: { color: bgHex }, line: { color: bgHex } });
                 }
             }
 
-            // ── Extract text boxes from HTML DOM ─────────────────────
-            const textBoxes = extractSlideTextBoxes(s.html);
-            addLog(`  → 找到 ${textBoxes.length} 個可編輯文字方塊`, 'success');
-
-            for (const box of textBoxes) {
-                if (!box.runs || !box.runs.length) continue;
-
-                // ── Build PptxGenJS run array ────────────────────────────────────
-                // PptxGenJS run format: { text, options: { color, fontSize, ... } }
-                // Line breaks: use a dedicated run with options.breakLine = true
-                // Color: must be 6-char hex WITHOUT '#'
-                const pptxRuns = [];
-                for (const r of box.runs) {
-                    const raw = (r.color || accentHex || 'FFFFFF').replace('#','').toUpperCase();
-                    const hex6 = /^[0-9A-F]{6}$/.test(raw) ? raw : 'FFFFFF';
-                    if (r.text === '\n') {
-                        pptxRuns.push({ text: '\r', options: { breakLine: true, color: hex6, fontSize: box.pptFs, fontFace: 'Arial' } });
-                    } else {
-                        pptxRuns.push({ text: r.text || ' ', options: { color: hex6, fontSize: box.pptFs, fontFace: 'Arial' } });
-                    }
+            // ══════ HELPERS ══════════════════════════════════════════════
+            const safeAddText = (text, opts) => {
+                if (!text || !text.trim()) return;
+                try { slide.addText(text, opts); } catch(e) {
+                    console.warn('addText err:', e.message);
                 }
-                if (!pptxRuns.length) continue;
+            };
 
-                // ── Semi-transparent background shape (drawn BEFORE text box) ────
-                if (box.bgHex) {
-                    const bg6 = box.bgHex.replace('#','').toUpperCase();
-                    slide.addShape('rect', {
-                        x: box.pptX, y: box.pptY, w: box.pptW, h: box.pptH,
-                        fill: { color: bg6, transparency: 15 },
-                        line: { color: bg6, transparency: 100, width: 0 },
-                    });
-                }
+            const addBox = (text, x, y, w, h, opts) => {
+                if (!text || !text.trim()) return;
+                opts = opts || {};
+                slide.addShape('rect', {
+                    x, y, w, h,
+                    fill: { color: opts.boxColor || '000000', transparency: opts.bgAlpha !== undefined ? opts.bgAlpha : 45 },
+                    line: { color: opts.boxColor || '000000', transparency: 100 },
+                    rectRadius: opts.radius || 0,
+                });
+                safeAddText(text, {
+                    x, y, w, h,
+                    fontSize:  opts.fontSize || 16,
+                    bold:      opts.bold || false,
+                    color:     opts.color || 'FFFFFF',
+                    fontFace:  'Arial',
+                    valign:    opts.valign || 'middle',
+                    align:     opts.align  || 'left',
+                    wrap:      true,
+                    inset:     opts.inset  || 0.12,
+                    fill:      { color: 'FFFFFF', transparency: 100 },
+                    line:      { color: 'FFFFFF', transparency: 100 },
+                });
+            };
 
-                // ── ★ Editable text box ──────────────────────────────────────────
-                // PptxGenJS addText() always creates an editable TextBox in PPTX.
-                // Valid options reference: https://gitbrent.github.io/PptxGenJS/docs/api-textboxes
-                slide.addText(pptxRuns, {
-                    x:       box.pptX,
-                    y:       box.pptY,
-                    w:       box.pptW,
-                    h:       box.pptH,
-                    valign:  'top',
-                    align:   'left',
-                    wrap:    true,
-                    inset:   0.08,
-                    // Transparent fill + no border so background shape shows through
-                    fill:    { color: 'FFFFFF', transparency: 100 },
-                    line:    { color: 'FFFFFF', transparency: 100, width: 0 },
-                    fontFace: 'Arial',
+            // ══════ TITLE (every layout) ═════════════════════════════════
+            if (title) {
+                const titleFs = layout === 'title_only' ? 34 : 24;
+                addBox(title, 0.36, 0.12, 9.28, 0.78, {
+                    fontSize: titleFs, bold: true, color: 'FFFFFF',
+                    boxColor: '000000', bgAlpha: 55, radius: 0.05, valign: 'middle'
                 });
             }
 
-            // ── Images (picture objects, not screenshots) ─────────────
-            if (s.imageB64) {
-                const imgSrc = s.imageB64;
-                // Use 4.7×4.0 area on right side; sizing:contain preserves aspect ratio
-                const imgOpts = { x:5.1, y:0.85, w:4.7, h:4.0, sizing:{ type:'contain', w:4.7, h:4.0 } };
-                try {
-                    if (imgSrc.startsWith('data:')) slide.addImage({ data: imgSrc, ...imgOpts });
-                    else if (imgSrc.startsWith('http')) slide.addImage({ path: imgSrc, ...imgOpts });
-                } catch(e) { addLog(`⚠ 圖片物件插入失敗: ${e.message}`, 'warning'); }
+            // ══════ SUBTITLE (title_only) ════════════════════════════════
+            if (layout === 'title_only' && subtitle) {
+                addBox(subtitle, 1.0, 1.1, 8.0, 0.6, {
+                    fontSize: 20, bold: false, color: 'E2E8F0',
+                    boxColor: '000000', bgAlpha: 65, radius: 0.04, valign: 'middle', align: 'center'
+                });
             }
 
-            // ── Diagram slides: add screenshot as picture object ──────
-            if (sd.layout === 'diagram_slide') {
-                addLog(`📸 截圖流程圖頁 ${s.slideNumber}...`, 'info');
-                const diagImg = await slideHTMLToBase64(s.html, s.slideNumber);
-                if (diagImg) {
-                    // Place diagram screenshot as a selectable picture (behind text boxes)
-                    slide.addImage({ data: diagImg, x:0, y:0, w:10, h:5.625 });
+            // ══════ BULLET POINTS ════════════════════════════════════════
+            if (bullets.length > 0) {
+                const hasImg = !!s.imageB64 && layout === 'text_and_image';
+                const textW  = hasImg ? 4.55 : 9.28;
+                const bStartY = 1.05;
+                const bAreaH  = 4.35;
+                const bH      = Math.min(bAreaH / bullets.length, 1.05);
+                const bFontSz = bH > 0.58 ? 15 : bH > 0.44 ? 13 : 11;
+
+                bullets.forEach((bp, bi) => {
+                    const bY = bStartY + bi * bH;
+                    if (bY + bH > 5.5) return;
+                    addBox('▸  ' + bp, 0.36, bY, textW, bH - 0.04, {
+                        fontSize: bFontSz, bold: false, color: 'F1F5F9',
+                        boxColor: '000000', bgAlpha: 62, radius: 0.04,
+                        valign: 'middle', align: 'left', inset: 0.15
+                    });
+                });
+            }
+
+            // ══════ DIAGRAM DESCRIPTION ══════════════════════════════════
+            if (layout === 'diagram_slide') {
+                // Place the rendered diagram visuals (no text) as background image
+                if (s.html) {
+                    try {
+                        const diagBg = await captureSlideBackgroundOnly(s.html);
+                        if (diagBg) slide.addImage({ data: diagBg, x:0, y:0, w:10, h:5.625 });
+                    } catch(e) {}
+                }
+                const diagDesc = (sd.diagram_description || subtitle || '').trim();
+                if (diagDesc) {
+                    addBox(diagDesc, 0.36, 4.6, 9.28, 0.78, {
+                        fontSize: 11, bold: false, color: 'CBD5E1',
+                        boxColor: '000000', bgAlpha: 60, radius: 0.04, valign: 'middle'
+                    });
                 }
             }
 
-            // ── Page number ──────────────────────────────────────────
-            slide.addText(`${s.slideNumber}`, {
-                x:9.2, y:5.3, w:0.6, h:0.25,
-                fontSize:10, color:accentHex, align:'right', fontFace:'Arial'
+            // ══════ IMAGE (text_and_image only) ══════════════════════════
+            if (s.imageB64 && layout === 'text_and_image') {
+                const src = s.imageB64;
+                try {
+                    if (src.startsWith('data:')) {
+                        slide.addImage({ data: src, x:5.1, y:0.9, w:4.6, h:3.95,
+                            sizing: { type: 'contain', w:4.6, h:3.95 } });
+                    } else if (/^https?:/.test(src)) {
+                        slide.addImage({ path: src, x:5.1, y:0.9, w:4.6, h:3.95,
+                            sizing: { type: 'contain', w:4.6, h:3.95 } });
+                    }
+                } catch(e) { addLog('⚠ 圖片插入失敗: ' + e.message, 'warning'); }
+            }
+
+            // ══════ PAGE NUMBER ══════════════════════════════════════════
+            safeAddText(String(s.slideNumber), {
+                x:9.2, y:5.32, w:0.6, h:0.22,
+                fontSize:9, color: accentHex,
+                align:'right', fontFace:'Arial',
+                fill: { color:'FFFFFF', transparency:100 },
+                line: { color:'FFFFFF', transparency:100 },
             });
 
-            // ── Logo ─────────────────────────────────────────────────
+            // ══════ LOGO ════════════════════════════════════════════════
             if (AppState.logoBase64) {
-                slide.addImage({ data: AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
-                    sizing:{ type:'contain', w:1.0, h:0.5 } });
+                try {
+                    slide.addImage({ data: AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
+                        sizing: { type:'contain', w:1.0, h:0.5 } });
+                } catch(e) {}
             }
         }
 
-        const fileName = (AppState.presentationData?.presentation_title || 'Editable_Presentation')
-            .replace(/[^\w\u4e00-\u9fa5\s-]/g,'').replace(/\s+/g,'_').slice(0,60) + '_可編輯.pptx';
-
+        const rawTitle = (AppState.presentationData && AppState.presentationData.presentation_title) || '簡報';
+        const fileName = rawTitle.replace(/[^\w\u4e00-\u9fa5\s\-]/g,'').replace(/\s+/g,'_').slice(0,60) + '_可編輯.pptx';
         await pres.writeFile({ fileName });
-        showToast(`✅ 可編輯 PPTX「${fileName}」已下載`);
+        addLog('✅ 可編輯 PPTX「' + fileName + '」下載完成', 'success');
+        showToast('✅ 可編輯 PPTX 已下載');
 
     } catch(e) {
         showToast('❌ 可編輯 PPTX 生成失敗: ' + e.message);
-        console.error(e);
+        console.error('downloadEditablePptx error:', e);
     } finally {
         groupBtn.innerHTML = origHTML;
         groupBtn.style.pointerEvents = '';
@@ -5437,12 +5428,17 @@ async function startGeneration() {
         if (srcCount > 0) addLog(`✓ 已整合 ${srcCount} 個資料來源（${context.length.toLocaleString()} 字元）`, 'success');
         setProgress(8);
 
-        // ── Google Grounding research (if enabled) ────────────────────
+        // ── Google Grounding research (if enabled and no uploads) ─────
         let groundingContext = '';
-        try {
-            groundingContext = await researchTopicWithGrounding(topic, AppState.abortController.signal);
-        } catch(e) {
-            if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
+        const hasUploads = AppState.attachedSources.filter(s => s.content).length > 0;
+        if (!hasUploads) {
+            try {
+                groundingContext = await researchTopicWithGrounding(topic, AppState.abortController.signal);
+            } catch(e) {
+                if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
+            }
+        } else {
+            addLog('📎 偵測到上傳資料，跳過網路搜尋以確保內容保真度', 'info');
         }
         setProgress(13);
 
