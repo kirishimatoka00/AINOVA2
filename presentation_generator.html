@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI HTML 簡報生成器 v26 · NOVA 120 Pro</title>
+    <title>AI HTML 簡報生成器 v28 · NOVA 120 Pro</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -68,7 +68,7 @@
                 <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
             </a>
             <div class="w-px h-5 bg-slate-700"></div>
-            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v26 Pro</h1>
+            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v28 Pro</h1>
         </div>
         <div class="flex items-center gap-2">
             <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
@@ -968,7 +968,7 @@ async function generateSlideBackgroundImage(slideData, theme, bgModel, signal) {
 }
 
 // ─── Pure Image PPT: Layout LLM composes text over background ─────
-async function compositeSlideWithLayoutLLM(slideData, backgroundB64, contentImgB64, theme, layoutModel, apiKey, signal) {
+async function compositeSlideWithLayoutLLM(slideData, backgroundB64, contentImgB64, theme, layoutModel, apiKey, signal, isUploadedTemplate = false) {
     const hasBg      = !!backgroundB64;
     const hasContent = !!contentImgB64;
 
@@ -979,7 +979,7 @@ async function compositeSlideWithLayoutLLM(slideData, backgroundB64, contentImgB
 Slide data: ${JSON.stringify(slideData)}
 Theme: ${theme.label || 'modern'}, bg: ${theme.bg}, accent: ${theme.accent}, text: ${theme.text || '#f8fafc'}
 Background layer: ${hasBg
-    ? '<img src="REPLACE_BG_SRC" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"> as full background.'
+    ? `<img src="REPLACE_BG_SRC" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;"> as full background.${isUploadedTemplate ? '\n⚠ CRITICAL: This is a user-uploaded PPT template. Do NOT add any CSS background color, gradient, or SVG background shapes — the template image IS the background. Only overlay text and content images (z-index:2+) on top of it.' : ''}`
     : `CSS: background:${theme.bg};`}
 ${hasContent
     ? `Content image: <img src="REPLACE_CONTENT_SRC" style="position:absolute;right:60px;top:160px;width:820px;height:680px;object-fit:cover;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:2;"> Place it on the RIGHT side, text on the LEFT.`
@@ -1124,22 +1124,28 @@ async function startPureImageGeneration() {
                 addLog(`  ⚠ 內容圖片: ${e.message}`, 'warning');
             }
 
-            // Step 1: Background LLM → generates visual background image
+            // Step 1: Background — use uploaded template if available, else call LLM
             let bgB64 = null;
-            try {
-                addLog(`  🎨 背景 LLM（${bgGenModel}）生成背景圖...`, 'ai');
-                bgB64 = await generateSlideBackgroundImage(sData, theme, bgGenModel, signal);
-                if (bgB64) addLog(`  ✓ 背景圖生成完成`, 'success');
-            } catch(e) {
-                if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
-                addLog(`  ⚠ 背景生成失敗 (${e.message})，使用主題漸層代替`, 'warning');
+            if (AppState.bgTemplateBase64) {
+                // User uploaded a PPT background template — use it directly, skip LLM generation
+                bgB64 = AppState.bgTemplateBase64;
+                addLog(`  🖼 使用上傳底稿（跳過背景 LLM）`, 'info');
+            } else {
+                try {
+                    addLog(`  🎨 背景 LLM（${bgGenModel}）生成背景圖...`, 'ai');
+                    bgB64 = await generateSlideBackgroundImage(sData, theme, bgGenModel, signal);
+                    if (bgB64) addLog(`  ✓ 背景圖生成完成`, 'success');
+                } catch(e) {
+                    if (e.name === 'AbortError' || e.message === 'CanceledByUser') throw new Error('CanceledByUser');
+                    addLog(`  ⚠ 背景生成失敗 (${e.message})，使用主題漸層代替`, 'warning');
+                }
             }
 
             // Step 2: Layout LLM → composites text over background
             let html = '';
             try {
                 addLog(`  📐 排版 LLM（${layoutModel}）合成排版...`, 'ai');
-                html = await compositeSlideWithLayoutLLM(sData, bgB64, contentImgB64, theme, layoutModel, apiKey, signal);
+                html = await compositeSlideWithLayoutLLM(sData, bgB64, contentImgB64, theme, layoutModel, apiKey, signal, !!AppState.bgTemplateBase64);
                 addLog(`  ✓ 排版完成`, 'success');
             } catch(e) {
                 if (e.message === 'CanceledByUser') throw e;
@@ -2394,7 +2400,7 @@ async function generateSlideHTML(slideData, theme, imageB64) {
         BL: 'left:40px;  bottom:30px;'
     };
     const logoInstruction = AppState.logoBase64
-        ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 外層（body 內）用 <img id="slide-logo" src="REPLACE_LOGO_SRC" style="position:fixed;${logoPosMap[logoPos]}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;"> 放置 Logo。`
+        ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 外層（body 內）用 <img id="slide-logo" src="REPLACE_LOGO_SRC" style="position:absolute;${logoPosMap[logoPos]}height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;"> 放置 Logo。`
         : '';
 
     // Background: use uploaded template or theme
@@ -2437,24 +2443,25 @@ ${slideData.table_data ? `
 ▓▓▓ 三區域佈局系統（MANDATORY ZONE SYSTEM）▓▓▓
 每張投影片畫布 1920×1080px，嚴格分3個不重疊區域，所有元素必須落在對應區域內：
 
-  【ZONE 1 — 標題區 (Title Zone)】  y = 0 ~ 160px
-    · 唯一一個標題 .dg：translate(70,40)，width=1780，height=140
-    · 標準版面 font-size: 46~52px；title_only 版面 font-size: 68~84px
+  【ZONE 1 — 標題區 (Title Zone)】  y = 0 ~ 150px
+    · 唯一一個標題 .dg：translate(70,28)，width=1780，height=130
+    · 標準版面 font-size: 44~50px；title_only 版面 font-size: 64~80px
     · ⛔ 禁止在此區放圖片、要點、圖表
 
-  【ZONE 2 — 主內容區 (Content Zone)】  y = 180px ~ 960px（高度=780px）
+  【ZONE 2 — 主內容區 (Content Zone)】  y = 160px ~ 1010px（高度=850px）
     根據 layout 類型分配：
-    · text_and_image：文字左欄 x=70 w=860，圖片右欄 x=990 w=860
-    · text_only：單欄 x=70 w=1780，最多4個要點卡（每卡高度≤165px）
-    · diagram_slide：圖表容器 x=70 y=180 w=1780 h=760
-    · title_only：裝飾/副標置中，y=220~860 自由設計
+    · text_and_image：文字左欄 x=70 w=860，圖片右欄 x=990 w=860，y 從 160 開始
+    · text_only：單欄 x=70 w=1780，最多5個要點卡（每卡高度≤160px）
+    · diagram_slide：圖表容器 x=70 y=160 w=1780 h=840
+    · title_only：裝飾/副標置中，y=180~1000 自由設計
 
-  【ZONE 3 — 頁腳區 (Footer Zone, 選用)】  y = 970 ~ 1060px
-    · 頁碼、品牌名等，y ≥ 970，height ≤ 90px
+  【ZONE 3 — 頁腳區 (Footer Zone, 選用)】  y = 1020 ~ 1070px
+    · 頁碼、品牌名等，y ≥ 1020，height ≤ 50px
 
-⚠ 安全邊界硬性限制：translate(X,Y) 中 X+width ≤ 1870，Y+height ≤ 1060
+⚠ 安全邊界硬性限制：translate(X,Y) 中 X+width ≤ 1870，Y+height ≤ 1020（嚴格！）
 ⚠ 所有 .rb div 必須設：overflow:hidden; box-sizing:border-box; word-wrap:break-word
 ⚠ 文字超過卡片高度時：縮小 font-size（每增加2個要點縮小2px），禁止撐大容器
+⚠ 所有內容的最底部座標 (translate Y + height) 不得超過 1020px，這是硬性限制
 
 A. 【文字架構】 — 所有文字（標題、副標、要點、流程圖標籤、圖表說明、數字）
    ★ 禁止使用 SVG <text> 元素放置任何內容文字
@@ -2509,7 +2516,8 @@ E. 【圖片拖曳模板】：
 
 F. 【技術規範】
    1. 完整 HTML，從 <!DOCTYPE html> 到 </html>
-   2. body：width:1920px; height:1080px; overflow:hidden; margin:0; padding:0
+   2. body：width:1920px; height:1080px; overflow:hidden; margin:0; padding:0; position:relative;
+      SVG 元素：必須加上 overflow="hidden" viewBox="0 0 1920 1080" 屬性，確保所有內容被裁切在畫布內
    3. 字體棧："Segoe UI","PingFang SC","Microsoft YaHei",sans-serif
    4. 禁止引用任何外部 CSS/JS 資源
    5. :root 定義 CSS 色彩變數 --c1~--c4 及對應 --c1-rgb 等
@@ -2567,13 +2575,13 @@ ${(()=>{
       const fontSize = bulletCount <= 3 ? 20  : bulletCount <= 4 ? 17  : 14;
       let bulletLayout = '';
       for (let bi = 0; bi < Math.min(bulletCount || 3, 6); bi++) {
-        const yPos = 200 + bi * (cardH + cardGap);
+        const yPos = 162 + bi * (cardH + cardGap);
         bulletLayout += `
       要點${bi+1}：translate(70,${yPos})，width:1780，height:${cardH}，font-size:${fontSize}px`;
       }
       return `  ★ text_and_image【無圖全版文字模式】— 本頁沒有圖片，請將文字佈滿整張投影片：
 
-    【ZONE 1 標題】translate(70,40)，width=1780，height=140，font-size:48px，bold
+    【ZONE 1 標題】translate(70,28)，width=1780，height=130，font-size:46px，bold
 
     【ZONE 2 要點卡（全寬，每張獨立 .dg）】${bulletLayout}
       · 每卡 width 固定 1780（從 x=70 到 x=1850），禁止縮窄為 880 或留空白
@@ -2587,23 +2595,25 @@ ${(()=>{
     ? `  ★ text_and_image（閱讀密度）— 三層獨立結構，從上到下依序：
 
     【第 1 層：全寬標題（必須橫跨整個投影片寬度 1920px）】
-    ⚠ 標題 .dg 的 width 必須是 1800（translate(60,30) width:1800），絕對不能是 880 或其他小值
-    height:130，font-size:38~44px，bold，禁止在此層放圖片
+    ⚠ 標題 .dg 的 width 必須是 1800（translate(60,25) width:1800），絕對不能是 880 或其他小值
+    height:125，font-size:36~42px，bold，禁止在此層放圖片
 
-    【第 2 層：主內容區（標題下方，y 從 190 開始）】
-    左側文字欄：translate(60,190)，width:1200（不得超過 1200）
-      - 要點1~8 各自獨立 .dg，font-size:15px，height:90~100px
+    【第 2 層：主內容區（標題下方，y 從 160 開始）】
+    左側文字欄：translate(60,160)，width:1200（不得超過 1200）
+      - 要點1~8 各自獨立 .dg，font-size:14px，height:85~100px
       - 文字嚴格在 width:1200 範圍內，超過換行不超出邊界
-    右側圖片：translate(1310,190)，width:570，height:830
-      - 使用 E 模板圖片；圖片必須在 Zone 2 右欄，不可超出 y=960
+      - ⚠ 所有要點卡的 translate Y + height 不得超過 1015px
+    右側圖片：translate(1310,160)，width:570，height:830
+      - 使用 E 模板圖片；圖片必須在 Zone 2 右欄，不可超出 y=1010
 
-    【第 3 層：裝飾/頁腳（選用，y > 960）】`
+    【第 3 層：裝飾/頁腳（選用，y > 1020）】`
     : `  ★ text_and_image（圖文並排，有圖片）：
-    【ZONE 1 標題】translate(70,40)，width:1780，height:140，font-size:48px，bold
-    【ZONE 2 左欄：文字】x=70，y=200~960
-      - 要點卡各自獨立 .dg，width:860，間距 16px
-      - 3 點：height:220px；4 點：height:160px；5+ 點：height:125px，font-size縮小
-    【ZONE 2 右欄：圖片】translate(990,200)，width:860，height:760（E 模板）
+    【ZONE 1 標題】translate(70,28)，width:1780，height:128，font-size:46px，bold
+    【ZONE 2 左欄：文字】x=70，y=165~1010
+      - 要點卡各自獨立 .dg，width:860，間距 14px
+      - 3 點：height:220px；4 點：height:190px；5+ 點：height:150px，font-size縮小
+      - ⚠ 最後一張卡的 translate Y + height 不得超過 1015px
+    【ZONE 2 右欄：圖片】translate(990,165)，width:860，height:840（E 模板）
       · preserveAspectRatio="xMidYMid slice"`;
   }
   if (L === 'diagram_slide') return `  ★ diagram_slide（流程圖/架構圖/圖表）：
@@ -2612,7 +2622,7 @@ ${(()=>{
     - 禁止使用 position:fixed 或讓 div 出現在 SVG 外部
     - 圖表（Chart.js/D3/Canvas）必須包在 <foreignObject> 內，foreignObject 有明確 width/height
 
-    【標題】translate(60,30)，width:1800，height:110，font-size:44px
+    【標題】translate(60,25)，width:1800，height:120，font-size:44px
 
     【佈局方案 A — 流程節點（適合流程/架構）】
     4節點水平排列，所有元素不超出 y=880：
@@ -2742,10 +2752,13 @@ ${dgWrap}`);
             if (AppState.logoBase64) {
                 const pos = logoPos;
                 const posStyle = logoPosMap[pos] || logoPosMap['TR'];
-                const logoTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posStyle}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
+                const logoTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:absolute;${posStyle}height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;pointer-events:none;">`;
+                // Always substitute placeholder; also force-inject if AI omitted logo entirely
                 if (html.includes('REPLACE_LOGO_SRC')) {
                     html = html.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
-                } else if (!html.includes('slide-logo')) {
+                }
+                // Re-check: if still no logo element (AI ignored instruction), inject before </body>
+                if (!html.includes('slide-logo')) {
                     html = html.replace('</body>', logoTag + '\n</body>');
                 }
             }
@@ -2982,6 +2995,10 @@ function renderSlidePreviewCard(slideData, html, index) {
                     class="text-slate-500 hover:text-amber-400 transition-colors p-1">
                     <i class="ph-bold ph-code text-base"></i>
                 </button>
+                <button onclick="openSlideEditModal(${index})" title="AI 修改/重生成此頁"
+                    class="text-slate-500 hover:text-violet-400 transition-colors p-1">
+                    <i class="ph-bold ph-magic-wand text-base"></i>
+                </button>
             </div>
         </div>
     `;
@@ -3183,7 +3200,7 @@ function buildLogoTag() {
     if (!AppState.logoBase64) return '';
     const pos = document.getElementById('sel-logo-pos')?.value || 'TR';
     const posStyles = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
-    return `<img id="slide-logo" src="${AppState.logoBase64}" style="position:fixed;${posStyles[pos]||posStyles.TR}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
+    return `<img id="slide-logo" src="${AppState.logoBase64}" style="position:absolute;${posStyles[pos]||posStyles.TR}height:60px;max-width:200px;object-fit:contain;z-index:999;opacity:0.9;pointer-events:none;">`;
 }
 
 function buildFallbackSlideHTML(slideData, theme) {
@@ -3420,6 +3437,76 @@ document.addEventListener('keydown', e=>{
   if(e.key==='f'||e.key==='F') toggleFullscreen();
 });
 <\/script>
+
+<!-- ── Single-Slide AI Edit Modal ──────────────────────────────── -->
+<div id="modal-slide-edit" class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[640px] max-w-[96vw] flex flex-col gap-0 overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+      <div class="flex items-center gap-3">
+        <i class="ph-bold ph-magic-wand text-violet-400 text-xl"></i>
+        <div>
+          <h2 class="text-white font-bold text-base" id="slide-edit-modal-title">AI 修改投影片</h2>
+          <p class="text-slate-400 text-xs" id="slide-edit-modal-subtitle">第 1 頁</p>
+        </div>
+      </div>
+      <button onclick="closeSlideEditModal()" class="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700 transition-all">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-slate-700 bg-slate-900/50">
+      <button id="tab-regen" onclick="switchEditTab('regen')"
+        class="flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-violet-500 text-violet-400">
+        <i class="ph-bold ph-arrows-clockwise mr-1.5"></i>完整重新生成
+      </button>
+      <button id="tab-modify" onclick="switchEditTab('modify')"
+        class="flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+        <i class="ph-bold ph-pencil-simple mr-1.5"></i>語意修改
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="px-6 py-5 flex flex-col gap-4">
+      <!-- Regen panel -->
+      <div id="panel-regen" class="flex flex-col gap-3">
+        <p class="text-slate-300 text-sm">根據投影片原始大綱資料，讓 AI 重新設計版面配置、視覺風格和內容排列。</p>
+        <div class="bg-slate-800 rounded-xl p-4 text-xs text-slate-400 font-mono leading-relaxed max-h-24 overflow-y-auto" id="regen-outline-preview"></div>
+      </div>
+
+      <!-- Modify panel -->
+      <div id="panel-modify" class="hidden flex-col gap-3">
+        <p class="text-slate-300 text-sm">輸入你想對這張投影片做的修改，AI 會依照指示調整現有內容。</p>
+        <div class="relative">
+          <textarea id="edit-instruction-input"
+            placeholder="例如：「把標題改成更有衝擊力的表達」「加入一個數據對比圖表」「改成深藍色系配色」「把要點縮短到3個」"
+            class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 resize-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-all"
+            rows="4"></textarea>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div id="slide-edit-status" class="hidden items-center gap-3 text-sm text-slate-300 bg-slate-800/60 rounded-xl px-4 py-3">
+        <div class="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin shrink-0"></div>
+        <span id="slide-edit-status-text">AI 生成中...</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-700 bg-slate-900/60">
+      <button onclick="closeSlideEditModal()" class="px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-700 transition-all">取消</button>
+      <button id="btn-run-slide-edit"
+        onclick="runSlideEdit()"
+        class="flex items-center gap-2 px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold shadow-lg transition-all">
+        <i class="ph-bold ph-magic-wand text-base"></i>
+        <span id="run-edit-label">重新生成</span>
+      </button>
+    </div>
+  </div>
+</div>
+<!-- ── End Single-Slide AI Edit Modal ─────────────────────────── -->
+
 </body>
 </html>`;
 
@@ -5304,13 +5391,25 @@ function detectOverlaps(html) {
 // generated HTML can never overflow the 1920×1080 canvas.
 // ═══════════════════════════════════════════════════════════════════
 function enforceLayoutSafety(html) {
+    // Strip img alt attributes to prevent alt text rendering as visible text on slide
+    html = html.replace(/ alt="[^"]*"/g, ' alt=""');
+    html = html.replace(/ alt='[^']*'/g, " alt=''");
     const safeCss = `<style id="layout-safety">
 /* ── Zone-level overflow guard ── */
-html, body {
+html { overflow: hidden !important; width: 1920px !important; height: 1080px !important; }
+body {
     overflow: hidden !important;
+    position: relative !important;        /* REQUIRED: makes absolute-positioned logo work */
     width: 1920px !important; height: 1080px !important;
     max-width: 1920px !important; max-height: 1080px !important;
     box-sizing: border-box !important;
+    /* Hard clip — nothing escapes the 1920×1080 canvas */
+    clip-path: inset(0 0 0 0) !important;
+}
+/* ── SVG root: must clip overflow (SVG default is visible!) ── */
+svg#slide-svg, svg:first-of-type {
+    overflow: hidden !important;
+    display: block !important;
 }
 /* ── All draggable / resizable boxes ── */
 .rb, g.dg > foreignObject > div {
@@ -5328,28 +5427,54 @@ html, body {
     white-space: normal !important;
     box-sizing: border-box !important;
 }
+/* ── Logo: always visible and correctly positioned ── */
+#slide-logo {
+    position: absolute !important;
+    z-index: 9999 !important;
+    object-fit: contain !important;
+    pointer-events: none !important;
+}
 /* ── Prevent inner images from stretching container ── */
 .rb img, g.dg > foreignObject > div img {
-    max-width: 100% !important;
-    max-height: 100% !important;
-    object-fit: contain !important;
+    max-width: 100% !important; max-height: 100% !important; object-fit: contain !important;
 }
-/* ── Prevent canvas/chart overflow ── */
 canvas { max-width: 100% !important; max-height: 100% !important; display: block; }
-/* ── Clip text that truly overflows ── */
-[contenteditable] {
-    overflow: hidden !important;
-    word-break: break-word !important;
-}
+[contenteditable] { overflow: hidden !important; word-break: break-word !important; }
 </style>`;
     try {
-        if (html.includes('<head>')) return html.replace('<head>', '<head>' + safeCss);
-        if (html.includes('<html>'))  return html.replace('<html>',  '<html>'  + safeCss);
+        // Inject safety CSS
+        let result = html;
+        if (result.includes('<head>')) result = result.replace('<head>', '<head>' + safeCss);
+        else if (result.includes('<html>')) result = result.replace('<html>', '<html>' + safeCss);
+
+        // Ensure body has position:relative (critical for logo positioning)
+        result = result.replace(
+            /(<body[^>]*style=["'])([^"']*)(["'])/,
+            (m, pre, style, post) => {
+                if (!style.includes('position:')) return pre + 'position:relative;' + style + post;
+                return m;
+            }
+        );
+
+        // Ensure SVG has overflow=hidden (SVG default is visible — this is the layout overflow root cause)
+        result = result.replace(
+            /(<svg[^>]*?)(overflow\s*=\s*["'][^"']*["'])?([^>]*?>)/g,
+            (m, pre, existingOverflow, rest) => {
+                if (existingOverflow) return m;
+                return pre + ' overflow="hidden"' + rest;
+            }
+        );
+
+        return result;
     } catch(e) {}
     return html;
 }
 
 function cleanSlideArtifacts(html) {
+    // ── Strip img alt= text (prevents "Abstract white background texture" from showing) ──
+    html = html.replace(/<img([^>]*?)\salt=["'][^"']*["']/g, '<img$1');
+    html = html.replace(/<img([^>]*?)\salt=["'][^"']*["']/g, '<img$1'); // run twice for edge cases
+
     try {
         const doc = new DOMParser().parseFromString(html, 'text/html');
         const walker = document.createTreeWalker(doc.body, NodeFilter.SHOW_TEXT);
@@ -5708,6 +5833,134 @@ async function startGeneration() {
         AppState.isGenerating = false;
         const stopBtn = document.getElementById('btn-stop');
         if (stopBtn) { stopBtn.classList.add('hidden'); stopBtn.querySelector('span').textContent = '停止生成'; }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+// SINGLE-SLIDE AI EDIT MODAL
+// ══════════════════════════════════════════════════════════════
+let _editSlideIndex = -1;
+let _editTab = 'regen';
+
+function openSlideEditModal(index) {
+    const s = AppState.generatedSlides[index];
+    if (!s) return;
+    _editSlideIndex = index;
+
+    const sd = s.slideData || {};
+    document.getElementById('slide-edit-modal-title').textContent = 'AI 修改 — ' + (sd.title || '第 ' + s.slideNumber + ' 頁');
+    document.getElementById('slide-edit-modal-subtitle').textContent = '第 ' + s.slideNumber + ' 頁 · ' + (sd.layout || '');
+
+    const outlineStr = JSON.stringify({ title: sd.title, subtitle: sd.subtitle, bullet_points: sd.bullet_points, layout: sd.layout }, null, 2);
+    document.getElementById('regen-outline-preview').textContent = outlineStr;
+
+    document.getElementById('edit-instruction-input').value = '';
+    document.getElementById('slide-edit-status').classList.add('hidden');
+    document.getElementById('slide-edit-status').classList.remove('flex');
+    document.getElementById('btn-run-slide-edit').disabled = false;
+    switchEditTab('regen');
+    document.getElementById('modal-slide-edit').classList.remove('hidden');
+}
+
+function closeSlideEditModal() {
+    document.getElementById('modal-slide-edit').classList.add('hidden');
+}
+
+function switchEditTab(tab) {
+    _editTab = tab;
+    const isRegen = tab === 'regen';
+    const panelR = document.getElementById('panel-regen');
+    const panelM = document.getElementById('panel-modify');
+    panelR.classList.toggle('hidden', !isRegen); panelR.classList.toggle('flex', isRegen);
+    panelM.classList.toggle('hidden', isRegen);  panelM.classList.toggle('flex', !isRegen);
+    const activeClass = 'flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-violet-500 text-violet-400';
+    const idleClass   = 'flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-transparent text-slate-400 hover:text-slate-200';
+    document.getElementById('tab-regen').className  = isRegen  ? activeClass : idleClass;
+    document.getElementById('tab-modify').className = !isRegen ? activeClass : idleClass;
+    document.getElementById('run-edit-label').textContent = isRegen ? '重新生成' : '套用修改';
+}
+
+async function runSlideEdit() {
+    if (_editSlideIndex < 0) return;
+    const s = AppState.generatedSlides[_editSlideIndex];
+    if (!s) return;
+    const statusEl  = document.getElementById('slide-edit-status');
+    const statusTxt = document.getElementById('slide-edit-status-text');
+    const runBtn    = document.getElementById('btn-run-slide-edit');
+    const instruction = (document.getElementById('edit-instruction-input').value || '').trim();
+
+    statusEl.classList.remove('hidden'); statusEl.classList.add('flex');
+    runBtn.disabled = true;
+
+    try {
+        const theme = resolveActiveTheme();
+        const sd    = s.slideData || {};
+        let newHtml = '';
+
+        if (_editTab === 'regen') {
+            statusTxt.textContent = 'AI 重新生成版面中...';
+            newHtml = await generateSlideHTML(sd, theme, s.imageB64 || null);
+        } else {
+            if (!instruction) { showToast('⚠ 請輸入修改指示'); return; }
+            statusTxt.textContent = 'AI 理解修改指示中...';
+
+            const apiKey = (document.getElementById('api-key-input') || {}).value || AppState.apiKey || '';
+            const model  = (document.getElementById('sel-text-model') || {}).value || 'gemini-2.5-flash';
+
+            const modPrompt = ['你是世界頂級的 HTML/SVG 投影片設計師。',
+                '以下是投影片 HTML：', s.html.slice(0, 50000),
+                '使用者修改指示：「' + instruction + '」',
+                '請根據指示輸出完整修改後的 HTML（<!DOCTYPE html> 到 </html>）。',
+                '規定：保留 .dg/.rb 結構，body 加 position:relative，嚴格在 1920×1080 內，只輸出純 HTML。'
+            ].join('\n\n');
+
+            const rawResp = await callAnthropicAPI(modPrompt, model, apiKey);
+            const fenced  = rawResp && rawResp.match(/```html[\s\S]*?```/i);
+            const rawHtml = fenced ? fenced[0].replace(/```html|```/gi,'').trim()
+                          : (rawResp && rawResp.includes('<') ? rawResp.trim() : null);
+            if (!rawHtml) throw new Error('AI 未返回有效 HTML');
+            newHtml = rawHtml;
+        }
+
+        // Post-process (same as main pipeline)
+        newHtml = enforceLayoutSafety(newHtml);
+        newHtml = programmaticContrastFix ? programmaticContrastFix(newHtml, theme) : newHtml;
+        newHtml = cleanSlideArtifacts(newHtml);
+
+        if (s.imageB64) newHtml = newHtml.replace(/REPLACE_IMAGE_SRC/g, s.imageB64);
+        if (AppState.bgTemplateBase64) {
+            newHtml = newHtml.replace(/REPLACE_BG_SRC/g, AppState.bgTemplateBase64);
+            if (!newHtml.includes(AppState.bgTemplateBase64) && newHtml.includes('id="slide-svg"'))
+                newHtml = newHtml.replace(/(id="slide-svg"[^>]*>)/, '$1\n<image href="' + AppState.bgTemplateBase64 + '" x="0" y="0" width="1920" height="1080" preserveAspectRatio="xMidYMid slice"/>');
+        }
+        if (AppState.logoBase64) {
+            const lp = (document.getElementById('sel-logo-pos')||{}).value || 'TR';
+            const lpMap = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
+            const ltag = '<img id="slide-logo" src="' + AppState.logoBase64 + '" style="position:absolute;' + (lpMap[lp]||lpMap.TR) + 'height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;pointer-events:none;">';
+            if (newHtml.includes('REPLACE_LOGO_SRC')) newHtml = newHtml.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
+            if (!newHtml.includes('slide-logo')) newHtml = newHtml.replace('</body>', ltag + '\n</body>');
+        }
+
+        AppState.generatedSlides[_editSlideIndex].html = newHtml;
+
+        // Re-render this card in place
+        const grid  = document.getElementById('slides-preview-grid');
+        const cards = grid.querySelectorAll('.slide-preview-card');
+        if (cards[_editSlideIndex]) {
+            renderSlidePreviewCard(sd, newHtml, _editSlideIndex);
+            const freshCard = grid.lastElementChild;
+            grid.insertBefore(freshCard, cards[_editSlideIndex]);
+            cards[_editSlideIndex].remove();
+        }
+
+        showToast('✅ 投影片第 ' + (s.slideNumber||(_editSlideIndex+1)) + ' 頁已更新');
+        closeSlideEditModal();
+    } catch(e) {
+        showToast('❌ AI 修改失敗: ' + e.message);
+        console.error('runSlideEdit:', e);
+    } finally {
+        statusEl.classList.add('hidden'); statusEl.classList.remove('flex');
+        runBtn.disabled = false;
     }
 }
 </script>
