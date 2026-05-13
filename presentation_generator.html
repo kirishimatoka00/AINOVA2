@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI HTML 簡報生成器 v30 · NOVA 120 Pro</title>
+    <title>AI HTML 簡報生成器 v32 · NOVA 120 Pro</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -68,7 +68,7 @@
                 <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
             </a>
             <div class="w-px h-5 bg-slate-700"></div>
-            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v30 Pro</h1>
+            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v32 Pro</h1>
         </div>
         <div class="flex items-center gap-2">
             <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
@@ -1175,10 +1175,20 @@ async function startPureImageGeneration() {
             // Step 3.5: Inject logo BEFORE screenshot (so it appears in preview image)
             if (AppState.logoBase64) {
                 const lp = document.getElementById('sel-logo-pos')?.value || 'TR';
-                const lpM = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
-                const lTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:absolute;${lpM[lp]||lpM.TR}height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;pointer-events:none;">`;
+                const svgLogoPos2 = { TR:{x:1690,y:18}, TL:{x:30,y:18}, BR:{x:1690,y:985}, BL:{x:30,y:985} };
+                const lc2 = svgLogoPos2[lp] || svgLogoPos2.TR;
+                const svgLogo2 = `<image id="slide-logo" href="${AppState.logoBase64}" x="${lc2.x}" y="${lc2.y}" width="200" height="70" preserveAspectRatio="xMidYMid meet" style="pointer-events:none;opacity:0.92;"/>`;
                 if (html.includes('REPLACE_LOGO_SRC')) html = html.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
-                if (!html.includes('slide-logo')) html = html.replace('</body>', lTag + '\n</body>');
+                if (!html.includes('slide-logo')) {
+                    const lastSvg2 = html.lastIndexOf('</svg>');
+                    const bodyPos2 = html.lastIndexOf('</body>');
+                    if (lastSvg2 !== -1 && lastSvg2 < bodyPos2) {
+                        html = html.slice(0, lastSvg2) + svgLogo2 + '\n</svg>' + html.slice(lastSvg2 + 6);
+                    } else {
+                        const posStyle2 = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
+                        html = html.replace('</body>', `<img id="slide-logo" src="${AppState.logoBase64}" style="position:absolute;${posStyle2[lp]||posStyle2.TR}height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;pointer-events:none;">\n</body>`);
+                    }
+                }
             }
 
             // Step 4: Screenshot → final slide image
@@ -1216,8 +1226,7 @@ async function startPureImageGeneration() {
         else addLog('⏹ 已取消', 'warning');
     } finally {
         AppState.isGenerating = false;
-        document.getElementById('btn-generate')?.classList.remove('hidden');
-        document.getElementById('btn-stop')?.classList.add('hidden');
+        _restoreGenerateUI();
     }
 }
 
@@ -1689,6 +1698,45 @@ async function callGrokText(modelId, systemPrompt, userContent, signal) {
     const text = data.choices?.[0]?.message?.content;
     if (!text) throw new Error('Grok 回傳內容為空');
     return text;
+}
+
+/**
+ * Restore all UI elements to the "ready to generate" state.
+ * Called from finally blocks of both generation pipelines.
+ */
+function _restoreGenerateUI() {
+    // Buttons
+    const genBtn  = document.getElementById('btn-generate');
+    const stopBtn = document.getElementById('btn-stop');
+    if (genBtn)  { genBtn.classList.remove('hidden'); }
+    if (stopBtn) {
+        stopBtn.classList.add('hidden');
+        stopBtn.disabled = false;
+        const span = stopBtn.querySelector('span');
+        if (span) span.textContent = '停止生成';
+    }
+
+    // If no slides were generated at all, go back to empty state
+    // If some slides exist, show the preview section
+    const hasSlides = AppState.generatedSlides && AppState.generatedSlides.length > 0;
+    const progressSection = document.getElementById('section-progress');
+    const previewSection  = document.getElementById('section-preview');
+    const emptySection    = document.getElementById('section-empty');
+
+    if (progressSection) progressSection.classList.add('hidden');
+
+    if (hasSlides) {
+        if (previewSection)  previewSection.classList.remove('hidden');
+        if (emptySection)    emptySection.classList.add('hidden');
+        // Show export buttons if they weren't shown yet
+        ['btn-pptx-group','btn-save-html','btn-preview-html'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.classList.remove('hidden'); el.classList.add('flex'); }
+        });
+    } else {
+        if (previewSection)  previewSection.classList.add('hidden');
+        if (emptySection)    emptySection.classList.remove('hidden');
+    }
 }
 
 function stopGeneration() {
@@ -2412,7 +2460,7 @@ async function generateSlideHTML(slideData, theme, imageB64) {
         BL: 'left:40px;  bottom:30px;'
     };
     const logoInstruction = AppState.logoBase64
-        ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 外層（body 內）用 <img id="slide-logo" src="REPLACE_LOGO_SRC" style="position:absolute;${logoPosMap[logoPos]}height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;"> 放置 Logo。`
+        ? `本投影片需在角落加入 Logo（位置：${logoPos}）。請在 SVG 內（</svg> 標籤之前）加入：<image id="slide-logo" href="REPLACE_LOGO_SRC" x="${{TR:{x:1690},TL:{x:30},BR:{x:1690},BL:{x:30}}[logoPos]?.x||1690}" y="${{TR:{y:18},TL:{y:18},BR:{y:985},BL:{y:985}}[logoPos]?.y||18}" width="200" height="70" preserveAspectRatio="xMidYMid meet" style="pointer-events:none;opacity:0.92;"/>（SVG image 元素，放在 </svg> 之前）。`
         : '';
 
     // Background: use uploaded template or theme
@@ -2623,13 +2671,22 @@ ${(()=>{
 
     【第 3 層：裝飾/頁腳（選用，y > 1020）】`
     : `  ★ text_and_image（圖文並排，有圖片）：
-    【ZONE 1 標題】translate(70,28)，width:1780，height:128，font-size:46px，bold
-    【ZONE 2 左欄：文字】x=70，y=165~1010
-      - 要點卡各自獨立 .dg，width:860，間距 14px
-      - 3 點：height:220px；4 點：height:190px；5+ 點：height:150px，font-size縮小
-      - ⚠ 最後一張卡的 translate Y + height 不得超過 1015px
-    【ZONE 2 右欄：圖片】translate(990,165)，width:860，height:840（E 模板）
-      · preserveAspectRatio="xMidYMid slice"`;
+    【雙欄設計原則】標題只佔左欄，右欄全部給圖片，視覺飽滿無留白
+
+    【ZONE 1 標題（左欄專屬）】translate(60,28)，width:870，height:128，font-size:42px，bold
+      · 寬度 870px（只到左欄右邊界 x≈930），不延伸到圖片欄
+      · 副標題（若有）：translate(60,165)，width:870，height:60，font-size:20px
+
+    【ZONE 2 左欄：文字要點】x=60，從 y=200 開始
+      - 要點卡各自獨立 .dg，width:870，間距 12px
+      - 3點：height:240px；4點：height:185px；5點：height:148px；6+點：height:120px
+      - font-size 隨要點數縮小：3點=18px，4點=16px，5點=14px，6+點=12px
+      - ⚠ 最後卡 translate Y + height ≤ 1015px
+
+    【ZONE 2 右欄：圖片（全高）】translate(960,20)，width:930，height:1040（E 模板）
+      · x=960 緊貼右側，height=1040 填滿整個右欄（含標題高度）
+      · preserveAspectRatio="xMidYMid slice"（填滿不留白）
+      · ⚠ 圖片元素必須是 <g class="dg" transform="translate(960,20)"><image href="REPLACE_IMAGE_SRC" width="930" height="1040" preserveAspectRatio="xMidYMid slice"/></g>`;
   }
   if (L === 'diagram_slide') return `  ★ diagram_slide（流程圖/架構圖/圖表）：
     ⚠ 所有內容必須嚴格在 1920×1080px 範圍內，禁止任何溢出：
@@ -2765,16 +2822,32 @@ ${dgWrap}`);
             }
 
             if (AppState.logoBase64) {
-                const pos = logoPos;
-                const posStyle = logoPosMap[pos] || logoPosMap['TR'];
-                const logoTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:absolute;${posStyle}height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;pointer-events:none;">`;
-                // Always substitute placeholder; also force-inject if AI omitted logo entirely
+                // Inject logo as SVG <image> inside the SVG element
+                // This avoids z-index/stacking-context issues with position:absolute overlays
+                const svgLogoCoords = {
+                    TR: { x: 1690, y: 18 }, TL: { x: 30, y: 18 },
+                    BR: { x: 1690, y: 985 }, BL: { x: 30, y: 985 }
+                };
+                const lc = svgLogoCoords[logoPos] || svgLogoCoords.TR;
+                const svgLogoTag = `<image id="slide-logo" href="${AppState.logoBase64}" x="${lc.x}" y="${lc.y}" width="200" height="70" preserveAspectRatio="xMidYMid meet" style="pointer-events:none;opacity:0.92;"/>`;
+                // Also keep HTML img fallback for compatibility
+                const posStyle = logoPosMap[logoPos] || logoPosMap['TR'];
+                const htmlLogoTag = `<img id="slide-logo-html" src="${AppState.logoBase64}" style="position:absolute;${posStyle}height:60px;max-width:200px;object-fit:contain;z-index:99999;opacity:0.92;pointer-events:none;">`;
+
+                // Replace REPLACE_LOGO_SRC placeholder (HTML img approach from AI)
                 if (html.includes('REPLACE_LOGO_SRC')) {
                     html = html.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
                 }
-                // Re-check: if still no logo element (AI ignored instruction), inject before </body>
-                if (!html.includes('slide-logo')) {
-                    html = html.replace('</body>', logoTag + '\n</body>');
+
+                // Inject SVG logo at the last </svg> before </body>
+                // Use lastIndexOf for reliability (regex lookaheads are unreliable across browsers)
+                const lastSvgClose = html.lastIndexOf('</svg>');
+                const bodyClose    = html.lastIndexOf('</body>');
+                if (!html.includes('slide-logo') && lastSvgClose !== -1 && lastSvgClose < bodyClose) {
+                    html = html.slice(0, lastSvgClose) + svgLogoTag + '\n</svg>' + html.slice(lastSvgClose + 6);
+                } else if (!html.includes('slide-logo')) {
+                    // Fallback: HTML img before </body>
+                    html = html.replace('</body>', htmlLogoTag + '\n</body>');
                 }
             }
 
@@ -5789,11 +5862,9 @@ async function startGeneration() {
             spinner.style.cssText = 'width:20px;height:20px;border:2px solid #ef4444;border-radius:50%;';
         }
         spinner.classList.remove('animate-spin');
-        document.getElementById('btn-generate').classList.remove('hidden');
     } finally {
         AppState.isGenerating = false;
-        const stopBtn = document.getElementById('btn-stop');
-        if (stopBtn) { stopBtn.classList.add('hidden'); stopBtn.querySelector('span').textContent = '停止生成'; }
+        _restoreGenerateUI();
     }
 }
 
@@ -5940,19 +6011,62 @@ async function runSlideEdit() {
             if (!instruction) { showToast('⚠ 請輸入修改指示'); return; }
             statusTxt.textContent = 'AI 理解修改指示中...';
 
-            const modPrompt = ['你是世界頂級的 HTML/SVG 投影片設計師。',
-                '以下是投影片 HTML：', s.html.slice(0, 50000),
+            // Strip base64 data URIs from HTML before sending to LLM.
+            // Base64 strings can be MB-sized and cut clean HTML structure when sliced.
+            // We replace them with short placeholders and restore after.
+            const b64Placeholders = {};
+            let strippedHtml = (s.html || '').replace(
+                /(href|src|xlink:href)=["'](data:[^"']{80,})["']/g,
+                (match, attr, dataUri) => {
+                    const key = '__B64_' + Object.keys(b64Placeholders).length + '__';
+                    b64Placeholders[key] = dataUri;
+                    return attr + '="' + key + '"';
+                }
+            );
+
+            const modPrompt = [
+                '你是世界頂級的 HTML/SVG 投影片設計師。',
+                '以下是投影片 HTML（圖片資料已用佔位符替換，請保留這些佔位符不變）：',
+                strippedHtml,
                 '使用者修改指示：「' + instruction + '」',
-                '請根據指示輸出完整修改後的 HTML（<!DOCTYPE html> 到 </html>）。',
-                '規定：保留 .dg/.rb 結構，body 加 position:relative，嚴格在 1920×1080 內，只輸出純 HTML。'
+                '請根據指示輸出完整修改後的 HTML（從 <!DOCTYPE html> 到 </html>）。',
+                '嚴格規定：',
+                '1. 保留 .dg/.rb 結構和所有 id 屬性',
+                '2. body 標籤加上 style="position:relative"',
+                '3. 嚴格在 1920×1080 範圍內',
+                '4. 保留所有 __B64_N__ 佔位符不變（不要展開或刪除）',
+                '5. 只輸出純 HTML，不要任何說明文字或 markdown'
             ].join('\n\n');
 
-            const rawResp = await callTextLLM(modPrompt, 8192);
-            const fenced  = rawResp && rawResp.match(/```html[\s\S]*?```/i);
-            const rawHtml = fenced ? fenced[0].replace(/```html|```/gi,'').trim()
-                          : (rawResp && rawResp.includes('<') ? rawResp.trim() : null);
-            if (!rawHtml) throw new Error('AI 未返回有效 HTML');
-            newHtml = rawHtml;
+            const rawResp = await callTextLLM(modPrompt, 16384);
+
+            // Robust HTML extraction
+            let newHtmlCandidate = null;
+            if (rawResp) {
+                const fenced = rawResp.match(/```html\s*([\s\S]*?)```/i);
+                if (fenced) newHtmlCandidate = fenced[1].trim();
+                if (!newHtmlCandidate) {
+                    const docMatch = rawResp.match(/<!DOCTYPE\s+html[\s\S]*<\/html>/i);
+                    if (docMatch) newHtmlCandidate = docMatch[0].trim();
+                }
+                if (!newHtmlCandidate) {
+                    const htmlMatch = rawResp.match(/<html[\s\S]*<\/html>/i);
+                    if (htmlMatch) newHtmlCandidate = htmlMatch[0].trim();
+                }
+                // Last resort: if response contains <body, treat whole response as HTML
+                if (!newHtmlCandidate && rawResp.includes('<body')) {
+                    newHtmlCandidate = rawResp.trim();
+                }
+            }
+            if (!newHtmlCandidate || newHtmlCandidate.length < 200) {
+                throw new Error('AI 未返回有效 HTML（收到 ' + (rawResp ? rawResp.length : 0) + ' 字元），請重試');
+            }
+
+            // Restore base64 placeholders
+            for (const [key, val] of Object.entries(b64Placeholders)) {
+                newHtmlCandidate = newHtmlCandidate.split(key).join(val);
+            }
+            newHtml = newHtmlCandidate;
         }
 
         // Post-process (same as main pipeline)
