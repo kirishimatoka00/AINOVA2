@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI HTML 簡報生成器 v32 · NOVA 120 Pro</title>
+    <title>AI HTML 簡報生成器 v33 · NOVA 120 Pro</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -68,7 +68,7 @@
                 <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
             </a>
             <div class="w-px h-5 bg-slate-700"></div>
-            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v32 Pro</h1>
+            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v33 Pro</h1>
         </div>
         <div class="flex items-center gap-2">
             <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
@@ -1177,9 +1177,10 @@ async function startPureImageGeneration() {
                 const lp = document.getElementById('sel-logo-pos')?.value || 'TR';
                 const svgLogoPos2 = { TR:{x:1690,y:18}, TL:{x:30,y:18}, BR:{x:1690,y:985}, BL:{x:30,y:985} };
                 const lc2 = svgLogoPos2[lp] || svgLogoPos2.TR;
-                const svgLogo2 = `<image id="slide-logo" href="${AppState.logoBase64}" x="${lc2.x}" y="${lc2.y}" width="200" height="70" preserveAspectRatio="xMidYMid meet" style="pointer-events:none;opacity:0.92;"/>`;
+                const svgLogo2 = `<image id="slide-logo-svg" href="${AppState.logoBase64}" x="${lc2.x}" y="${lc2.y}" width="200" height="70" preserveAspectRatio="xMidYMid meet" opacity="0.92" pointer-events="none"/>`;
                 if (html.includes('REPLACE_LOGO_SRC')) html = html.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
-                if (!html.includes('slide-logo')) {
+                const _noLogo = !html.includes('slide-logo');
+                if (_noLogo) {
                     const lastSvg2 = html.lastIndexOf('</svg>');
                     const bodyPos2 = html.lastIndexOf('</body>');
                     if (lastSvg2 !== -1 && lastSvg2 < bodyPos2) {
@@ -2671,22 +2672,24 @@ ${(()=>{
 
     【第 3 層：裝飾/頁腳（選用，y > 1020）】`
     : `  ★ text_and_image（圖文並排，有圖片）：
-    【雙欄設計原則】標題只佔左欄，右欄全部給圖片，視覺飽滿無留白
+    【雙欄設計原則】標題只佔左欄，右欄圖片與標題頂部齊平，填滿右側無留白
 
-    【ZONE 1 標題（左欄專屬）】translate(60,28)，width:870，height:128，font-size:42px，bold
-      · 寬度 870px（只到左欄右邊界 x≈930），不延伸到圖片欄
-      · 副標題（若有）：translate(60,165)，width:870，height:60，font-size:20px
+    【ZONE 1 標題（左欄專屬，最多1~2行）】translate(60,25)，width:860，height:120，font-size:38px，bold
+      · 寬度 860px，絕對不延伸到右欄（x+w ≤ 920）
+      · font-size 最大 38px；若標題超過 2 行，自動縮小至 32px
+      · 副標題（若有）：translate(60,155)，width:860，height:50，font-size:18px
 
-    【ZONE 2 左欄：文字要點】x=60，從 y=200 開始
-      - 要點卡各自獨立 .dg，width:870，間距 12px
-      - 3點：height:240px；4點：height:185px；5點：height:148px；6+點：height:120px
-      - font-size 隨要點數縮小：3點=18px，4點=16px，5點=14px，6+點=12px
-      - ⚠ 最後卡 translate Y + height ≤ 1015px
+    【ZONE 2 左欄：文字要點】x=60，從 y=210 開始
+      - 要點卡各自獨立 .dg，width:860，間距 10px
+      - 要點數 N 的每卡高度 = floor((1000 - 210) / N) - 10（不得超出計算值）
+      - 3點：h=250px,fs=17px；4點：h=187px,fs=15px；5點：h=148px,fs=13px；6+點：h=120px,fs=11px
+      - ⚠ 硬限制：任何卡片 translate(x,Y) 的 Y + height ≤ 1010px
+      - ⚠ .rb div 必須設 overflow:hidden（禁止 scrollbar）
 
-    【ZONE 2 右欄：圖片（全高）】translate(960,20)，width:930，height:1040（E 模板）
-      · x=960 緊貼右側，height=1040 填滿整個右欄（含標題高度）
-      · preserveAspectRatio="xMidYMid slice"（填滿不留白）
-      · ⚠ 圖片元素必須是 <g class="dg" transform="translate(960,20)"><image href="REPLACE_IMAGE_SRC" width="930" height="1040" preserveAspectRatio="xMidYMid slice"/></g>`;
+    【ZONE 2 右欄：圖片（與標題頂部齊平）】translate(940,25)，width:950，height:1030（E 模板）
+      · Y 座標必須與標題相同（y=25），高度填滿至底部（h=1030）
+      · preserveAspectRatio="xMidYMid slice"（填滿不留白，允許裁切）
+      · ⚠ 必須用：<g class="dg" transform="translate(940,25)"><image href="REPLACE_IMAGE_SRC" width="950" height="1030" preserveAspectRatio="xMidYMid slice"/></g>`;
   }
   if (L === 'diagram_slide') return `  ★ diagram_slide（流程圖/架構圖/圖表）：
     ⚠ 所有內容必須嚴格在 1920×1080px 範圍內，禁止任何溢出：
@@ -2829,7 +2832,7 @@ ${dgWrap}`);
                     BR: { x: 1690, y: 985 }, BL: { x: 30, y: 985 }
                 };
                 const lc = svgLogoCoords[logoPos] || svgLogoCoords.TR;
-                const svgLogoTag = `<image id="slide-logo" href="${AppState.logoBase64}" x="${lc.x}" y="${lc.y}" width="200" height="70" preserveAspectRatio="xMidYMid meet" style="pointer-events:none;opacity:0.92;"/>`;
+                const svgLogoTag = `<image id="slide-logo-svg" href="${AppState.logoBase64}" x="${lc.x}" y="${lc.y}" width="200" height="70" preserveAspectRatio="xMidYMid meet" opacity="0.92" pointer-events="none"/>`;
                 // Also keep HTML img fallback for compatibility
                 const posStyle = logoPosMap[logoPos] || logoPosMap['TR'];
                 const htmlLogoTag = `<img id="slide-logo-html" src="${AppState.logoBase64}" style="position:absolute;${posStyle}height:60px;max-width:200px;object-fit:contain;z-index:99999;opacity:0.92;pointer-events:none;">`;
@@ -5453,12 +5456,14 @@ svg#slide-svg, svg:first-of-type {
     white-space: normal !important;
     box-sizing: border-box !important;
 }
-/* ── Logo: always visible and correctly positioned ── */
-#slide-logo {
+/* ── Logo: HTML <img> fallback only — SVG <image> uses x/y SVG attributes ── */
+img#slide-logo, img#slide-logo-html {
     position: absolute !important;
-    z-index: 9999 !important;
+    z-index: 99999 !important;
     object-fit: contain !important;
     pointer-events: none !important;
+    max-width: 200px !important;
+    height: 60px !important;
 }
 /* ── Prevent inner images from stretching container ── */
 .rb img, g.dg > foreignObject > div img {
@@ -5466,6 +5471,11 @@ svg#slide-svg, svg:first-of-type {
 }
 canvas { max-width: 100% !important; max-height: 100% !important; display: block; }
 [contenteditable] { overflow: hidden !important; word-break: break-word !important; }
+/* ── Hard prohibit scrollbars anywhere on the slide ── */
+* { scrollbar-width: none !important; -ms-overflow-style: none !important; }
+*::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+/* ── Clamp foreignObject content height ── */
+foreignObject div, foreignObject .rb { max-height: 100% !important; overflow: hidden !important; }
 </style>`;
     try {
         // Inject safety CSS
@@ -5498,10 +5508,14 @@ canvas { max-width: 100% !important; max-height: 100% !important; display: block
 }
 
 function cleanSlideArtifacts(html) {
-    // ── Clamp all SVG .dg translate() so Y+H never exceeds 1020px ──
-    html = html.replace(/transform="translate\((\s*[\d.+-]+\s*),\s*([\d.]+)\s*\)"/g, (m, tx, ty) => {
+    // ── Remove scrollbar-inducing styles ──
+    html = html.replace(/overflow\s*:\s*(auto|scroll)\s*(!important)?/g, 'overflow:hidden');
+    html = html.replace(/overflow-y\s*:\s*(auto|scroll)\s*(!important)?/g, 'overflow-y:hidden');
+    html = html.replace(/overflow-x\s*:\s*(auto|scroll)\s*(!important)?/g, 'overflow-x:hidden');
+
+    // ── Clamp all SVG .dg translate() so Y never exceeds 1020px ──
+    html = html.replace(/transform="translate\(\s*([\d.+\-]+)\s*,\s*([\d.+\-]+)\s*\)"/g, (m, tx, ty) => {
         const y = parseFloat(ty);
-        // If Y alone exceeds 1020, it is clearly wrong — clamp to 160 (content zone start)
         if (y > 1020) return 'transform="translate(' + tx + ', 160)"';
         return m;
     });
@@ -6089,6 +6103,23 @@ async function runSlideEdit() {
         }
 
         AppState.generatedSlides[_editSlideIndex].html = newHtml;
+
+        // Persist changes to IndexedDB immediately
+        try {
+            const historyList = loadRawHistory();
+            if (historyList && historyList.length > 0) {
+                const currentId = historyList[0].id; // most recent entry
+                const idbKey = currentId + '_slide_' + _editSlideIndex;
+                await idbSet(idbKey, {
+                    html:          newHtml,
+                    imageB64:      AppState.generatedSlides[_editSlideIndex].imageB64 || null,
+                    screenshotB64: AppState.generatedSlides[_editSlideIndex].screenshotB64 || null,
+                });
+                addLog('💾 修改已儲存至歷史記錄', 'success');
+            }
+        } catch(saveErr) {
+            console.warn('Save modification to IDB failed:', saveErr);
+        }
 
         // Re-render this card in place
         const grid  = document.getElementById('slides-preview-grid');
