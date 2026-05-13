@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI HTML 簡報生成器 v28 · NOVA 120 Pro</title>
+    <title>AI HTML 簡報生成器 v30 · NOVA 120 Pro</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -68,7 +68,7 @@
                 <i class="ph-bold ph-arrow-left"></i><span class="hidden sm:inline">返回 NOVA 120</span>
             </a>
             <div class="w-px h-5 bg-slate-700"></div>
-            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v28 Pro</h1>
+            <h1 class="text-sm font-bold text-white truncate">AI HTML 簡報生成器 v30 Pro</h1>
         </div>
         <div class="flex items-center gap-2">
             <div id="header-model-badge" class="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 border border-slate-700 px-2.5 py-1 rounded-full">
@@ -1172,6 +1172,15 @@ async function startPureImageGeneration() {
                 screenshotB64 = reviewResult.screenshotB64;
             }
 
+            // Step 3.5: Inject logo BEFORE screenshot (so it appears in preview image)
+            if (AppState.logoBase64) {
+                const lp = document.getElementById('sel-logo-pos')?.value || 'TR';
+                const lpM = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
+                const lTag = `<img id="slide-logo" src="${AppState.logoBase64}" style="position:absolute;${lpM[lp]||lpM.TR}height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;pointer-events:none;">`;
+                if (html.includes('REPLACE_LOGO_SRC')) html = html.replace(/REPLACE_LOGO_SRC/g, AppState.logoBase64);
+                if (!html.includes('slide-logo')) html = html.replace('</body>', lTag + '\n</body>');
+            }
+
             // Step 4: Screenshot → final slide image
             if (!screenshotB64) {
                 addLog(`  📸 渲染截圖...`, 'info');
@@ -1297,10 +1306,13 @@ async function generateCustomTheme(description, apiKey, model = 'gemini-2.5-flas
             responseMimeType: 'application/json'
         }
     };
-    // Disable thinking to save tokens (Gemini 2.5 thinking uses thousands of tokens before output)
-    if (isThinkingModel) {
+    // For flash models, disable thinking to save tokens.
+    // For pro models, budget:0 is invalid — let the model use its default thinking.
+    const isFlash = model.includes('flash');
+    if (isFlash) {
         requestBody.generationConfig.thinkingConfig = { thinkingBudget: 0 };
     }
+    // Pro models: no thinkingConfig → uses model default (thinking enabled)
 
     const resp = await fetch(endpointBase, {
         method: 'POST',
@@ -2448,7 +2460,7 @@ ${slideData.table_data ? `
     · 標準版面 font-size: 44~50px；title_only 版面 font-size: 64~80px
     · ⛔ 禁止在此區放圖片、要點、圖表
 
-  【ZONE 2 — 主內容區 (Content Zone)】  y = 160px ~ 1010px（高度=850px）
+  【ZONE 2 — 主內容區 (Content Zone)】  y = 155px ~ 1015px（高度=860px）
     根據 layout 類型分配：
     · text_and_image：文字左欄 x=70 w=860，圖片右欄 x=990 w=860，y 從 160 開始
     · text_only：單欄 x=70 w=1780，最多5個要點卡（每卡高度≤160px）
@@ -2600,9 +2612,12 @@ ${(()=>{
 
     【第 2 層：主內容區（標題下方，y 從 160 開始）】
     左側文字欄：translate(60,160)，width:1200（不得超過 1200）
-      - 要點1~8 各自獨立 .dg，font-size:14px，height:85~100px
+      - 要點1~8 各自獨立 .dg，font-size:13px，height:80~95px（文字量大時縮小字號）
+      - 每個要點卡的實際高度必須確保所有卡片加總不超出可用空間
+      - 計算方式：可用高度 = 1010 - titleY - titleH；每卡高度 = 可用高度 / 要點數
       - 文字嚴格在 width:1200 範圍內，超過換行不超出邊界
-      - ⚠ 所有要點卡的 translate Y + height 不得超過 1015px
+      - ⚠ 嚴格硬限制：最後一張要點卡的 translate Y + height ≤ 1015px
+      - ⚠ 若 font-size 14px 導致超出，縮小至 12px 或 11px
     右側圖片：translate(1310,160)，width:570，height:830
       - 使用 E 模板圖片；圖片必須在 Zone 2 右欄，不可超出 y=1010
 
@@ -2713,7 +2728,7 @@ width:1920px!important;height:1080px!important;box-sizing:border-box!important;}
                 html = html.replace('<!--SLIDE_INTERACTION_SCRIPT-->', '');
             }
 
-            // 【修改點 v27】 Image injection with SVG <image href> support + cleanup for no-image slides
+            // 【修改點 v29】 Image injection with SVG <image href> support + cleanup for no-image slides
             if (hasImage && imageB64) {
                 // Replace placeholder in both <img src=""> and SVG <image href="">
                 html = html.replace(/REPLACE_IMAGE_SRC/g, imageB64);
@@ -3438,74 +3453,6 @@ document.addEventListener('keydown', e=>{
 });
 <\/script>
 
-<!-- ── Single-Slide AI Edit Modal ──────────────────────────────── -->
-<div id="modal-slide-edit" class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
-  <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[640px] max-w-[96vw] flex flex-col gap-0 overflow-hidden">
-    <!-- Header -->
-    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-      <div class="flex items-center gap-3">
-        <i class="ph-bold ph-magic-wand text-violet-400 text-xl"></i>
-        <div>
-          <h2 class="text-white font-bold text-base" id="slide-edit-modal-title">AI 修改投影片</h2>
-          <p class="text-slate-400 text-xs" id="slide-edit-modal-subtitle">第 1 頁</p>
-        </div>
-      </div>
-      <button onclick="closeSlideEditModal()" class="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700 transition-all">
-        <i class="ph-bold ph-x text-lg"></i>
-      </button>
-    </div>
-
-    <!-- Tabs -->
-    <div class="flex border-b border-slate-700 bg-slate-900/50">
-      <button id="tab-regen" onclick="switchEditTab('regen')"
-        class="flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-violet-500 text-violet-400">
-        <i class="ph-bold ph-arrows-clockwise mr-1.5"></i>完整重新生成
-      </button>
-      <button id="tab-modify" onclick="switchEditTab('modify')"
-        class="flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-transparent text-slate-400 hover:text-slate-200">
-        <i class="ph-bold ph-pencil-simple mr-1.5"></i>語意修改
-      </button>
-    </div>
-
-    <!-- Body -->
-    <div class="px-6 py-5 flex flex-col gap-4">
-      <!-- Regen panel -->
-      <div id="panel-regen" class="flex flex-col gap-3">
-        <p class="text-slate-300 text-sm">根據投影片原始大綱資料，讓 AI 重新設計版面配置、視覺風格和內容排列。</p>
-        <div class="bg-slate-800 rounded-xl p-4 text-xs text-slate-400 font-mono leading-relaxed max-h-24 overflow-y-auto" id="regen-outline-preview"></div>
-      </div>
-
-      <!-- Modify panel -->
-      <div id="panel-modify" class="hidden flex-col gap-3">
-        <p class="text-slate-300 text-sm">輸入你想對這張投影片做的修改，AI 會依照指示調整現有內容。</p>
-        <div class="relative">
-          <textarea id="edit-instruction-input"
-            placeholder="例如：「把標題改成更有衝擊力的表達」「加入一個數據對比圖表」「改成深藍色系配色」「把要點縮短到3個」"
-            class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 resize-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-all"
-            rows="4"></textarea>
-        </div>
-      </div>
-
-      <!-- Status -->
-      <div id="slide-edit-status" class="hidden items-center gap-3 text-sm text-slate-300 bg-slate-800/60 rounded-xl px-4 py-3">
-        <div class="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin shrink-0"></div>
-        <span id="slide-edit-status-text">AI 生成中...</span>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-700 bg-slate-900/60">
-      <button onclick="closeSlideEditModal()" class="px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-700 transition-all">取消</button>
-      <button id="btn-run-slide-edit"
-        onclick="runSlideEdit()"
-        class="flex items-center gap-2 px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold shadow-lg transition-all">
-        <i class="ph-bold ph-magic-wand text-base"></i>
-        <span id="run-edit-label">重新生成</span>
-      </button>
-    </div>
-  </div>
-</div>
-<!-- ── End Single-Slide AI Edit Modal ─────────────────────────── -->
 
 </body>
 </html>`;
@@ -3858,7 +3805,8 @@ async function downloadEditablePptx() {
             // Strategy: always try decoration-only render; fall back to flat color.
             // NEVER use a full slide screenshot (would bake in text).
             if (AppState.bgTemplateBase64) {
-                slide.addImage({ data: AppState.bgTemplateBase64, x:0, y:0, w:10, h:5.625 });
+                slide.addImage({ data: AppState.bgTemplateBase64, x:0, y:0, w:10, h:5.625,
+                    sizing: { type: 'cover', w:10, h:5.625 } });
             } else {
                 let bgShot = null;
                 if (s.html) {
@@ -4056,12 +4004,17 @@ async function downloadEditablePptx() {
                 }
             }
 
-            // ══════ LOGO ════════════════════════════════════════════════
+            // ══════ LOGO / WATERMARK ════════════════════════════════════
             if (AppState.logoBase64) {
                 try {
-                    slide.addImage({ data: AppState.logoBase64, x:lx, y:ly, w:1.0, h:0.5,
-                        sizing: { type:'contain', w:1.0, h:0.5 } });
-                } catch(e) {}
+                    // Use rasterWidth/Height matching actual logo aspect ratio.
+                    // sizing:contain prevents any stretching.
+                    slide.addImage({
+                        data: AppState.logoBase64,
+                        x: lx, y: ly, w: 1.4, h: 0.7,
+                        sizing: { type: 'contain', w: 1.4, h: 0.7 }
+                    });
+                } catch(e) { addLog('⚠ Logo 插入失敗: ' + e.message, 'warning'); }
             }
         }
 
@@ -5448,22 +5401,23 @@ canvas { max-width: 100% !important; max-height: 100% !important; display: block
         else if (result.includes('<html>')) result = result.replace('<html>', '<html>' + safeCss);
 
         // Ensure body has position:relative (critical for logo positioning)
-        result = result.replace(
-            /(<body[^>]*style=["'])([^"']*)(["'])/,
-            (m, pre, style, post) => {
-                if (!style.includes('position:')) return pre + 'position:relative;' + style + post;
-                return m;
+        // Handle both: body WITH existing style attr, and body WITHOUT style attr
+        if (result.includes('<body')) {
+            if (/style="[^"]*position:/.test(result) || /style='[^']*position:/.test(result)) {
+                // Already has position — leave it
+            } else if (/style="/.test(result.match(/<body[^>]*>/)?.[0] || '')) {
+                // Has style attr but no position — prepend
+                result = result.replace(/(<body[^>]*style=")([^"]*")/, (m,p1,p2) => p1 + 'position:relative;' + p2);
+            } else {
+                // No style attr at all — add one
+                result = result.replace(/<body([^>]*)>/, '<body$1 style="position:relative;">');
             }
-        );
+        }
 
-        // Ensure SVG has overflow=hidden (SVG default is visible — this is the layout overflow root cause)
-        result = result.replace(
-            /(<svg[^>]*?)(overflow\s*=\s*["'][^"']*["'])?([^>]*?>)/g,
-            (m, pre, existingOverflow, rest) => {
-                if (existingOverflow) return m;
-                return pre + ' overflow="hidden"' + rest;
-            }
-        );
+        // Ensure SVG has overflow=hidden (SVG default is visible - layout overflow root cause)
+        if (result.includes('<svg') && !result.includes('overflow=\"hidden\"')) {
+            result = result.replace(/<svg(\b)/g, '<svg overflow="hidden"$1');
+        }
 
         return result;
     } catch(e) {}
@@ -5471,6 +5425,13 @@ canvas { max-width: 100% !important; max-height: 100% !important; display: block
 }
 
 function cleanSlideArtifacts(html) {
+    // ── Clamp all SVG .dg translate() so Y+H never exceeds 1020px ──
+    html = html.replace(/transform="translate\((\s*[\d.+-]+\s*),\s*([\d.]+)\s*\)"/g, (m, tx, ty) => {
+        const y = parseFloat(ty);
+        // If Y alone exceeds 1020, it is clearly wrong — clamp to 160 (content zone start)
+        if (y > 1020) return 'transform="translate(' + tx + ', 160)"';
+        return m;
+    });
     // ── Strip img alt= text (prevents "Abstract white background texture" from showing) ──
     html = html.replace(/<img([^>]*?)\salt=["'][^"']*["']/g, '<img$1');
     html = html.replace(/<img([^>]*?)\salt=["'][^"']*["']/g, '<img$1'); // run twice for edge cases
@@ -5868,16 +5829,63 @@ function closeSlideEditModal() {
 
 function switchEditTab(tab) {
     _editTab = tab;
-    const isRegen = tab === 'regen';
-    const panelR = document.getElementById('panel-regen');
-    const panelM = document.getElementById('panel-modify');
-    panelR.classList.toggle('hidden', !isRegen); panelR.classList.toggle('flex', isRegen);
-    panelM.classList.toggle('hidden', isRegen);  panelM.classList.toggle('flex', !isRegen);
+    const panels = { regen: 'panel-regen', pureimg: 'panel-pureimg', modify: 'panel-modify' };
+    const tabs   = { regen: 'tab-regen',   pureimg: 'tab-pureimg',   modify: 'tab-modify'   };
+    const labels = { regen: '重新生成',     pureimg: '純圖生成',       modify: '套用修改'      };
     const activeClass = 'flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-violet-500 text-violet-400';
     const idleClass   = 'flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-transparent text-slate-400 hover:text-slate-200';
-    document.getElementById('tab-regen').className  = isRegen  ? activeClass : idleClass;
-    document.getElementById('tab-modify').className = !isRegen ? activeClass : idleClass;
-    document.getElementById('run-edit-label').textContent = isRegen ? '重新生成' : '套用修改';
+    Object.entries(panels).forEach(([key, panelId]) => {
+        const el = document.getElementById(panelId);
+        if (!el) return;
+        el.classList.toggle('hidden', key !== tab);
+        el.classList.toggle('flex',   key === tab);
+    });
+    Object.entries(tabs).forEach(([key, tabId]) => {
+        const el = document.getElementById(tabId);
+        if (el) el.className = key === tab ? activeClass : idleClass;
+    });
+    const lbl = document.getElementById('run-edit-label');
+    if (lbl) lbl.textContent = labels[tab] || '執行';
+}
+
+/**
+ * Generic single-turn text generation using the currently selected model.
+ * Routes to Gemini or Grok based on model name.
+ */
+async function callTextLLM(prompt, maxTokens) {
+    maxTokens = maxTokens || 8192;
+    const model  = (document.getElementById('sel-text-model') || {}).value || 'gemini-2.5-flash';
+    const isGrok = model.startsWith('grok');
+    const apiKey = isGrok ? AppState.xaiApiKey : AppState.googleApiKey;
+    if (!apiKey) throw new Error('缺少 API Key，請在右上角 ⚙ 設定填入');
+
+    if (isGrok) {
+        // Grok text API
+        const r = await fetch('https://api.x.ai/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], max_tokens: maxTokens, stream: false })
+        });
+        if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e?.error?.message || 'Grok HTTP ' + r.status); }
+        const d = await r.json();
+        return d.choices?.[0]?.message?.content || '';
+    } else {
+        // Gemini generateContent API
+        const isFlash = model.includes('flash');
+        const ver = 'v1beta';
+        const url = 'https://generativelanguage.googleapis.com/' + ver + '/models/' + model + ':generateContent?key=' + apiKey;
+        const body = {
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: maxTokens, temperature: 0.7 }
+        };
+        if (isFlash) body.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+        const r = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e?.error?.message || 'Gemini HTTP ' + r.status); }
+        const d = await r.json();
+        const parts = d.candidates?.[0]?.content?.parts || [];
+        return parts.filter(p => p.text && !p.thought).map(p => p.text).join('') ||
+               parts.filter(p => p.text).map(p => p.text).join('');
+    }
 }
 
 async function runSlideEdit() {
@@ -5898,14 +5906,39 @@ async function runSlideEdit() {
         let newHtml = '';
 
         if (_editTab === 'regen') {
-            statusTxt.textContent = 'AI 重新生成版面中...';
+            statusTxt.textContent = 'AI 重新生成 HTML 版面中...';
             newHtml = await generateSlideHTML(sd, theme, s.imageB64 || null);
+
+        } else if (_editTab === 'pureimg') {
+            // Pure-image regeneration for this single slide
+            statusTxt.textContent = '背景 LLM 生成中...';
+            const bgGenModel  = (document.getElementById('sel-bg-gen-model') || {}).value || 'gemini-2.5-flash';
+            const layoutModel = (document.getElementById('sel-layout-model') || {}).value || 'gemini-2.5-pro';
+            const apiKey      = AppState.googleApiKey;
+            if (!apiKey) throw new Error('純圖模式需要 Gemini API Key');
+            const signal      = new AbortController().signal;
+            let bgB64 = AppState.bgTemplateBase64 || null;
+            if (!bgB64) {
+                try { bgB64 = await generateSlideBackgroundImage(sd, theme, bgGenModel, signal); } catch(e) { /* use null */ }
+            }
+            statusTxt.textContent = '排版 LLM 合成中...';
+            newHtml = await compositeSlideWithLayoutLLM(sd, bgB64, s.imageB64 || null, theme, layoutModel, apiKey, signal, !!AppState.bgTemplateBase64);
+            // Inject logo before screenshot
+            if (AppState.logoBase64) {
+                const lp = (document.getElementById('sel-logo-pos') || {}).value || 'TR';
+                const lpM = { TR:'right:40px;top:30px;', TL:'left:40px;top:30px;', BR:'right:40px;bottom:30px;', BL:'left:40px;bottom:30px;' };
+                const lTag = '<img id="slide-logo" src="' + AppState.logoBase64 + '" style="position:absolute;' + (lpM[lp]||lpM.TR) + 'height:60px;max-width:200px;object-fit:contain;z-index:9999;opacity:0.9;pointer-events:none;">';
+                if (!newHtml.includes('slide-logo')) newHtml = newHtml.replace('</body>', lTag + '\n</body>');
+            }
+            statusTxt.textContent = '截圖渲染中...';
+            const pureShot = await captureSlideScreenshot(newHtml);
+            // Update the slide record with both html and screenshot
+            AppState.generatedSlides[_editSlideIndex].screenshotB64 = pureShot;
+            AppState.generatedSlides[_editSlideIndex].isPureImage    = true;
+
         } else {
             if (!instruction) { showToast('⚠ 請輸入修改指示'); return; }
             statusTxt.textContent = 'AI 理解修改指示中...';
-
-            const apiKey = (document.getElementById('api-key-input') || {}).value || AppState.apiKey || '';
-            const model  = (document.getElementById('sel-text-model') || {}).value || 'gemini-2.5-flash';
 
             const modPrompt = ['你是世界頂級的 HTML/SVG 投影片設計師。',
                 '以下是投影片 HTML：', s.html.slice(0, 50000),
@@ -5914,7 +5947,7 @@ async function runSlideEdit() {
                 '規定：保留 .dg/.rb 結構，body 加 position:relative，嚴格在 1920×1080 內，只輸出純 HTML。'
             ].join('\n\n');
 
-            const rawResp = await callAnthropicAPI(modPrompt, model, apiKey);
+            const rawResp = await callTextLLM(modPrompt, 8192);
             const fenced  = rawResp && rawResp.match(/```html[\s\S]*?```/i);
             const rawHtml = fenced ? fenced[0].replace(/```html|```/gi,'').trim()
                           : (rawResp && rawResp.includes('<') ? rawResp.trim() : null);
@@ -5964,5 +5997,87 @@ async function runSlideEdit() {
     }
 }
 </script>
+
+<!-- ── Single-Slide AI Edit Modal ──────────────────────────────── -->
+<div id="modal-slide-edit" class="hidden fixed inset-0 z-[200] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+  <div class="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-[640px] max-w-[96vw] flex flex-col gap-0 overflow-hidden">
+    <!-- Header -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+      <div class="flex items-center gap-3">
+        <i class="ph-bold ph-magic-wand text-violet-400 text-xl"></i>
+        <div>
+          <h2 class="text-white font-bold text-base" id="slide-edit-modal-title">AI 修改投影片</h2>
+          <p class="text-slate-400 text-xs" id="slide-edit-modal-subtitle">第 1 頁</p>
+        </div>
+      </div>
+      <button onclick="closeSlideEditModal()" class="text-slate-500 hover:text-white p-1.5 rounded-lg hover:bg-slate-700 transition-all">
+        <i class="ph-bold ph-x text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex border-b border-slate-700 bg-slate-900/50">
+      <button id="tab-regen" onclick="switchEditTab('regen')"
+        class="flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-violet-500 text-violet-400">
+        <i class="ph-bold ph-code mr-1.5"></i>HTML重生成
+      </button>
+      <button id="tab-pureimg" onclick="switchEditTab('pureimg')"
+        class="flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+        <i class="ph-bold ph-image mr-1.5"></i>純圖重生成
+      </button>
+      <button id="tab-modify" onclick="switchEditTab('modify')"
+        class="flex-1 py-3 text-sm font-semibold transition-all border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+        <i class="ph-bold ph-pencil-simple mr-1.5"></i>語意修改
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div class="px-6 py-5 flex flex-col gap-4">
+      <!-- Regen panel -->
+      <div id="panel-regen" class="flex flex-col gap-3">
+        <p class="text-slate-300 text-sm">根據投影片原始大綱資料，讓 AI 重新設計 <strong class="text-violet-300">HTML/CSS 向量版面</strong>（可拖曳、可編輯文字）。</p>
+        <div class="bg-slate-800 rounded-xl p-4 text-xs text-slate-400 font-mono leading-relaxed max-h-24 overflow-y-auto" id="regen-outline-preview"></div>
+      </div>
+
+      <!-- Pure-image panel -->
+      <div id="panel-pureimg" class="hidden flex-col gap-3">
+        <p class="text-slate-300 text-sm">使用背景 LLM + 排版 LLM 重新生成此頁為<strong class="text-amber-300">純圖模式</strong>（高保真視覺效果，截圖輸出）。</p>
+        <div class="bg-slate-800/60 rounded-xl p-3 text-xs text-slate-400 flex items-center gap-2">
+          <i class="ph-bold ph-info text-amber-400"></i>
+          <span>生成時間較長（30~60秒），需要 Gemini API Key 及背景圖生成模型。</span>
+        </div>
+      </div>
+
+      <!-- Modify panel -->
+      <div id="panel-modify" class="hidden flex-col gap-3">
+        <p class="text-slate-300 text-sm">輸入你想對這張投影片做的修改，AI 會依照指示調整現有內容。</p>
+        <div class="relative">
+          <textarea id="edit-instruction-input"
+            placeholder="例如：「把標題改成更有衝擊力的表達」「加入一個數據對比圖表」「改成深藍色系配色」「把要點縮短到3個」"
+            class="w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-500 resize-none focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-all"
+            rows="4"></textarea>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div id="slide-edit-status" class="hidden items-center gap-3 text-sm text-slate-300 bg-slate-800/60 rounded-xl px-4 py-3">
+        <div class="w-4 h-4 border-2 border-violet-400 border-t-transparent rounded-full animate-spin shrink-0"></div>
+        <span id="slide-edit-status-text">AI 生成中...</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="flex items-center justify-end gap-3 px-6 py-4 border-t border-slate-700 bg-slate-900/60">
+      <button onclick="closeSlideEditModal()" class="px-4 py-2 rounded-xl text-sm text-slate-400 hover:text-white hover:bg-slate-700 transition-all">取消</button>
+      <button id="btn-run-slide-edit"
+        onclick="runSlideEdit()"
+        class="flex items-center gap-2 px-5 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-bold shadow-lg transition-all">
+        <i class="ph-bold ph-magic-wand text-base"></i>
+        <span id="run-edit-label">重新生成</span>
+      </button>
+    </div>
+  </div>
+</div>
+<!-- ── End Single-Slide AI Edit Modal ─────────────────────────── -->
 </body>
 </html>
