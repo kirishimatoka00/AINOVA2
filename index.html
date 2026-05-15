@@ -2255,6 +2255,11 @@ return html;
             if (hideLiveCaptureEl) hideLiveCaptureEl.checked = appState.hideLiveCapture;
             const autoTTSEl2 = document.getElementById('key-auto-tts');
             if (autoTTSEl2) autoTTSEl2.checked = appState.autoTTS;
+            // ── 每次開啟設定都從 appState 還原 Telegram 欄位（type="password" 不會自動保留）
+            const tgTokenEl = document.getElementById('key-tg-token');
+            if (tgTokenEl) tgTokenEl.value = appState.tgToken || '';
+            const tgChatIdEl = document.getElementById('key-tg-chatid');
+            if (tgChatIdEl) tgChatIdEl.value = appState.tgChatId || '';
         };
         window.closeSettings = function() { document.getElementById('settings-modal').classList.add('hidden'); };
 
