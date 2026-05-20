@@ -167,6 +167,21 @@
                         <button onclick="switchTab('audio')" id="nav-audio" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
                     </nav>
                 </div>
+
+                <!-- 旅行模式區塊 -->
+                <div>
+                    <button onclick="toggleSidebarSection('travel-section', 'travel-icon')" class="flex items-center justify-between w-full p-2 text-slate-400 hover:text-white transition-colors group">
+                        <span class="text-xs font-bold tracking-wider">旅行模式</span>
+                        <i id="travel-icon" class="ph-bold ph-caret-down transition-transform group-hover:text-white"></i>
+                    </button>
+                    <div id="travel-section" class="mt-1">
+                        <button onclick="openTravelMode()" id="nav-travel" class="flex items-center space-x-3 w-full p-2 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm group">
+                            <i class="ph-fill ph-airplane-takeoff text-lg text-amber-400 group-hover:text-amber-300"></i>
+                            <span>設定旅行偵測</span>
+                            <span id="travel-mode-dot" class="ml-auto hidden w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                        </button>
+                    </div>
+                </div>
             </div>
             
             <div class="mt-4 pt-4 border-t border-slate-800 shrink-0 space-y-3">
@@ -225,6 +240,7 @@
                             <button onclick="switchTab('schedule'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-calendar-check text-lg"></i><span>行程管理</span></button>
                             <button onclick="switchTab('notes'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-notebook text-lg"></i><span>筆記/文件</span></button>
                             <button onclick="switchTab('audio'); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-waveform text-lg"></i><span>錄音紀錄</span></button>
+                            <button onclick="openTravelMode(); toggleMobileMenu();" class="flex items-center space-x-3 w-full p-3 rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-all text-sm"><i class="ph-fill ph-airplane-takeoff text-lg text-amber-400"></i><span>旅行模式</span><span id="mobile-travel-dot" class="ml-auto hidden w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span></button>
                         </nav>
                     </div>
                 </div>
@@ -665,6 +681,109 @@
                     <div class="flex justify-end space-x-3 mt-4 shrink-0 border-t border-slate-800 pt-4">
                         <button onclick="closeAgentModal()" class="px-5 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">取消</button>
                         <button onclick="startMultiAgentResearch()" class="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg transition-colors font-bold shadow-lg flex items-center gap-2"><i class="ph-bold ph-rocket-launch"></i> 開始分析作業</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= 旅行模式彈窗 (Travel Mode Modal) ================= -->
+            <div id="travel-modal" class="hidden fixed inset-0 z-[80] bg-slate-950/90 backdrop-blur-sm flex items-center justify-center p-4">
+                <div class="bg-slate-900 border border-amber-500/40 rounded-2xl p-6 w-full max-w-md shadow-[0_0_40px_rgba(251,191,36,0.15)] flex flex-col max-h-[90vh]">
+                    <!-- Header -->
+                    <div class="flex justify-between items-center mb-5 shrink-0">
+                        <h3 class="text-xl font-bold text-white flex items-center gap-2">
+                            <i class="ph-fill ph-airplane-takeoff text-amber-400 text-2xl"></i> 旅行模式
+                        </h3>
+                        <button onclick="closeTravelMode()"><i class="ph ph-x text-2xl text-slate-400 hover:text-white"></i></button>
+                    </div>
+
+                    <div class="overflow-y-auto flex-1 space-y-4 pr-1">
+
+                        <!-- 開關 -->
+                        <div class="bg-slate-800/60 p-4 rounded-xl border border-amber-500/30 flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-bold text-amber-300 flex items-center gap-2"><i class="ph-fill ph-map-pin-line"></i> 啟用旅行偵測</p>
+                                <p class="text-[10px] text-slate-500 mt-1">定時偵測您的位置，主動提供交通與餐飲建議</p>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer ml-4 shrink-0">
+                                <input type="checkbox" id="travel-mode-toggle" class="sr-only peer" onchange="handleTravelModeToggle(this.checked)">
+                                <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                            </label>
+                        </div>
+
+                        <!-- 偵測間隔 -->
+                        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+                            <p class="text-xs font-bold text-slate-300 flex items-center gap-2"><i class="ph-fill ph-timer text-blue-400"></i> 定位偵測間隔</p>
+                            <div class="grid grid-cols-4 gap-2" id="travel-interval-btns">
+                                <button onclick="setTravelInterval(5)"   data-mins="5"   class="travel-int-btn py-2 rounded-lg text-xs font-bold border border-slate-600 text-slate-400 hover:border-amber-400 hover:text-amber-300 transition-all">5 分</button>
+                                <button onclick="setTravelInterval(15)"  data-mins="15"  class="travel-int-btn py-2 rounded-lg text-xs font-bold border border-slate-600 text-slate-400 hover:border-amber-400 hover:text-amber-300 transition-all">15 分</button>
+                                <button onclick="setTravelInterval(30)"  data-mins="30"  class="travel-int-btn py-2 rounded-lg text-xs font-bold border border-amber-400 text-amber-300 bg-amber-500/10 transition-all">30 分</button>
+                                <button onclick="setTravelInterval(60)"  data-mins="60"  class="travel-int-btn py-2 rounded-lg text-xs font-bold border border-slate-600 text-slate-400 hover:border-amber-400 hover:text-amber-300 transition-all">60 分</button>
+                            </div>
+                            <p class="text-[10px] text-slate-500">每隔設定時間自動偵測一次位置並詢問您是否需要協助</p>
+                        </div>
+
+                        <!-- 主動詢問項目 -->
+                        <div class="bg-slate-800/60 p-4 rounded-xl border border-slate-700 space-y-3">
+                            <p class="text-xs font-bold text-slate-300 flex items-center gap-2"><i class="ph-fill ph-bell-ringing text-emerald-400"></i> 偵測後主動詢問</p>
+                            <div class="space-y-2">
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" id="travel-ask-transport" checked class="w-4 h-4 rounded accent-amber-500">
+                                    <div>
+                                        <p class="text-sm text-slate-300 font-medium flex items-center gap-1"><i class="ph-fill ph-bus text-blue-400"></i> 交通路線規劃</p>
+                                        <p class="text-[10px] text-slate-500">詢問是否需要規劃前往目的地的交通方式</p>
+                                    </div>
+                                </label>
+                                <label class="flex items-center gap-3 cursor-pointer">
+                                    <input type="checkbox" id="travel-ask-food" checked class="w-4 h-4 rounded accent-amber-500">
+                                    <div>
+                                        <p class="text-sm text-slate-300 font-medium flex items-center gap-1"><i class="ph-fill ph-fork-knife text-orange-400"></i> 附近餐飲推薦</p>
+                                        <p class="text-[10px] text-slate-500">詢問是否需要推薦附近餐廳或咖啡廳</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 狀態顯示 -->
+                        <div id="travel-status-box" class="hidden bg-slate-950 p-4 rounded-xl border border-amber-500/30 space-y-2">
+                            <p class="text-xs font-bold text-amber-400 flex items-center gap-2"><i class="ph-fill ph-activity"></i> 偵測狀態</p>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-slate-400">下次偵測</span>
+                                <span id="travel-next-check" class="text-xs font-bold text-white">--</span>
+                            </div>
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-slate-400">最後位置</span>
+                                <span id="travel-last-loc" class="text-xs text-slate-300 text-right max-w-[200px] truncate">尚未偵測</span>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="mt-5 pt-4 border-t border-slate-800 flex justify-between items-center shrink-0">
+                        <button onclick="triggerManualTravelCheck()" class="flex items-center gap-2 text-xs text-slate-400 hover:text-amber-300 px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors">
+                            <i class="ph-bold ph-crosshair text-sm"></i> 立即偵測一次
+                        </button>
+                        <button onclick="closeTravelMode()" class="px-6 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg shadow-lg transition-colors text-sm">完成</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= 旅行模式浮動提示卡 (Travel Prompt Card) ================= -->
+            <div id="travel-prompt-card" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-[90] w-[92vw] max-w-sm">
+                <div class="bg-slate-900 border border-amber-500/60 rounded-2xl p-4 shadow-[0_8px_40px_rgba(251,191,36,0.25)] animate-pulse-fast">
+                    <div class="flex items-start gap-3 mb-3">
+                        <div class="w-9 h-9 rounded-full bg-amber-500/20 border border-amber-500/50 flex items-center justify-center shrink-0">
+                            <i class="ph-fill ph-airplane-takeoff text-amber-400 text-lg"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-bold text-white">旅行助理</p>
+                            <p id="travel-card-location" class="text-[10px] text-amber-400 mt-0.5 truncate"></p>
+                            <p class="text-xs text-slate-300 mt-1">偵測到您的位置已更新，需要協助嗎？</p>
+                        </div>
+                        <button onclick="dismissTravelCard()" class="text-slate-500 hover:text-white shrink-0"><i class="ph-bold ph-x"></i></button>
+                    </div>
+                    <div id="travel-card-btns" class="flex gap-2 flex-wrap">
+                        <!-- Buttons injected by JS -->
                     </div>
                 </div>
             </div>
@@ -9208,6 +9327,274 @@ if (t.repeatInterval && t.repeatInterval > 0) { t.alertTime += t.repeatInterval;
                     }
                 });
             }
+// ==========================================
+// 🌍 旅行模式 (Travel Mode) 核心邏輯
+// ==========================================
+
+const travelModeState = {
+    enabled: false,
+    intervalMins: 30,
+    askTransport: true,
+    askFood: true,
+    timerId: null,
+    countdownId: null,
+    nextCheckTime: null,
+    lastLat: null,
+    lastLng: null,
+    lastLocationName: '尚未偵測',
+};
+
+// --- 初始化：從 localStorage 還原設定 ---
+(function initTravelMode() {
+    const saved = localStorage.getItem('nova_travel_mode');
+    if (!saved) return;
+    try {
+        const s = JSON.parse(saved);
+        travelModeState.enabled      = s.enabled      ?? false;
+        travelModeState.intervalMins = s.intervalMins ?? 30;
+        travelModeState.askTransport = s.askTransport ?? true;
+        travelModeState.askFood      = s.askFood      ?? true;
+        travelModeState.lastLocationName = s.lastLocationName ?? '尚未偵測';
+        if (travelModeState.enabled) {
+            setTimeout(() => startTravelDetection(), 2000); // 稍延後啟動
+        }
+        updateTravelModeIndicator();
+    } catch(e) {}
+})();
+
+function saveTravelModeState() {
+    localStorage.setItem('nova_travel_mode', JSON.stringify({
+        enabled:      travelModeState.enabled,
+        intervalMins: travelModeState.intervalMins,
+        askTransport: travelModeState.askTransport,
+        askFood:      travelModeState.askFood,
+        lastLocationName: travelModeState.lastLocationName,
+    }));
+}
+
+// --- 開啟 / 關閉彈窗 ---
+window.openTravelMode = function() {
+    const modal = document.getElementById('travel-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    // 同步 UI 狀態
+    document.getElementById('travel-mode-toggle').checked = travelModeState.enabled;
+    document.getElementById('travel-ask-transport').checked = travelModeState.askTransport;
+    document.getElementById('travel-ask-food').checked      = travelModeState.askFood;
+    document.getElementById('travel-ask-transport').onchange = (e) => { travelModeState.askTransport = e.target.checked; saveTravelModeState(); };
+    document.getElementById('travel-ask-food').onchange      = (e) => { travelModeState.askFood = e.target.checked; saveTravelModeState(); };
+    highlightIntervalBtn(travelModeState.intervalMins);
+    syncTravelStatusBox();
+};
+
+window.closeTravelMode = function() {
+    const modal = document.getElementById('travel-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+};
+
+// --- 開關切換 ---
+window.handleTravelModeToggle = function(checked) {
+    travelModeState.enabled = checked;
+    saveTravelModeState();
+    updateTravelModeIndicator();
+    if (checked) {
+        startTravelDetection();
+        showToast('✈️ 旅行模式已啟用！將每 ' + travelModeState.intervalMins + ' 分鐘偵測一次位置。');
+    } else {
+        stopTravelDetection();
+        showToast('旅行模式已關閉');
+    }
+    syncTravelStatusBox();
+};
+
+// --- 間隔按鈕 ---
+window.setTravelInterval = function(mins) {
+    travelModeState.intervalMins = mins;
+    saveTravelModeState();
+    highlightIntervalBtn(mins);
+    if (travelModeState.enabled) {
+        stopTravelDetection();
+        startTravelDetection();
+        showToast('✅ 偵測間隔已更新為 ' + mins + ' 分鐘');
+    }
+};
+
+function highlightIntervalBtn(mins) {
+    document.querySelectorAll('.travel-int-btn').forEach(btn => {
+        const active = parseInt(btn.dataset.mins) === mins;
+        btn.className = 'travel-int-btn py-2 rounded-lg text-xs font-bold border transition-all ' + (
+            active
+                ? 'border-amber-400 text-amber-300 bg-amber-500/10'
+                : 'border-slate-600 text-slate-400 hover:border-amber-400 hover:text-amber-300'
+        );
+    });
+}
+
+// --- 開始 / 停止偵測 ---
+function startTravelDetection() {
+    stopTravelDetection(); // 先清除舊的
+    const ms = travelModeState.intervalMins * 60 * 1000;
+    travelModeState.nextCheckTime = Date.now() + ms;
+    travelModeState.timerId = setInterval(() => {
+        doTravelLocationCheck();
+        travelModeState.nextCheckTime = Date.now() + ms;
+        syncTravelStatusBox();
+    }, ms);
+    startCountdownTick();
+    syncTravelStatusBox();
+}
+
+function stopTravelDetection() {
+    if (travelModeState.timerId)    { clearInterval(travelModeState.timerId);    travelModeState.timerId    = null; }
+    if (travelModeState.countdownId){ clearInterval(travelModeState.countdownId); travelModeState.countdownId = null; }
+    travelModeState.nextCheckTime = null;
+}
+
+function startCountdownTick() {
+    if (travelModeState.countdownId) clearInterval(travelModeState.countdownId);
+    travelModeState.countdownId = setInterval(() => {
+        const el = document.getElementById('travel-next-check');
+        if (!el || !travelModeState.nextCheckTime) return;
+        const diff = Math.max(0, Math.round((travelModeState.nextCheckTime - Date.now()) / 1000));
+        const m = Math.floor(diff / 60), s = diff % 60;
+        el.textContent = m > 0 ? `${m} 分 ${s} 秒後` : `${s} 秒後`;
+    }, 1000);
+}
+
+// --- 核心：偵測位置並顯示提示卡 ---
+function doTravelLocationCheck() {
+    if (!navigator.geolocation) {
+        showToast('⚠️ 您的裝置不支援定位');
+        return;
+    }
+    navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+            const { latitude: lat, longitude: lng } = pos.coords;
+            travelModeState.lastLat = lat;
+            travelModeState.lastLng = lng;
+
+            // 嘗試用 Google Maps Geocoding 反查地名（需要 gmaps key）
+            let locationName = `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+            const gmKey = (window.appState && window.appState.keys && window.appState.keys.gmaps) || '';
+            if (gmKey) {
+                try {
+                    const r = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${gmKey}&language=zh-TW`);
+                    const d = await r.json();
+                    if (d.results && d.results[0]) {
+                        const comp = d.results[0].address_components;
+                        const area = (comp.find(c => c.types.includes('sublocality_level_1')) ||
+                                      comp.find(c => c.types.includes('locality')) ||
+                                      comp.find(c => c.types.includes('administrative_area_level_2')));
+                        const city = comp.find(c => c.types.includes('administrative_area_level_1'));
+                        locationName = [area?.long_name, city?.long_name].filter(Boolean).join('・') || locationName;
+                    }
+                } catch(e) {}
+            }
+
+            travelModeState.lastLocationName = locationName;
+            saveTravelModeState();
+            syncTravelStatusBox();
+            showTravelPromptCard(lat, lng, locationName);
+        },
+        (err) => {
+            let msg = '無法取得位置';
+            if (err.code === 1) msg = '位置權限被拒絕，請至瀏覽器設定允許定位';
+            else if (err.code === 2) msg = '無法取得位置訊號，請確認 GPS 開啟';
+            showToast('⚠️ 旅行偵測：' + msg);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
+}
+
+// --- 顯示浮動提示卡 ---
+function showTravelPromptCard(lat, lng, locationName) {
+    const card = document.getElementById('travel-prompt-card');
+    const locEl = document.getElementById('travel-card-location');
+    const btnsEl = document.getElementById('travel-card-btns');
+
+    locEl.textContent = '📍 ' + locationName;
+    btnsEl.innerHTML = '';
+
+    const btns = [];
+    if (travelModeState.askTransport) {
+        btns.push({ label: '🚌 規劃交通路線', color: 'bg-blue-600 hover:bg-blue-500', action: () => { dismissTravelCard(); askTravelAssistant('transport', lat, lng, locationName); } });
+    }
+    if (travelModeState.askFood) {
+        btns.push({ label: '🍜 推薦附近餐廳', color: 'bg-orange-600 hover:bg-orange-500', action: () => { dismissTravelCard(); askTravelAssistant('food', lat, lng, locationName); } });
+    }
+    btns.push({ label: '暫時不用', color: 'bg-slate-700 hover:bg-slate-600', action: dismissTravelCard });
+
+    btns.forEach(b => {
+        const el = document.createElement('button');
+        el.className = `flex-1 min-w-[120px] py-2 px-3 rounded-xl text-xs font-bold text-white transition-colors ${b.color}`;
+        el.textContent = b.label;
+        el.onclick = b.action;
+        btnsEl.appendChild(el);
+    });
+
+    card.classList.remove('hidden');
+    // 20 秒後自動關閉
+    setTimeout(dismissTravelCard, 20000);
+}
+
+window.dismissTravelCard = function() {
+    document.getElementById('travel-prompt-card').classList.add('hidden');
+};
+
+// --- 詢問 AI ---
+async function askTravelAssistant(type, lat, lng, locationName) {
+    // 切換到助理對話頁籤
+    if (typeof switchTab === 'function') switchTab('dashboard');
+
+    let prompt = '';
+    if (type === 'transport') {
+        prompt = `我現在在「${locationName}」（座標 ${lat.toFixed(5)}, ${lng.toFixed(5)}）。請問我要去的地方你能幫我規劃交通路線嗎？你可以先問我目的地，或者推薦這附近值得前往的景點交通方式。`;
+    } else {
+        prompt = `我現在在「${locationName}」（座標 ${lat.toFixed(5)}, ${lng.toFixed(5)}）附近。請幫我推薦步行可達的餐廳、小吃或咖啡廳，最好包含料理類型和大概價位。`;
+    }
+
+    // 注入訊息至對話框並觸發送出
+    const inputEl = document.getElementById('user-input');
+    if (inputEl) {
+        inputEl.value = prompt;
+        if (typeof autoResizeInput === 'function') autoResizeInput(inputEl);
+    }
+    if (typeof sendMessage === 'function') {
+        setTimeout(() => sendMessage(), 200);
+    }
+}
+
+// --- 立即偵測一次 ---
+window.triggerManualTravelCheck = function() {
+    showToast('📡 正在偵測位置...');
+    doTravelLocationCheck();
+};
+
+// --- 同步狀態面板 ---
+function syncTravelStatusBox() {
+    const box = document.getElementById('travel-status-box');
+    if (!box) return;
+    if (travelModeState.enabled) {
+        box.classList.remove('hidden');
+        const locEl = document.getElementById('travel-last-loc');
+        if (locEl) locEl.textContent = travelModeState.lastLocationName;
+    } else {
+        box.classList.add('hidden');
+    }
+}
+
+// --- 更新側邊欄指示點 ---
+function updateTravelModeIndicator() {
+    ['travel-mode-dot', 'mobile-travel-dot'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (travelModeState.enabled) el.classList.remove('hidden');
+        else el.classList.add('hidden');
+    });
+}
+// ==========================================
+
         };
 
     </script>
