@@ -8079,32 +8079,107 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             }
                         } catch (err) { console.warn("Geocoding failed", err.message); }
 
-                        // 2. 取得周邊地點 (Places API)
-                        const placeRes = await fetch('https://places.googleapis.com/v1/places:searchText', { 
-                            method: 'POST', 
-                            headers: { 
-                                'Content-Type': 'application/json', 
-                                'X-Goog-Api-Key': appState.keys.gmaps, 
-                                'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location,places.rating' 
-                            }, 
-                            body: JSON.stringify({ 
-                                textQuery: userQueryTarget, 
-                                maxResultCount: searchMaxCount,
-                                locationBias: { 
-                                    circle: { 
-                                        center: { latitude: userLat, longitude: userLon }, 
-                                        radius: searchRadiusMeters 
-                                    } 
-                                } 
-                            }) 
-                        });
-                        
-                        const placeRawText = await placeRes.text();
+                        // 2. 取得周邊地點 —— 三層搜尋策略
+                        // ── 2a. 類型對照表（中文關鍵字 → Google Place Type）──
+                        const typeMap = [
+                            { keys: ['餐廳','吃','美食','小吃','料理','食堂','飯','麵','便當','牛排','鍋','壽司','拉麵','義大利','中式','日式','韓式','泰式','火鍋','燒烤'], type: 'restaurant' },
+                            { keys: ['咖啡','café','下午茶','奶茶','飲料','手搖','珍奶'], type: 'cafe' },
+                            { keys: ['超商','便利商店','7-11','全家','萊爾富','ok mart'], type: 'convenience_store' },
+                            { keys: ['超市','大賣場','量販','全聯','家樂福'], type: 'supermarket' },
+                            { keys: ['加油站','油站'], type: 'gas_station' },
+                            { keys: ['停車場','停車','車位'], type: 'parking' },
+                            { keys: ['醫院','急診','診所','醫療'], type: 'hospital' },
+                            { keys: ['藥局','藥妝','藥房'], type: 'pharmacy' },
+                            { keys: ['銀行','金融','信用合作'], type: 'bank' },
+                            { keys: ['atm','提款機'], type: 'atm' },
+                            { keys: ['捷運','地鐵','車站','公車','公共運輸'], type: 'transit_station' },
+                            { keys: ['景點','觀光','博物館','美術館','廟','寺','公園','廣場'], type: 'tourist_attraction' },
+                            { keys: ['飯店','旅館','民宿','hostel','hotel'], type: 'lodging' },
+                            { keys: ['購物','百貨','商場','mall'], type: 'shopping_mall' },
+                            { keys: ['健身','gym','運動','游泳'], type: 'gym' },
+                        ];
+                        const lowerQuery = userQueryTarget.toLowerCase();
+                        const matchedTypes = typeMap.filter(t => t.keys.some(k => lowerQuery.includes(k))).map(t => t.type);
+
+                        const placesFieldMask = 'places.displayName,places.formattedAddress,places.location,places.rating,places.types';
                         let placeData = {};
-                        if (placeRes.ok && placeRawText.trim().startsWith('{')) {
-                            placeData = JSON.parse(placeRawText);
-                        } else {
-                            throw new Error(`Google API 拒絕存取。詳細訊息: ${placeRawText}`);
+
+                        // ── 2b. 第一層：searchNearby（類型已知時優先使用）──
+                        if (matchedTypes.length > 0) {
+                            try {
+                                const nearbyRes = await fetch('https://places.googleapis.com/v1/places:searchNearby', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'X-Goog-Api-Key': appState.keys.gmaps,
+                                        'X-Goog-FieldMask': placesFieldMask,
+                                    },
+                                    body: JSON.stringify({
+                                        includedTypes: matchedTypes.slice(0, 3), // 最多 3 種類型
+                                        maxResultCount: Math.min(searchMaxCount, 20),
+                                        locationRestriction: {
+                                            circle: {
+                                                center: { latitude: userLat, longitude: userLon },
+                                                radius: searchRadiusMeters,
+                                            }
+                                        },
+                                        rankPreference: 'DISTANCE',
+                                    })
+                                });
+                                const nearbyRaw = await nearbyRes.text();
+                                if (nearbyRes.ok && nearbyRaw.trim().startsWith('{')) {
+                                    const nd = JSON.parse(nearbyRaw);
+                                    if (nd.places && nd.places.length > 0) {
+                                        placeData = nd;
+                                        console.log(`[Places] searchNearby 命中 ${nd.places.length} 筆`);
+                                    }
+                                }
+                            } catch(e) { console.warn('[Places] searchNearby 失敗:', e.message); }
+                        }
+
+                        // ── 2c. 第二層：searchText + locationBias（searchNearby 無結果時）──
+                        if (!placeData.places || placeData.places.length === 0) {
+                            const radiusToTry = [searchRadiusMeters, 10000, 25000]; // 逐步擴大
+                            for (const radius of radiusToTry) {
+                                try {
+                                    const stRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'X-Goog-Api-Key': appState.keys.gmaps,
+                                            'X-Goog-FieldMask': placesFieldMask,
+                                        },
+                                        body: JSON.stringify({
+                                            textQuery: userQueryTarget,
+                                            maxResultCount: Math.min(searchMaxCount, 20),
+                                            locationBias: {
+                                                circle: {
+                                                    center: { latitude: userLat, longitude: userLon },
+                                                    radius: radius,
+                                                }
+                                            },
+                                            languageCode: 'zh-TW',
+                                        })
+                                    });
+                                    const stRaw = await stRes.text();
+                                    if (!stRes.ok || !stRaw.trim().startsWith('{')) {
+                                        throw new Error(`API 錯誤: ${stRaw.substring(0, 200)}`);
+                                    }
+                                    const sd = JSON.parse(stRaw);
+                                    if (sd.places && sd.places.length > 0) {
+                                        placeData = sd;
+                                        const displayR = radius >= 1000 ? `${(radius/1000).toFixed(0)} 公里` : `${radius} 公尺`;
+                                        if (radius > searchRadiusMeters) {
+                                            addMessage(`📍 自動擴大搜尋範圍至 ${displayR}，找到結果。`, 'system');
+                                        }
+                                        console.log(`[Places] searchText radius=${radius} 命中 ${sd.places.length} 筆`);
+                                        break;
+                                    }
+                                } catch(e) {
+                                    if (radius === radiusToTry[radiusToTry.length - 1]) throw e;
+                                    console.warn(`[Places] searchText radius=${radius} 失敗，嘗試擴大:`, e.message);
+                                }
+                            }
                         }
                         
                         let mapContext = "【Google Maps API 真實數據】\n";
@@ -8163,7 +8238,7 @@ if (appState.deepDiveMode) { systemPromptAddon = "【深度探究模式開啟 - 
                             enableSearchTool = false;
                         } else {
                             const radiusDisplay = searchRadiusMeters >= 1000 ? `${(searchRadiusMeters/1000).toFixed(1)} 公里` : `${searchRadiusMeters} 公尺`;
-                            addMessage(`⚠️ 附近 ${radiusDisplay} 內找不到相關地點。`, 'system');
+                            addMessage(`⚠️ 三層搜尋均未找到「${userQueryTarget}」相關地點（已嘗試至半徑 25 公里）。建議檢查 Google Maps API Key 是否已啟用 Places API (New) 與 Geocoding API。`, 'system');
                             const finalPromptEmpty = `【系統強制指令】Google API 搜尋「${userQueryTarget}」結果為 0 筆。請直接告訴使用者：在目前位置 (${realAddress}) 半徑 ${radiusDisplay} 內找不到此地點。絕對禁止自行捏造任何假資料。`;
                             
                             if (lastMsgIndex !== -1) { appState.currentChat.messages[lastMsgIndex].content = finalPromptEmpty; } 
@@ -9542,27 +9617,30 @@ window.dismissTravelCard = function() {
     document.getElementById('travel-prompt-card').classList.add('hidden');
 };
 
-// --- 詢問 AI ---
+// --- 詢問 AI（全自動送出，不需使用者手動按送出）---
 async function askTravelAssistant(type, lat, lng, locationName) {
     // 切換到助理對話頁籤
     if (typeof switchTab === 'function') switchTab('dashboard');
 
     let prompt = '';
     if (type === 'transport') {
-        prompt = `我現在在「${locationName}」（座標 ${lat.toFixed(5)}, ${lng.toFixed(5)}）。請問我要去的地方你能幫我規劃交通路線嗎？你可以先問我目的地，或者推薦這附近值得前往的景點交通方式。`;
+        prompt = `我現在在「${locationName}」（座標 ${lat.toFixed(5)}, ${lng.toFixed(5)}）。請幫我規劃從這裡出發的交通路線，並推薦附近值得前往的景點與交通方式。`;
     } else {
-        prompt = `我現在在「${locationName}」（座標 ${lat.toFixed(5)}, ${lng.toFixed(5)}）附近。請幫我推薦步行可達的餐廳、小吃或咖啡廳，最好包含料理類型和大概價位。`;
+        prompt = `我現在在「${locationName}」（座標 ${lat.toFixed(5)}, ${lng.toFixed(5)}）附近。請幫我推薦步行可達的餐廳、小吃或咖啡廳，包含料理類型和大概價位。`;
     }
 
-    // 注入訊息至對話框並觸發送出
+    // 寫入輸入框並觸發 input 事件（讓送出按鈕顯示）
     const inputEl = document.getElementById('user-input');
-    if (inputEl) {
-        inputEl.value = prompt;
-        if (typeof autoResizeInput === 'function') autoResizeInput(inputEl);
-    }
-    if (typeof sendMessage === 'function') {
-        setTimeout(() => sendMessage(), 200);
-    }
+    if (!inputEl) return;
+    inputEl.value = prompt;
+    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+
+    // 等 DOM 更新後直接呼叫 handleSendMessage 自動送出，不需使用者再按送出
+    setTimeout(() => {
+        if (typeof handleSendMessage === 'function' && !appState.isThinking) {
+            handleSendMessage();
+        }
+    }, 150);
 }
 
 // --- 立即偵測一次 ---
